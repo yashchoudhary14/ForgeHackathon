@@ -24,3 +24,5 @@ dist/
 AGENTS.md
 CLAUDE.md
 server/storage/
+SESSION_LOG.md
+*SESSION_LOG*.md
