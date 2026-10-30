@@ -1,0 +1,26 @@
+# env
+.env
+*.env.local
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# node
+node_modules/
+dist/
+.vite/
+
+# misc
+.DS_Store
+.vscode/
+.idea/
+*.log
+*.mp4
+.notes/
+AGENTS.md
+CLAUDE.md
+server/storage/
