@@ -1,0 +1,270 @@
+import { Text } from "./context";
+import { Component, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { Mic, Square, Volume2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { assetUrl, request, safeUrl } from "./api/client";
+import type { Citation, ExplainOut, SttOut } from "./api/types";
+import { useApp } from "./context";
+export function ErrorBox({
+  error,
+  retry,
+}: {
+  error: string;
+  retry?: () => void;
+}) {
+  const { t } = useApp();
+  return (
+    <div className="error" role="alert">
+      <p>
+        <Text value={error} />
+      </p>
+      {retry && (
+        <button className="secondary" onClick={() => retry()}>
+          {t.retry}
+        </button>
+      )}
+    </div>
+  );
+}
+export function Loading({ message }: { message?: string } = {}) {
+  const { t } = useApp();
+  return (
+    <div role="status" className="skeletons">
+      <span />
+      <span />
+      <span />
+      <p>{message ? <Text value={message} /> : t.loading}</p>
+    </div>
+  );
+}
+export function Empty({ children }: { children: ReactNode }) {
+  return <div className="empty">{children}</div>;
+}
+export function Markdown({ text }: { text: string }) {
+  return (
+    <div className="prose">
+      <ReactMarkdown
+        components={{
+          a: ({ href, children }) => (
+            <a href={safeUrl(href)} target="_blank" rel="noreferrer">
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {text || "No information has been published for this section."}
+      </ReactMarkdown>
+    </div>
+  );
+}
+export function Citations({ items }: { items: Citation[] }) {
+  return (
+    <ol className="citations">
+      {items.map((c, i) => (
+        <li key={i}>
+          <blockquote>“{c.quote}”</blockquote>
+          <a href={safeUrl(c.source_url)} target="_blank" rel="noreferrer">
+            {c.title || "Official source"} ↗
+          </a>
+          {c.section && <small> · {c.section}</small>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+export function Explanation({ data }: { data: ExplainOut }) {
+  return (
+    <article className="panel explanation">
+      <span className="eyebrow">
+        <Text value={"In plain language"} />
+      </span>
+      <h2>{data.title}</h2>
+      <p>{data.summary}</p>
+      {[
+        ["Key points", data.key_points],
+        ["Your rights", data.your_rights],
+        ["Deadlines", data.deadlines],
+        ["Documents you need", data.documents_needed],
+      ].map(
+        ([title, items]) =>
+          (items as string[]).length > 0 && (
+            <section key={title as string}>
+              <h3>
+                <Text value={title as string} />
+              </h3>
+              <ul>
+                {(items as string[]).map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </section>
+          ),
+      )}
+      {data.what_it_means_for_you && (
+        <section>
+          <h3>
+            <Text value={"What this means for you"} />
+          </h3>
+          <p>{data.what_it_means_for_you}</p>
+        </section>
+      )}
+      {data.audio_url && (
+        <div>
+          <h3>
+            <Volume2 size={18} />
+            <Text value={"Listen"} />
+          </h3>
+          <audio controls preload="none" src={assetUrl(data.audio_url)} />
+        </div>
+      )}
+      <Citations items={data.citations} />
+    </article>
+  );
+}
+export function MicButton({
+  onText,
+  disabled = false,
+}: {
+  onText: (text: string) => void;
+  disabled?: boolean;
+}) {
+  const { lang, t } = useApp();
+  const [recording, setRecording] = useState(false),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const recorder = useRef<MediaRecorder | null>(null),
+    stream = useRef<MediaStream | null>(null),
+    alive = useRef(true),
+    timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
+    controller = useRef<AbortController | null>(null);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      clearTimeout(timer.current);
+      controller.current?.abort();
+      if (recorder.current?.state === "recording") recorder.current.stop();
+      stream.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+  async function start() {
+    setError("");
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError(
+        "Voice recording is unavailable in this browser. Please type your message.",
+      );
+      return;
+    }
+    try {
+      setBusy(true);
+      const media = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!alive.current) {
+        media.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      stream.current = media;
+      const rec = new MediaRecorder(media);
+      recorder.current = rec;
+      const chunks: BlobPart[] = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size) chunks.push(e.data);
+      };
+      rec.onstop = async () => {
+        clearTimeout(timer.current);
+        media.getTracks().forEach((t) => t.stop());
+        if (!alive.current) return;
+        setRecording(false);
+        setBusy(true);
+        try {
+          const form = new FormData();
+          const extension = rec.mimeType.includes("mp4")
+            ? "m4a"
+            : rec.mimeType.includes("ogg")
+              ? "ogg"
+              : "webm";
+          form.append(
+            "audio",
+            new Blob(chunks, { type: rec.mimeType }),
+            `recording.${extension}`,
+          );
+          form.append("language", lang);
+          controller.current = new AbortController();
+          const out = await request<SttOut>("/voice/stt", {
+            method: "POST",
+            body: form,
+            signal: controller.current.signal,
+          });
+          if (alive.current) onText(out.text);
+        } catch (e) {
+          if (alive.current)
+            setError(e instanceof Error ? e.message : "Transcription failed.");
+        } finally {
+          if (alive.current) setBusy(false);
+        }
+      };
+      rec.start();
+      setRecording(true);
+      timer.current = setTimeout(() => {
+        if (rec.state === "recording") rec.stop();
+      }, 120000);
+    } catch (e) {
+      stream.current?.getTracks().forEach((t) => t.stop());
+      setError(
+        e instanceof DOMException && e.name === "NotAllowedError"
+          ? "Microphone permission was denied. Allow microphone access in your browser or type below."
+          : "Could not access the microphone. Please type below.",
+      );
+    } finally {
+      if (alive.current) setBusy(false);
+    }
+  }
+  return (
+    <div>
+      <button
+        type="button"
+        className={`mic ${recording ? "recording" : ""}`}
+        disabled={disabled || busy}
+        onClick={() => (recording ? recorder.current?.stop() : void start())}
+        aria-pressed={recording}
+      >
+        {recording ? <Square /> : <Mic />}
+        {busy ? t.loading : recording ? t.stop : t.mic}
+      </button>
+      {recording && (
+        <p role="status">
+          <Text
+            value={"Recording… tap stop when finished. Maximum 2 minutes."}
+          />
+        </p>
+      )}
+      {error && <ErrorBox error={error} />}
+    </div>
+  );
+}
+export class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: boolean }
+> {
+  state = { error: false };
+  static getDerivedStateFromError() {
+    return { error: true };
+  }
+  render() {
+    return this.state.error ? (
+      <main className="panel">
+        <h1>
+          <Text value={"Something went wrong"} />
+        </h1>
+        <p>
+          <Text value={"Please reload this page to continue."} />
+        </p>
+        <button onClick={() => location.reload()}>
+          <Text value={"Reload"} />
+        </button>
+      </main>
+    ) : (
+      this.props.children
+    );
+  }
+}
