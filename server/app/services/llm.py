@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import time
 from typing import Any, TypeVar
 
 from google import genai
@@ -14,6 +15,7 @@ log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 _client: genai.Client | None = None
+_cooldown: dict[str, float] = {}  # model -> monotonic time until which we don't try it
 
 
 def client() -> genai.Client:
@@ -47,16 +49,20 @@ async def _retry(fn, *args, tries: int = 3, **kwargs):
 async def _generate(contents, cfg, model: str | None):
     """primary model first, then fallbacks - 'high demand' 503s are common and a demo can't wait"""
     s = get_settings()
-    chain = [model] if model else [s.gemini_model, *s.fallback_models]
+    chain = list(dict.fromkeys(m for m in [model, s.gemini_model, *s.fallback_models] if m))
+    now = time.monotonic()
+    # skip models that were overloaded a moment ago, but never skip all of them
+    live = [m for m in chain if _cooldown.get(m, 0) < now] or chain[-1:]
     last: Exception | None = None
-    for i, m in enumerate(chain):
+    for i, m in enumerate(live):
         try:
             return await _retry(client().aio.models.generate_content, model=m, contents=contents, config=cfg,
-                                tries=2 if i < len(chain) - 1 else 3)
+                                tries=1 if i < len(live) - 1 else 3)
         except Exception as e:
             last = e
             if not (_transient(e) or "404" in str(e)):
                 raise
+            _cooldown[m] = time.monotonic() + (3600 if "404" in str(e) else 60)
             log.warning("model %s unavailable, falling back", m)
     raise last
 
@@ -77,6 +83,7 @@ async def generate_json(
     schema: type[T],
     system: str | None = None,
     temperature: float = 0.1,
+    model: str | None = None,
 ) -> T:
     cfg = types.GenerateContentConfig(
         system_instruction=system,
@@ -84,7 +91,7 @@ async def generate_json(
         response_mime_type="application/json",
         response_schema=schema,
     )
-    resp = await _generate(prompt, cfg, None)
+    resp = await _generate(prompt, cfg, model)
     if resp.parsed is not None:
         return resp.parsed
     return schema.model_validate(json.loads(resp.text))

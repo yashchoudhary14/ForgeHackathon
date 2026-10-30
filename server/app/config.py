@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash"
     gemini_fallback_models: str = "gemini-3.6-flash,gemini-3.5-flash-lite"
+    # browser loop makes ~30 calls per run, latency matters more than depth there
+    agent_model: str = "gemini-3.6-flash"
     gemini_embed_model: str = "gemini-embedding-001"
     embed_dim: int = 768
 
