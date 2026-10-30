@@ -1,0 +1,17 @@
+fastapi>=0.115
+uvicorn[standard]>=0.34
+pydantic-settings>=2.7
+python-multipart>=0.0.20
+httpx>=0.28
+sqlalchemy[asyncio]>=2.0.36
+asyncpg>=0.30
+pgvector>=0.3.6
+google-genai>=1.2
+langgraph>=0.2.70
+playwright>=1.49
+pypdf>=5.1
+feedparser>=6.0.11
+beautifulsoup4>=4.12
+cryptography>=44.0
+pytest>=8.3
+pytest-asyncio>=0.25
