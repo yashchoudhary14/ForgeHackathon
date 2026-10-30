@@ -26,17 +26,39 @@ def client() -> genai.Client:
     return _client
 
 
+def _transient(e: Exception) -> bool:
+    s = str(e)
+    return any(c in s for c in ("429", "500", "503", "504", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "DEADLINE", "overloaded"))
+
+
 async def _retry(fn, *args, tries: int = 3, **kwargs):
     delay = 1.5
     for i in range(tries):
         try:
             return await fn(*args, **kwargs)
         except Exception as e:  # 429 / 503 from gemini happen a lot on free tier
-            if i == tries - 1:
+            if i == tries - 1 or not _transient(e):
                 raise
             log.warning("gemini call failed (%s), retrying in %.1fs", e, delay)
             await asyncio.sleep(delay)
             delay *= 2
+
+
+async def _generate(contents, cfg, model: str | None):
+    """primary model first, then fallbacks - 'high demand' 503s are common and a demo can't wait"""
+    s = get_settings()
+    chain = [model] if model else [s.gemini_model, *s.fallback_models]
+    last: Exception | None = None
+    for i, m in enumerate(chain):
+        try:
+            return await _retry(client().aio.models.generate_content, model=m, contents=contents, config=cfg,
+                                tries=2 if i < len(chain) - 1 else 3)
+        except Exception as e:
+            last = e
+            if not (_transient(e) or "404" in str(e)):
+                raise
+            log.warning("model %s unavailable, falling back", m)
+    raise last
 
 
 async def generate(
@@ -46,12 +68,7 @@ async def generate(
     model: str | None = None,
 ) -> str:
     cfg = types.GenerateContentConfig(system_instruction=system, temperature=temperature)
-    resp = await _retry(
-        client().aio.models.generate_content,
-        model=model or get_settings().gemini_model,
-        contents=prompt,
-        config=cfg,
-    )
+    resp = await _generate(prompt, cfg, model)
     return resp.text or ""
 
 
@@ -67,12 +84,7 @@ async def generate_json(
         response_mime_type="application/json",
         response_schema=schema,
     )
-    resp = await _retry(
-        client().aio.models.generate_content,
-        model=get_settings().gemini_model,
-        contents=prompt,
-        config=cfg,
-    )
+    resp = await _generate(prompt, cfg, None)
     if resp.parsed is not None:
         return resp.parsed
     return schema.model_validate(json.loads(resp.text))

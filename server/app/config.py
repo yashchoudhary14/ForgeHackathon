@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/adhikaar"
 
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash"
+    gemini_fallback_models: str = "gemini-3.6-flash,gemini-3.5-flash-lite"
     gemini_embed_model: str = "gemini-embedding-001"
     embed_dim: int = 768
 
@@ -20,6 +21,10 @@ class Settings(BaseSettings):
     agent_headless: bool = True
     agent_allowed_domains: str = "gov.in,nic.in"
     storage_dir: str = "storage"
+
+    @property
+    def fallback_models(self) -> list[str]:
+        return [m.strip() for m in self.gemini_fallback_models.split(",") if m.strip()]
 
     @property
     def allowed_domains(self) -> list[str]:
