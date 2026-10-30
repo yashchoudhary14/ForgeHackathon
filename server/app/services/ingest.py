@@ -199,7 +199,8 @@ async def ingest_url(url: str) -> models.Document:
     data, mime = await fetch_url(url)
     if mime in ("text/html", "application/xhtml+xml"):
         title, text = await asyncio.to_thread(html_text, data)
-        return await _persist(title, "url", url, data, ".html", [(1, text)])
+        # Store extracted text, so the public /files mount never serves active web HTML.
+        return await _persist(title, "url", url, text.encode("utf-8"), ".txt", [(1, text)])
     mime, suffix = detect_type(data, mime)
     pages = await extract_pages(data, mime)
     title = unquote(urlsplit(url).path.rsplit("/", 1)[-1]) or "Web document"

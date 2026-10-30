@@ -19,11 +19,16 @@ def test_chunker_preserves_real_document_and_page_boundaries():
         "[page 1]\n" + text + "\n\n[page 2]\n" + parts[0])
 
 
-def test_html_main_text_from_official_page():
-    # Recorded public myScheme detail (rich text), rather than invented content.
-    raw = recorded("myscheme-pm-kisan.json")
-    text = to_markdown(raw["en"]["schemeContent"]["detailedDescription"])
-    assert ingest.chunk_text(text) == [text]
+def test_real_pdf_text_and_scan_detection():
+    from pathlib import Path
+    fixtures = Path(__file__).parent / "fixtures"
+    pages = ingest._pdf_pages((fixtures / "pib-panchayati-raj.pdf").read_bytes())
+    assert len(pages) == 11
+    assert "Panchayati" in pages[0][0]
+    assert all(scan is None for _, scan in pages)
+    scanned = ingest._pdf_pages((fixtures / "pib-panchayati-raj-scan.pdf").read_bytes())
+    assert len(scanned) == 1
+    assert scanned[0][1].startswith(b"%PDF-")
 
 
 def test_invalid_chunk_settings():
