@@ -46,13 +46,23 @@ async def _retry(fn, *args, tries: int = 3, **kwargs):
             delay *= 2
 
 
-async def _generate(contents, cfg, model: str | None):
-    """primary model first, then fallbacks - 'high demand' 503s are common and a demo can't wait"""
+def _available_models(model: str | None) -> list[str]:
+    """Share the fallback order and overload cooldown with streaming callers."""
     s = get_settings()
     chain = list(dict.fromkeys(m for m in [model, s.gemini_model, *s.fallback_models] if m))
     now = time.monotonic()
     # skip models that were overloaded a moment ago, but never skip all of them
-    live = [m for m in chain if _cooldown.get(m, 0) < now] or chain[-1:]
+    return [m for m in chain if _cooldown.get(m, 0) < now] or chain[-1:]
+
+
+async def generate_content(contents, cfg, model: str | None = None):
+    """Raw Gemini response, including function calls and signed thought parts."""
+    return await _generate(contents, cfg, model)
+
+
+async def _generate(contents, cfg, model: str | None):
+    """primary model first, then fallbacks - 'high demand' 503s are common and a demo can't wait"""
+    live = _available_models(model)
     last: Exception | None = None
     for i, m in enumerate(live):
         try:
@@ -64,6 +74,42 @@ async def _generate(contents, cfg, model: str | None):
                 raise
             _cooldown[m] = time.monotonic() + (3600 if "404" in str(e) else 60)
             log.warning("model %s unavailable, falling back", m)
+    raise last
+
+
+async def stream_content(contents, cfg, model: str | None = None):
+    """Stream with the same fallback policy; never replay an already-started answer."""
+    live = _available_models(model)
+    last: Exception | None = None
+    for i, name in enumerate(live):
+        tries = 1 if i < len(live) - 1 else 3
+        for attempt in range(tries):
+            emitted = False
+            stream = None
+            try:
+                stream = await client().aio.models.generate_content_stream(
+                    model=name, contents=contents, config=cfg,
+                )
+                async for chunk in stream:
+                    emitted = True
+                    yield chunk
+                return
+            except Exception as exc:
+                last = exc
+                transient = _transient(exc)
+                if not (transient or "404" in str(exc)):
+                    raise
+                _cooldown[name] = time.monotonic() + (3600 if "404" in str(exc) else 60)
+                if emitted:
+                    raise  # switching models here would duplicate or corrupt the stream
+                if transient and attempt + 1 < tries:
+                    await asyncio.sleep(1.5 * 2 ** attempt)
+                    continue
+                log.warning("streaming model %s unavailable, falling back", name)
+                break
+            finally:
+                if stream is not None:
+                    await stream.aclose()
     raise last
 
 
