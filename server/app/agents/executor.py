@@ -56,6 +56,9 @@ Rules:
 - If the same action failed before, try something different (another element, scroll, select instead of type).
 - Never navigate away from government (.gov.in/.nic.in) sites.
 - Prefer filling all visible required fields before clicking next/continue.
+- Elements show their state (checked / selected / value). If an option is already checked or a field already
+  has the right value, do NOT click/type it again — move to the next field or click Next.
+- Trust the history: "NOTHING CHANGED" means your last action had no effect; do something different.
 - Keep `thought` to one short sentence a citizen can understand."""
 
 
@@ -77,6 +80,7 @@ class State(TypedDict, total=False):
     shot: bytes
     decision: Decision
     history: list[dict]
+    digest: str
     outcome: str  # next | human | approval | done | failed
     receipt: dict
     error: str
@@ -172,6 +176,18 @@ class RunSession:
 
 # ---------- graph nodes ----------
 
+def _digest(snap: dict) -> str:
+    els = [(e.get("tag"), e.get("text") or e.get("label"), e.get("value"), e.get("checked"), e.get("selected")) for e in snap["elements"]]
+    return str(hash((snap["url"], tuple(snap["headings"]), tuple(snap["errors"]), tuple(els))))
+
+
+def _el_name(snap: dict, element_id: int | None) -> str:
+    el = next((e for e in snap["elements"] if e["id"] == element_id), None) if element_id else None
+    if not el:
+        return ""
+    return (el.get("label") or el.get("text") or el.get("placeholder") or el.get("name") or el["tag"])[:40]
+
+
 def _history_text(h: list[dict]) -> str:
     lines = []
     for s in h[-10:]:
@@ -205,7 +221,17 @@ def build_graph(rs: RunSession):
     async def observe(st: State) -> State:
         snap = await rs.browser.snapshot()
         shot = await rs.browser.screenshot(quality=55)
-        return {"snap": snap, "shot": shot}
+        dig = _digest(snap)
+        hist = list(st.get("history", []))
+        # "ok" from playwright only means the click didn't throw - tell the model when the page didn't react
+        if hist and st.get("digest") == dig and hist[-1]["result"] == "ok" and not hist[-1]["action"].startswith(("scroll", "wait")):
+            hist[-1] = {**hist[-1], "result": "ok but NOTHING CHANGED on the page"}
+            same = [h for h in hist[-4:] if h["action"] == hist[-1]["action"] and "NOTHING CHANGED" in h["result"]]
+            if len(same) >= 2:
+                hist.append({"step": hist[-1]["step"], "action": "note",
+                             "result": "You are repeating an action that has no effect. It is probably already done "
+                                       "(check checked/selected/value). Move on (e.g. click Next) or try a different element."})
+        return {"snap": snap, "shot": shot, "digest": dig, "history": hist}
 
     async def decide(st: State) -> State:
         snap = st["snap"]
@@ -220,7 +246,7 @@ def build_graph(rs: RunSession):
             f"OBSERVATION:\n{json.dumps(obs, ensure_ascii=False)}",
             types.Part.from_bytes(data=st["shot"], mime_type="image/jpeg"),
         ]
-        d = await llm.generate_json(prompt, Decision, system=SYSTEM, temperature=0.1)
+        d = await llm.generate_json(prompt, Decision, system=SYSTEM, temperature=0.1, model=get_settings().agent_model)
         return {"decision": d}
 
     async def guard(st: State) -> State:
@@ -229,8 +255,11 @@ def build_graph(rs: RunSession):
         snap = st["snap"]
         el = next((e for e in snap["elements"] if e["id"] == d.element_id), None) if d.element_id else None
         if d.action == "click" and el:
-            label = " ".join(str(el.get(k, "")) for k in ("text", "label", "title", "name"))
-            if (el.get("type") == "submit" or el["tag"] == "button") and SUBMIT_RE.search(label) and not re.search(r"\b(otp|search|check|next|continue|login|sign in|verify)\b", label, re.I):
+            label = str(el.get("text") or el.get("value") or el.get("title") or el.get("label") or "")
+            # any clickable thing that reads like "submit" counts - portals style divs as buttons
+            strong = re.search(r"submit|apply|pay\b", label, re.I)
+            weak_ok = re.search(r"\b(otp|search|check|next|continue|login|sign in|verify)\b", label, re.I)
+            if SUBMIT_RE.search(label) and len(label.strip()) < 40 and (strong or not weak_ok):
                 d = d.model_copy(update={"action": "request_approval", "message": d.message or f"Submit the form ('{label.strip()[:40]}')?"})
         if d.action in ("type", "click") and snap["captcha"] and el and re.search(r"captcha", json.dumps(el), re.I):
             d = d.model_copy(update={"action": "ask_human", "kind": "captcha", "message": "Please solve the CAPTCHA, then press Continue."})
@@ -244,7 +273,10 @@ def build_graph(rs: RunSession):
         step = st.get("step", 0) + 1
         st = {**st, "step": step}
         hist = list(st.get("history", []))
-        desc = f"{d.action}({d.element_id or ''}{', ' + (d.value_from or d.value or '') if d.action in ('type', 'select') else ''})"
+        # ids are reassigned every snapshot, so history refers to elements by their visible name
+        target = _el_name(st["snap"], d.element_id)
+        val = f" = {d.value_from or d.value}" if d.action in ("type", "select", "check") and (d.value_from or d.value) else ""
+        desc = f"{d.action} '{target}'{val}" if target else f"{d.action}{val}"
 
         if d.action in ("ask_human", "request_approval", "done", "fail"):
             outcome = {"ask_human": "human", "request_approval": "approval", "done": "done", "fail": "failed"}[d.action]
