@@ -169,6 +169,7 @@ export interface RunStepOut {
   thought: string | null;
   action: Record<string, unknown> | null;
   status: string;
+  result?: string | null;
   url: string | null;
   screenshot: string | null;
 }
@@ -179,13 +180,21 @@ export interface Receipt {
   summary?: string;
   [key: string]: unknown;
 }
+export type RunStatus =
+  | "queued"
+  | "running"
+  | "needs_human"
+  | "awaiting_approval"
+  | "done"
+  | "failed"
+  | "aborted";
 export interface RunOut {
   id: string;
   profile_id: string | null;
   scheme_slug: string | null;
   portal_url: string;
   goal: string;
-  status: string;
+  status: RunStatus;
   receipt: Receipt | null;
   error: string | null;
   steps: RunStepOut[];
@@ -195,7 +204,7 @@ export type HumanKind =
 export type ServerMessage =
   | { type: "frame"; jpeg: string }
   | { type: "step"; step: RunStepOut }
-  | { type: "status"; status: string }
+  | { type: "status"; status: RunStatus }
   | { type: "needs_human"; kind: HumanKind; message: string; field?: string }
   | { type: "done"; receipt: Receipt }
   | { type: "error"; message: string };

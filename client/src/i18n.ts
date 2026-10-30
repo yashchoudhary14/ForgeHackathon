@@ -128,6 +128,7 @@ const hi: Record<string, string> = {
   "Text for the selected field": "चुने हुए खाने के लिए जानकारी",
   "Type into browser": "ब्राउज़र में लिखें",
   "Step by step": "एक-एक चरण",
+  "Result:": "परिणाम:",
   "Steps will appear when the assistant begins.":
     "सहायक के शुरू करते ही चरण दिखेंगे।",
   "In plain language": "आसान भाषा में",
@@ -177,6 +178,9 @@ const hi: Record<string, string> = {
   Finished: "समाप्त",
   Unavailable: "उपलब्ध नहीं",
   running: "चल रहा है",
+  queued: "कतार में",
+  "awaiting approval": "आपकी मंज़ूरी का इंतज़ार है",
+  done: "पूरा हुआ",
   "needs human": "आपकी मदद चाहिए",
   completed: "पूरा हुआ",
   failed: "विफल",

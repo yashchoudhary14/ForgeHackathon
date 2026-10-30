@@ -2,6 +2,7 @@ import { Text } from "../context";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { BASE, request } from "../api/client";
+import { applyRunEvent, isTerminal, mergeRunSnapshot } from "../api/run-state";
 import type {
   ClientMessage,
   HumanKind,
@@ -11,8 +12,6 @@ import type {
 import { ErrorBox, Loading } from "../components";
 import { ReceiptView } from "./Runs";
 type Human = { kind: HumanKind; message: string; field?: string };
-const terminal = (s: string) =>
-  ["done", "completed", "failed", "aborted", "cancelled"].includes(s);
 export default function Run() {
   const { id = "" } = useParams();
   const [run, setRun] = useState<RunOut | null>(null),
@@ -34,7 +33,8 @@ export default function Run() {
     let disposed = false,
       retry: ReturnType<typeof setTimeout> | undefined,
       attempts = 0,
-      finished = false;
+      finished = false,
+      revision = 0;
     const abort = new AbortController();
     setLoading(true);
     setRun(null);
@@ -53,30 +53,35 @@ export default function Run() {
         url.pathname.replace(/\/$/, "") +
         `/api/agent/runs/${encodeURIComponent(id)}/ws`;
       const ws = new WebSocket(url);
+      const liveSteps = new Set<number>();
       socket.current = ws;
       ws.onopen = () => {
         if (disposed) return;
         if (attempts > 0) {
+          const snapshotRevision = revision;
           void request<RunOut>(`/agent/runs/${encodeURIComponent(id)}`, {
             signal: abort.signal,
           })
             .then((snapshot) => {
-              if (disposed) return;
+              if (disposed || socket.current !== ws) return;
               setRun((current) =>
-                current
-                  ? {
-                      ...snapshot,
-                      steps: [
-                        ...new Map(
-                          [...snapshot.steps, ...current.steps].map((step) => [
-                            step.idx,
-                            step,
-                          ]),
-                        ).values(),
-                      ].sort((a, b) => a.idx - b.idx),
-                    }
-                  : snapshot,
+                mergeRunSnapshot(
+                  snapshot,
+                  current,
+                  liveSteps,
+                  revision !== snapshotRevision,
+                ),
               );
+              if (
+                isTerminal(snapshot.status) &&
+                revision === snapshotRevision
+              ) {
+                finished = true;
+                setHuman(null);
+                setTakeover(false);
+                setConnection("Finished");
+                ws.close();
+              }
             })
             .catch(() => {});
         }
@@ -87,6 +92,16 @@ export default function Run() {
         if (disposed) return;
         try {
           const msg = JSON.parse(e.data) as ServerMessage;
+          if (msg.type !== "frame") {
+            if (
+              msg.type === "status" ||
+              msg.type === "needs_human" ||
+              msg.type === "done"
+            )
+              revision++;
+            if (msg.type === "step") liveSteps.add(msg.step.idx);
+            setRun((r) => (r ? applyRunEvent(r, msg) : r));
+          }
           if (msg.type === "frame") {
             const img = new Image(),
               version = ++frameVersion.current;
@@ -102,21 +117,15 @@ export default function Run() {
               }
             };
             img.src = "data:image/jpeg;base64," + msg.jpeg;
-          } else if (msg.type === "step") {
-            setRun((r) =>
-              r
-                ? {
-                    ...r,
-                    steps: [
-                      ...r.steps.filter((s) => s.idx !== msg.step.idx),
-                      msg.step,
-                    ].sort((a, b) => a.idx - b.idx),
-                  }
-                : r,
-            );
           } else if (msg.type === "status") {
-            setRun((r) => (r ? { ...r, status: msg.status } : r));
-            if (terminal(msg.status)) {
+            if (
+              msg.status !== "needs_human" &&
+              msg.status !== "awaiting_approval"
+            ) {
+              setHuman(null);
+              setTakeover(false);
+            }
+            if (isTerminal(msg.status)) {
               finished = true;
               setHuman(null);
               setTakeover(false);
@@ -125,21 +134,20 @@ export default function Run() {
                 signal: abort.signal,
               })
                 .then((r) => {
-                  if (!disposed) setRun(r);
+                  if (!disposed)
+                    setRun((current) =>
+                      mergeRunSnapshot(r, current, liveSteps, true),
+                    );
                 })
                 .catch(() => {});
-              ws.close();
+              if (msg.status !== "done") ws.close();
             }
           } else if (msg.type === "needs_human") {
             setHuman(msg);
             setAnswer("");
             setTakeover(false);
-            setRun((r) => (r ? { ...r, status: "needs_human" } : r));
           } else if (msg.type === "done") {
             finished = true;
-            setRun((r) =>
-              r ? { ...r, status: "completed", receipt: msg.receipt } : r,
-            );
             setHuman(null);
             setTakeover(false);
             setConnection("Finished");
@@ -176,7 +184,7 @@ export default function Run() {
         );
         if (disposed) return;
         setRun(result);
-        finished = terminal(result.status);
+        finished = isTerminal(result.status);
         setConnection(finished ? "Finished" : "Connecting…");
         setLoading(false);
         if (!finished) connect();
@@ -198,7 +206,7 @@ export default function Run() {
   }, [id, epoch]);
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [run?.steps.length]);
+  }, [run?.steps]);
   useEffect(() => {
     const c = canvas.current,
       img = lastFrame.current;
@@ -489,6 +497,11 @@ export default function Run() {
                         {step.idx + 1} · {step.status}
                       </small>
                       {step.thought && <p>{step.thought}</p>}
+                      {step.result && (
+                        <p className="step-result">
+                          <Text value="Result:" /> {step.result}
+                        </p>
+                      )}
                       {step.action && (
                         <pre>{JSON.stringify(step.action, null, 2)}</pre>
                       )}

@@ -340,7 +340,7 @@ footer {
   white-space: nowrap;
 }
 .badge.eligible,
-.badge.completed {
+.badge.done {
   background: #dcefe1;
   color: #255d38;
 }
@@ -350,7 +350,9 @@ footer {
   background: #fbe4df;
   color: #8d332a;
 }
-.badge.likely {
+.badge.likely,
+.badge.needs_human,
+.badge.awaiting_approval {
   background: #fff0d1;
   color: #805313;
 }
@@ -516,6 +518,12 @@ audio {
 }
 .timeline small {
   display: block;
+}
+.step-result {
+  padding: 0.5rem 0.75rem;
+  background: #f3efe4;
+  border-radius: 6px;
+  white-space: pre-wrap;
 }
 .human {
   border: 2px solid #be701e;
