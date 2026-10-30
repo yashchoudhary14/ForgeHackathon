@@ -32,6 +32,8 @@ const hi: Record<string, string> = {
   Search: "खोजें",
   State: "राज्य",
   "Show my matches": "मेरे लिए योजनाएँ दिखाएँ",
+  "Checking schemes against official rules…":
+    "आधिकारिक नियमों के अनुसार योजनाएँ जाँच रहे हैं…",
   "Tell us about yourself to see schemes matched to you.":
     "अपने लिए योजनाएँ देखने के लिए अपने बारे में बताएँ।",
   "Create your profile →": "अपनी जानकारी जोड़ें →",

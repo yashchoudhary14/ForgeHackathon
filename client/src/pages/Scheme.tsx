@@ -115,6 +115,7 @@ export default function Scheme() {
               </button>
             </div>
           </div>
+          {busy === "explain" && <Loading message="Explaining…" />}
           {apply && (
             <section className="panel">
               <h2>

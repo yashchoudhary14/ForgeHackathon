@@ -125,7 +125,13 @@ export default function Schemes() {
         />
       )}{" "}
       {busy ? (
-        <Loading />
+        <Loading
+          message={
+            mode === "match"
+              ? "Checking schemes against official rules…"
+              : undefined
+          }
+        />
       ) : mode === "match" ? (
         !profileId ? (
           <Empty>

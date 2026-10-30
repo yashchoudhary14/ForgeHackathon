@@ -18,7 +18,13 @@ export async function request<T>(
   init: RequestInit = {},
 ): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60000);
+  const slowRoute = /^\/(schemes\/match|explain|documents)(?:[/?]|$)/.test(
+    path,
+  );
+  const timer = setTimeout(
+    () => controller.abort(),
+    slowRoute ? 150000 : 60000,
+  );
   try {
     const res = await fetch(BASE + "/api" + path, {
       ...init,

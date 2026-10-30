@@ -27,14 +27,14 @@ export function ErrorBox({
     </div>
   );
 }
-export function Loading() {
+export function Loading({ message }: { message?: string } = {}) {
   const { t } = useApp();
   return (
-    <div role="status" aria-label={t.loading} className="skeletons">
+    <div role="status" className="skeletons">
       <span />
       <span />
       <span />
-      <p>{t.loading}</p>
+      <p>{message ? <Text value={message} /> : t.loading}</p>
     </div>
   );
 }

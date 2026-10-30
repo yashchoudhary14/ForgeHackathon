@@ -172,7 +172,7 @@ export default function Explain() {
         </form>
       </section>
       {error && <ErrorBox error={error} retry={() => retryAction.current()} />}{" "}
-      {busy && <Loading />}
+      {busy && <Loading message="Reading and explaining…" />}
       {data && <Explanation data={data} />}
       <section className="panel">
         <h2>
