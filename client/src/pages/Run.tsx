@@ -1,21 +1,512 @@
-import {useEffect,useRef,useState} from 'react';
-import {Link,useParams} from 'react-router-dom';
-import {BASE,request} from '../api/client';
-import type {ClientMessage,HumanKind,RunOut,ServerMessage} from '../api/types';
-import {ErrorBox,Loading} from '../components';
-import {ReceiptView} from './Runs';
-type Human={kind:HumanKind;message:string;field?:string};
-const terminal=(s:string)=>['done','completed','failed','aborted','cancelled'].includes(s);
-export default function Run(){const {id=''}=useParams();const [run,setRun]=useState<RunOut|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[connection,setConnection]=useState('Connecting'),[human,setHuman]=useState<Human|null>(null),[answer,setAnswer]=useState(''),[typing,setTyping]=useState(''),[takeover,setTakeover]=useState(false),[hasFrame,setHasFrame]=useState(false),[epoch,setEpoch]=useState(0);const socket=useRef<WebSocket|null>(null),canvas=useRef<HTMLCanvasElement>(null),end=useRef<HTMLDivElement>(null),lastFrame=useRef<HTMLImageElement|null>(null),frameVersion=useRef(0);
- useEffect(()=>{let disposed=false,retry:ReturnType<typeof setTimeout>|undefined,attempts=0,finished=false;const abort=new AbortController();setLoading(true);setRun(null);setHuman(null);setTakeover(false);setError('');setHasFrame(false);lastFrame.current=null;frameVersion.current++;
- const connect=()=>{if(disposed||finished)return;setConnection(attempts?'Reconnecting…':'Connecting…');const url=new URL(BASE);url.protocol=url.protocol==='https:'?'wss:':'ws:';url.pathname=url.pathname.replace(/\/$/,'')+`/api/agent/runs/${encodeURIComponent(id)}/ws`;const ws=new WebSocket(url);socket.current=ws;
- ws.onopen=()=>{if(disposed)return;attempts=0;setConnection('Connected');};
- ws.onmessage=e=>{if(disposed)return;try{const msg=JSON.parse(e.data) as ServerMessage;if(msg.type==='frame'){const img=new Image(),version=++frameVersion.current;img.onload=()=>{if(disposed||version!==frameVersion.current)return;lastFrame.current=img;setHasFrame(true);const c=canvas.current;if(c){c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d')?.drawImage(img,0,0);}};img.src='data:image/jpeg;base64,'+msg.jpeg;}else if(msg.type==='step'){setRun(r=>r?{...r,steps:[...r.steps.filter(s=>s.idx!==msg.step.idx),msg.step].sort((a,b)=>a.idx-b.idx)}:r);}else if(msg.type==='status'){setRun(r=>r?{...r,status:msg.status}:r);if(terminal(msg.status)){finished=true;setHuman(null);setTakeover(false);setConnection('Finished');void request<RunOut>(`/agent/runs/${encodeURIComponent(id)}`,{signal:abort.signal}).then(r=>{if(!disposed)setRun(r);}).catch(()=>{});ws.close();}}else if(msg.type==='needs_human'){setHuman(msg);setAnswer('');setTakeover(false);setRun(r=>r?{...r,status:'needs_human'}:r);}else if(msg.type==='done'){finished=true;setRun(r=>r?{...r,status:'completed',receipt:msg.receipt}:r);setHuman(null);setTakeover(false);setConnection('Finished');ws.close();}else if(msg.type==='error'){setError(msg.message);}}catch{setError('Could not read a live update. Reconnect to restore the application view.');}};
- ws.onerror=()=>{if(!disposed)setConnection('Connection interrupted');};ws.onclose=()=>{if(disposed||finished)return;setConnection('Disconnected · reconnecting');retry=setTimeout(()=>{attempts++;connect();},Math.min(1000*2**Math.min(attempts,5),30000));};};
- async function start(){try{const result=await request<RunOut>(`/agent/runs/${encodeURIComponent(id)}`,{signal:abort.signal});if(disposed)return;setRun(result);finished=terminal(result.status);setConnection(finished?'Finished':'Connecting…');setLoading(false);if(!finished)connect();}catch(e){if(!disposed){setError((e as Error).message);setLoading(false);setConnection('Unavailable');}}}void start();return()=>{disposed=true;abort.abort();clearTimeout(retry);socket.current?.close();};},[id,epoch]);
- useEffect(()=>{end.current?.scrollIntoView({behavior:'smooth',block:'nearest'});},[run?.steps.length]);
- useEffect(()=>{const c=canvas.current,img=lastFrame.current;if(c&&img){c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d')?.drawImage(img,0,0);}},[hasFrame]);
- function send(message:ClientMessage){if(socket.current?.readyState!==WebSocket.OPEN){setError('The live connection is unavailable. Wait for reconnection before continuing.');return false;}socket.current.send(JSON.stringify(message));setError('');return true;}
- function humanAction(type:'resume'|'approve'|'abort'){if(send({type})){setHuman(null);setTakeover(false);setAnswer('');}}
- if(loading)return <Loading/>;return <><div className="page-heading"><Link to="/runs">← My applications</Link><h1>Applying, together.</h1><p className="muted">Watch each step. Take over when needed. You decide before final submission.</p></div>{error&&<ErrorBox error={error} retry={()=>setEpoch(e=>e+1)}/>} {run&&<><div className="card-top"><h2>{run.goal}</h2><span className={'badge '+run.status}>{run.status.replaceAll('_',' ')}</span></div><div className={'connection '+(connection==='Connected'?'online':'')} role="status">{connection}</div>{run.error&&<ErrorBox error={run.error}/>} {human&&<section className="panel human" role="alert"><span className="eyebrow">YOUR HELP IS NEEDED</span><h2>{human.kind==='confirm_submit'?'Ready to submit?':human.kind==='otp'?'Enter your one-time password':human.kind==='captcha'?'Complete the CAPTCHA':human.kind==='login'?'Sign in to continue':'A detail is missing'}</h2><p>{human.message}</p>{human.kind==='confirm_submit'?<><p>Review the application in the browser view before approving.</p><div className="actions"><button disabled={connection!=='Connected'} onClick={()=>humanAction('approve')}>Approve final submission</button><button className="secondary" disabled={connection!=='Connected'} onClick={()=>humanAction('abort')}>Abort application</button></div></>:human.kind==='captcha'||human.kind==='login'?<div className="actions"><button disabled={connection!=='Connected'} onClick={()=>{setTakeover(true);canvas.current?.focus();}}>Take over</button><button className="secondary" disabled={!takeover||connection!=='Connected'} onClick={()=>humanAction('resume')}>I’m done, continue</button></div>:<form onSubmit={e=>{e.preventDefault();if(answer.trim()&&send({type:'human_input',value:answer})){setAnswer('');setHuman(null);}}}><label htmlFor="human-answer">{human.field||'Your answer'}</label><input id="human-answer" type={human.kind==='otp'?'password':'text'} autoComplete={human.kind==='otp'?'one-time-code':'off'} inputMode={human.kind==='otp'?'numeric':undefined} value={answer} onChange={e=>setAnswer(e.target.value)} required/><button disabled={!answer.trim()||connection!=='Connected'}>Continue</button></form>}</section>}<div className="run-grid"><section className="panel"><h2>Live browser</h2><div className="browser">{!hasFrame&&<p style={{padding:'2rem'}}>Waiting for the browser view…</p>}<canvas ref={canvas} style={{display:hasFrame?'block':'none',cursor:takeover?'crosshair':'default'}} tabIndex={takeover?0:-1} aria-label="Live government portal. In takeover mode, click to interact and use the typing controls below." onClick={e=>{if(!takeover)return;const rect=e.currentTarget.getBoundingClientRect();if(rect.width&&rect.height)send({type:'click',x:Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width)),y:Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height))});}} onKeyDown={e=>{if(!takeover||e.key==='Tab')return;if(['Enter','Backspace','Escape','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Delete'].includes(e.key)){e.preventDefault();send({type:'key',key:e.key});}else if(e.key.length===1&&!e.ctrlKey&&!e.metaKey){e.preventDefault();send({type:'type',text:e.key});}}}/></div>{takeover&&<div className="takeover"><p>You are in control. Click the live browser to choose a field, then type here.</p><form onSubmit={e=>{e.preventDefault();if(typing&&send({type:'type',text:typing}))setTyping('');}}><label htmlFor="remote-type">Text for the selected field</label><input id="remote-type" autoComplete="off" type="password" value={typing} onChange={e=>setTyping(e.target.value)}/><button disabled={!typing||connection!=='Connected'}>Type into browser</button></form><div className="actions">{['Tab','Enter','Backspace','Escape'].map(key=><button className="secondary" key={key} disabled={connection!=='Connected'} onClick={()=>send({type:'key',key})}>{key}</button>)}</div></div>}</section><section className="panel timeline" aria-label="Application steps" aria-live="polite"><h2>Step by step</h2>{run.steps.length===0?<p className="muted">Steps will appear when the assistant begins.</p>:<ol>{run.steps.map(step=><li key={step.idx}><small>Step {step.idx+1} · {step.status}</small>{step.thought&&<p>{step.thought}</p>}{step.action&&<pre>{JSON.stringify(step.action,null,2)}</pre>}{step.url&&<small>{step.url}</small>}</li>)}</ol>}<div ref={end}/></section></div>{run.receipt&&<section className="panel"><ReceiptView receipt={run.receipt}/></section>}</>}</>;
+import { Text } from "../context";
+import { useEffect, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { BASE, request } from "../api/client";
+import type {
+  ClientMessage,
+  HumanKind,
+  RunOut,
+  ServerMessage,
+} from "../api/types";
+import { ErrorBox, Loading } from "../components";
+import { ReceiptView } from "./Runs";
+type Human = { kind: HumanKind; message: string; field?: string };
+const terminal = (s: string) =>
+  ["done", "completed", "failed", "aborted", "cancelled"].includes(s);
+export default function Run() {
+  const { id = "" } = useParams();
+  const [run, setRun] = useState<RunOut | null>(null),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [connection, setConnection] = useState("Connecting"),
+    [human, setHuman] = useState<Human | null>(null),
+    [answer, setAnswer] = useState(""),
+    [typing, setTyping] = useState(""),
+    [takeover, setTakeover] = useState(false),
+    [hasFrame, setHasFrame] = useState(false),
+    [epoch, setEpoch] = useState(0);
+  const socket = useRef<WebSocket | null>(null),
+    canvas = useRef<HTMLCanvasElement>(null),
+    end = useRef<HTMLDivElement>(null),
+    lastFrame = useRef<HTMLImageElement | null>(null),
+    frameVersion = useRef(0);
+  useEffect(() => {
+    let disposed = false,
+      retry: ReturnType<typeof setTimeout> | undefined,
+      attempts = 0,
+      finished = false;
+    const abort = new AbortController();
+    setLoading(true);
+    setRun(null);
+    setHuman(null);
+    setTakeover(false);
+    setError("");
+    setHasFrame(false);
+    lastFrame.current = null;
+    frameVersion.current++;
+    const connect = () => {
+      if (disposed || finished) return;
+      setConnection(attempts ? "Reconnecting…" : "Connecting…");
+      const url = new URL(BASE);
+      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+      url.pathname =
+        url.pathname.replace(/\/$/, "") +
+        `/api/agent/runs/${encodeURIComponent(id)}/ws`;
+      const ws = new WebSocket(url);
+      socket.current = ws;
+      ws.onopen = () => {
+        if (disposed) return;
+        if (attempts > 0) {
+          void request<RunOut>(`/agent/runs/${encodeURIComponent(id)}`, {
+            signal: abort.signal,
+          })
+            .then((snapshot) => {
+              if (disposed) return;
+              setRun((current) =>
+                current
+                  ? {
+                      ...snapshot,
+                      steps: [
+                        ...new Map(
+                          [...snapshot.steps, ...current.steps].map((step) => [
+                            step.idx,
+                            step,
+                          ]),
+                        ).values(),
+                      ].sort((a, b) => a.idx - b.idx),
+                    }
+                  : snapshot,
+              );
+            })
+            .catch(() => {});
+        }
+        attempts = 0;
+        setConnection("Connected");
+      };
+      ws.onmessage = (e) => {
+        if (disposed) return;
+        try {
+          const msg = JSON.parse(e.data) as ServerMessage;
+          if (msg.type === "frame") {
+            const img = new Image(),
+              version = ++frameVersion.current;
+            img.onload = () => {
+              if (disposed || version !== frameVersion.current) return;
+              lastFrame.current = img;
+              setHasFrame(true);
+              const c = canvas.current;
+              if (c) {
+                c.width = img.naturalWidth;
+                c.height = img.naturalHeight;
+                c.getContext("2d")?.drawImage(img, 0, 0);
+              }
+            };
+            img.src = "data:image/jpeg;base64," + msg.jpeg;
+          } else if (msg.type === "step") {
+            setRun((r) =>
+              r
+                ? {
+                    ...r,
+                    steps: [
+                      ...r.steps.filter((s) => s.idx !== msg.step.idx),
+                      msg.step,
+                    ].sort((a, b) => a.idx - b.idx),
+                  }
+                : r,
+            );
+          } else if (msg.type === "status") {
+            setRun((r) => (r ? { ...r, status: msg.status } : r));
+            if (terminal(msg.status)) {
+              finished = true;
+              setHuman(null);
+              setTakeover(false);
+              setConnection("Finished");
+              void request<RunOut>(`/agent/runs/${encodeURIComponent(id)}`, {
+                signal: abort.signal,
+              })
+                .then((r) => {
+                  if (!disposed) setRun(r);
+                })
+                .catch(() => {});
+              ws.close();
+            }
+          } else if (msg.type === "needs_human") {
+            setHuman(msg);
+            setAnswer("");
+            setTakeover(false);
+            setRun((r) => (r ? { ...r, status: "needs_human" } : r));
+          } else if (msg.type === "done") {
+            finished = true;
+            setRun((r) =>
+              r ? { ...r, status: "completed", receipt: msg.receipt } : r,
+            );
+            setHuman(null);
+            setTakeover(false);
+            setConnection("Finished");
+            ws.close();
+          } else if (msg.type === "error") {
+            setError(msg.message);
+          }
+        } catch {
+          setError(
+            "Could not read a live update. Reconnect to restore the application view.",
+          );
+        }
+      };
+      ws.onerror = () => {
+        if (!disposed) setConnection("Connection interrupted");
+      };
+      ws.onclose = () => {
+        if (disposed || finished) return;
+        setConnection("Disconnected · reconnecting");
+        retry = setTimeout(
+          () => {
+            attempts++;
+            connect();
+          },
+          Math.min(1000 * 2 ** Math.min(attempts, 5), 30000),
+        );
+      };
+    };
+    async function start() {
+      try {
+        const result = await request<RunOut>(
+          `/agent/runs/${encodeURIComponent(id)}`,
+          { signal: abort.signal },
+        );
+        if (disposed) return;
+        setRun(result);
+        finished = terminal(result.status);
+        setConnection(finished ? "Finished" : "Connecting…");
+        setLoading(false);
+        if (!finished) connect();
+      } catch (e) {
+        if (!disposed) {
+          setError((e as Error).message);
+          setLoading(false);
+          setConnection("Unavailable");
+        }
+      }
+    }
+    void start();
+    return () => {
+      disposed = true;
+      abort.abort();
+      clearTimeout(retry);
+      socket.current?.close();
+    };
+  }, [id, epoch]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [run?.steps.length]);
+  useEffect(() => {
+    const c = canvas.current,
+      img = lastFrame.current;
+    if (c && img) {
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext("2d")?.drawImage(img, 0, 0);
+    }
+  }, [hasFrame]);
+  function send(message: ClientMessage) {
+    if (socket.current?.readyState !== WebSocket.OPEN) {
+      setError(
+        "The live connection is unavailable. Wait for reconnection before continuing.",
+      );
+      return false;
+    }
+    socket.current.send(JSON.stringify(message));
+    setError("");
+    return true;
+  }
+  function humanAction(type: "resume" | "approve" | "abort") {
+    if (send({ type })) {
+      setHuman(null);
+      setTakeover(false);
+      setAnswer("");
+    }
+  }
+  if (loading) return <Loading />;
+  return (
+    <>
+      <div className="page-heading">
+        <Link to="/runs">
+          <Text value={"← My applications"} />
+        </Link>
+        <h1>
+          <Text value={"Applying, together."} />
+        </h1>
+        <p className="muted">
+          <Text
+            value={
+              "Watch each step. Take over when needed. You decide before final submission."
+            }
+          />
+        </p>
+      </div>
+      {error && <ErrorBox error={error} retry={() => setEpoch((e) => e + 1)} />}{" "}
+      {run && (
+        <>
+          <div className="card-top">
+            <h2>{run.goal}</h2>
+            <span className={"badge " + run.status}>
+              <Text value={run.status.replaceAll("_", " ")} />
+            </span>
+          </div>
+          <div
+            className={
+              "connection " + (connection === "Connected" ? "online" : "")
+            }
+            role="status"
+          >
+            <Text value={connection} />
+          </div>
+          {run.error && <ErrorBox error={run.error} />}{" "}
+          {human && (
+            <section className="panel human" role="alert">
+              <span className="eyebrow">
+                <Text value={"YOUR HELP IS NEEDED"} />
+              </span>
+              <h2>
+                <Text
+                  value={
+                    human.kind === "confirm_submit"
+                      ? "Ready to submit?"
+                      : human.kind === "otp"
+                        ? "Enter your one-time password"
+                        : human.kind === "captcha"
+                          ? "Complete the CAPTCHA"
+                          : human.kind === "login"
+                            ? "Sign in to continue"
+                            : "A detail is missing"
+                  }
+                />
+              </h2>
+              <p>{human.message}</p>
+              {human.kind === "confirm_submit" ? (
+                <>
+                  <p>
+                    <Text
+                      value={
+                        "Review the application in the browser view before approving."
+                      }
+                    />
+                  </p>
+                  <div className="actions">
+                    <button
+                      disabled={connection !== "Connected"}
+                      onClick={() => humanAction("approve")}
+                    >
+                      <Text value={"Approve final submission"} />
+                    </button>
+                    <button
+                      className="secondary"
+                      disabled={connection !== "Connected"}
+                      onClick={() => humanAction("abort")}
+                    >
+                      <Text value={"Abort application"} />
+                    </button>
+                  </div>
+                </>
+              ) : human.kind === "captcha" || human.kind === "login" ? (
+                <div className="actions">
+                  <button
+                    disabled={connection !== "Connected"}
+                    onClick={() => {
+                      setTakeover(true);
+                      canvas.current?.focus();
+                    }}
+                  >
+                    <Text value={"Take over"} />
+                  </button>
+                  <button
+                    className="secondary"
+                    disabled={!takeover || connection !== "Connected"}
+                    onClick={() => humanAction("resume")}
+                  >
+                    <Text value={"I’m done, continue"} />
+                  </button>
+                </div>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (
+                      answer.trim() &&
+                      send({ type: "human_input", value: answer })
+                    ) {
+                      setAnswer("");
+                      setHuman(null);
+                    }
+                  }}
+                >
+                  <label htmlFor="human-answer">
+                    {human.field || "Your answer"}
+                  </label>
+                  <input
+                    id="human-answer"
+                    type={human.kind === "otp" ? "password" : "text"}
+                    autoComplete={
+                      human.kind === "otp" ? "one-time-code" : "off"
+                    }
+                    inputMode={human.kind === "otp" ? "numeric" : undefined}
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    required
+                  />
+                  <button
+                    disabled={!answer.trim() || connection !== "Connected"}
+                  >
+                    <Text value={"Continue"} />
+                  </button>
+                </form>
+              )}
+            </section>
+          )}
+          <div className="run-grid">
+            <section className="panel">
+              <h2>
+                <Text value={"Live browser"} />
+              </h2>
+              <div className="browser">
+                {!hasFrame && (
+                  <p style={{ padding: "2rem" }}>
+                    <Text value={"Waiting for the browser view…"} />
+                  </p>
+                )}
+                <canvas
+                  ref={canvas}
+                  style={{
+                    display: hasFrame ? "block" : "none",
+                    cursor: takeover ? "crosshair" : "default",
+                  }}
+                  tabIndex={takeover ? 0 : -1}
+                  aria-label="Live government portal. In takeover mode, click to interact and use the typing controls below."
+                  onClick={(e) => {
+                    if (!takeover) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    if (rect.width && rect.height)
+                      send({
+                        type: "click",
+                        x: Math.max(
+                          0,
+                          Math.min(1, (e.clientX - rect.left) / rect.width),
+                        ),
+                        y: Math.max(
+                          0,
+                          Math.min(1, (e.clientY - rect.top) / rect.height),
+                        ),
+                      });
+                  }}
+                  onKeyDown={(e) => {
+                    if (!takeover || e.key === "Tab") return;
+                    if (
+                      [
+                        "Enter",
+                        "Backspace",
+                        "Escape",
+                        "ArrowUp",
+                        "ArrowDown",
+                        "ArrowLeft",
+                        "ArrowRight",
+                        "Delete",
+                      ].includes(e.key)
+                    ) {
+                      e.preventDefault();
+                      send({ type: "key", key: e.key });
+                    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                      e.preventDefault();
+                      send({ type: "type", text: e.key });
+                    }
+                  }}
+                />
+              </div>
+              {takeover && (
+                <div className="takeover">
+                  <p>
+                    <Text
+                      value={
+                        "You are in control. Click the live browser to choose a field, then type here."
+                      }
+                    />
+                  </p>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (typing && send({ type: "type", text: typing }))
+                        setTyping("");
+                    }}
+                  >
+                    <label htmlFor="remote-type">
+                      <Text value={"Text for the selected field"} />
+                    </label>
+                    <input
+                      id="remote-type"
+                      autoComplete="off"
+                      type="password"
+                      value={typing}
+                      onChange={(e) => setTyping(e.target.value)}
+                    />
+                    <button disabled={!typing || connection !== "Connected"}>
+                      <Text value={"Type into browser"} />
+                    </button>
+                  </form>
+                  <div className="actions">
+                    {["Tab", "Enter", "Backspace", "Escape"].map((key) => (
+                      <button
+                        className="secondary"
+                        key={key}
+                        disabled={connection !== "Connected"}
+                        onClick={() => send({ type: "key", key })}
+                      >
+                        {key}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+            <section
+              className="panel timeline"
+              aria-label="Application steps"
+              aria-live="polite"
+            >
+              <h2>
+                <Text value={"Step by step"} />
+              </h2>
+              {run.steps.length === 0 ? (
+                <p className="muted">
+                  <Text
+                    value={"Steps will appear when the assistant begins."}
+                  />
+                </p>
+              ) : (
+                <ol>
+                  {run.steps.map((step) => (
+                    <li key={step.idx}>
+                      <small>
+                        <Text value={"Step"} />
+                        {step.idx + 1} · {step.status}
+                      </small>
+                      {step.thought && <p>{step.thought}</p>}
+                      {step.action && (
+                        <pre>{JSON.stringify(step.action, null, 2)}</pre>
+                      )}
+                      {step.url && <small>{step.url}</small>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <div ref={end} />
+            </section>
+          </div>
+          {run.receipt && (
+            <section className="panel">
+              <ReceiptView receipt={run.receipt} />
+            </section>
+          )}
+        </>
+      )}
+    </>
+  );
 }

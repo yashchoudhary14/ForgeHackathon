@@ -1,8 +1,119 @@
-import {useEffect,useState} from 'react';
-import {Link} from 'react-router-dom';
-import {request,safeUrl,assetUrl} from '../api/client';
-import type {Receipt,RunOut} from '../api/types';
-import {Empty,ErrorBox,Loading} from '../components';
-import {useApp} from '../context';
-export function ReceiptView({receipt}:{receipt:Receipt}){return <div className="receipt"><h2>Application receipt</h2>{receipt.reference_no&&<p>Reference number: <strong>{receipt.reference_no}</strong></p>}{receipt.summary&&<p>{receipt.summary}</p>}{receipt.url&&<p><a href={safeUrl(receipt.url)} target="_blank" rel="noreferrer">View application ↗</a></p>}{receipt.screenshot&&<a href={safeUrl(assetUrl(receipt.screenshot))} target="_blank" rel="noreferrer"><img src={assetUrl(receipt.screenshot)} alt="Application receipt screenshot"/></a>}</div>;}
-export default function Runs(){const {t}=useApp();const [runs,setRuns]=useState<RunOut[]>([]),[busy,setBusy]=useState(true),[error,setError]=useState('');async function load(){setBusy(true);setError('');try{setRuns(await request<RunOut[]>('/agent/runs'));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}useEffect(()=>{void load();},[]);return <><div className="page-heading"><span className="eyebrow">YOUR PROGRESS / आपके आवेदन</span><h1>{t.runs}</h1><p className="muted">Follow your applications and keep your receipts in one place.</p><button className="secondary" disabled={busy} onClick={load}>Refresh</button></div>{busy?<Loading/>:error?<ErrorBox error={error} retry={load}/>:runs.length?<div className="cards">{runs.map(run=><article className="panel" key={run.id}><div className="card-top"><h2><Link to={'/runs/'+encodeURIComponent(run.id)}>{run.goal}</Link></h2><span className={'badge '+run.status}>{run.status.replaceAll('_',' ')}</span></div><p className="muted">{run.portal_url}</p>{run.error&&<p className="error">{run.error}</p>}{run.receipt&&<ReceiptView receipt={run.receipt}/>}<Link to={'/runs/'+encodeURIComponent(run.id)}>Open application →</Link></article>)}</div>:<Empty><p>No applications yet. Choose a scheme to start an assisted application.</p><Link to="/schemes">Explore schemes →</Link></Empty>}</>;}
+import { Text } from "../context";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { request, safeUrl, assetUrl } from "../api/client";
+import type { Receipt, RunOut } from "../api/types";
+import { Empty, ErrorBox, Loading } from "../components";
+import { useApp } from "../context";
+export function ReceiptView({ receipt }: { receipt: Receipt }) {
+  return (
+    <div className="receipt">
+      <h2>
+        <Text value={"Application receipt"} />
+      </h2>
+      {receipt.reference_no && (
+        <p>
+          <Text value={"Reference number:"} />
+          <strong>{receipt.reference_no}</strong>
+        </p>
+      )}
+      {receipt.summary && <p>{receipt.summary}</p>}
+      {receipt.url && (
+        <p>
+          <a href={safeUrl(receipt.url)} target="_blank" rel="noreferrer">
+            <Text value={"View application ↗"} />
+          </a>
+        </p>
+      )}
+      {receipt.screenshot && (
+        <a href={assetUrl(receipt.screenshot)} target="_blank" rel="noreferrer">
+          <img
+            src={assetUrl(receipt.screenshot)}
+            alt="Application receipt screenshot"
+          />
+        </a>
+      )}
+    </div>
+  );
+}
+export default function Runs() {
+  const { t } = useApp();
+  const [runs, setRuns] = useState<RunOut[]>([]),
+    [busy, setBusy] = useState(true),
+    [error, setError] = useState("");
+  async function load() {
+    setBusy(true);
+    setError("");
+    try {
+      setRuns(await request<RunOut[]>("/agent/runs"));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  useEffect(() => {
+    void load();
+  }, []);
+  return (
+    <>
+      <div className="page-heading">
+        <span className="eyebrow">
+          <Text value={"YOUR PROGRESS / आपके आवेदन"} />
+        </span>
+        <h1>{t.runs}</h1>
+        <p className="muted">
+          <Text
+            value={
+              "Follow your applications and keep your receipts in one place."
+            }
+          />
+        </p>
+        <button className="secondary" disabled={busy} onClick={load}>
+          <Text value={"Refresh"} />
+        </button>
+      </div>
+      {busy ? (
+        <Loading />
+      ) : error ? (
+        <ErrorBox error={error} retry={load} />
+      ) : runs.length ? (
+        <div className="cards">
+          {runs.map((run) => (
+            <article className="panel" key={run.id}>
+              <div className="card-top">
+                <h2>
+                  <Link to={"/runs/" + encodeURIComponent(run.id)}>
+                    {run.goal}
+                  </Link>
+                </h2>
+                <span className={"badge " + run.status}>
+                  <Text value={run.status.replaceAll("_", " ")} />
+                </span>
+              </div>
+              <p className="muted">{run.portal_url}</p>
+              {run.error && <p className="error">{run.error}</p>}
+              {run.receipt && <ReceiptView receipt={run.receipt} />}
+              <Link to={"/runs/" + encodeURIComponent(run.id)}>
+                <Text value={"Open application →"} />
+              </Link>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <Empty>
+          <p>
+            <Text
+              value={
+                "No applications yet. Choose a scheme to start an assisted application."
+              }
+            />
+          </p>
+          <Link to="/schemes">
+            <Text value={"Explore schemes →"} />
+          </Link>
+        </Empty>
+      )}
+    </>
+  );
+}
