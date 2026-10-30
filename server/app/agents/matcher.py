@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from ..schemas import Citation, MatchResult, ProfileData, Reason, SchemeDetail, SchemeSummary
-from ..services import llm, myscheme
+from ..services import llm
 
 log = logging.getLogger(__name__)
 
@@ -87,6 +87,8 @@ def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
 
 
 async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[SchemeSummary]:
+    from ..services import myscheme
+
     filters = profile_filters(p)
     seen: dict[str, SchemeSummary] = {}
     for kw in keywords_for(p, keyword):
@@ -157,6 +159,8 @@ ORDER = {"eligible": 0, "likely": 1, "unknown": 2, "not_eligible": 3}
 
 
 async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang: str = "en") -> list[MatchResult]:
+    from ..services import myscheme
+
     cands = await candidates(p, keyword, limit)
     sem = asyncio.Semaphore(4)
 

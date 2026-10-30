@@ -4,7 +4,7 @@ import logging
 from pydantic import BaseModel
 
 from ..schemas import Citation, ExplainIn, ExplainOut, ProfileData
-from ..services import ingest, llm, myscheme, rag, sarvam
+from ..services import llm
 from .matcher import quote_found
 
 log = logging.getLogger(__name__)
@@ -45,6 +45,8 @@ class _Explained(BaseModel):
 
 async def _load_source(body: ExplainIn) -> tuple[str, str, str]:
     """returns (title, text, source_url)"""
+    from ..services import ingest, myscheme, rag
+
     src = body.source
     if src.type == "scheme":
         s = await myscheme.get_scheme(src.slug, lang="en")
@@ -87,6 +89,8 @@ async def explain(body: ExplainIn, profile: ProfileData | None) -> ExplainOut:
     if body.with_audio:
         spoken = "\n".join([out.summary, *out.key_points[:4], out.what_it_means_for_you or ""])
         try:
+            from ..services import sarvam
+
             audio_url = await sarvam.tts_to_file(spoken, body.language)
         except Exception as e:  # audio is a nice-to-have, never fail the explanation for it
             log.warning("tts failed: %s", e)
