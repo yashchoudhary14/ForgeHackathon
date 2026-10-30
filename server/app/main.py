@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .db import init_db
-from .routers import agent, chat, documents, profile, schemes, voice
+from .routers import agent, assist, chat, documents, profile, schemes, voice
 
 settings = get_settings()
 
@@ -28,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (profile, schemes, documents, chat, voice, agent):
+for r in (assist, profile, schemes, documents, chat, voice, agent):
     app.include_router(r.router, prefix="/api")
 
 Path(settings.storage_dir).mkdir(parents=True, exist_ok=True)
