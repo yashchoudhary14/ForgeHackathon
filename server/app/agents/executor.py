@@ -1,0 +1,397 @@
+"""autonomous form-filling agent on real government portals.
+
+graph:  observe -> decide -> guard -> act -> (observe | human | approval | finish)
+- llm never sees PII: it says value_from="full_name" and we substitute locally
+- captcha / otp / login always go to the human, we never try to solve them
+- anything that looks like a final submit needs explicit approval from the user
+"""
+import asyncio
+import json
+import logging
+import re
+import time
+from pathlib import Path
+from typing import Any, Literal, TypedDict
+
+from google.genai import types
+from langgraph.graph import END, StateGraph
+from pydantic import BaseModel
+
+from ..config import get_settings
+from ..db import SessionLocal
+from ..models import AgentRun, AgentStep
+from ..services import llm
+from .browser import Browser, allowed
+
+log = logging.getLogger(__name__)
+
+MAX_STEPS = 45
+MAX_FAILS = 3
+HUMAN_TIMEOUT = 15 * 60
+
+SUBMIT_RE = re.compile(r"\b(final\s*submit|submit|confirm|apply now|register|pay|proceed to pay|save\s*&\s*submit|send)\b", re.I)
+
+SYSTEM = """You are an agent operating a real Indian government web portal in a browser, on behalf of a citizen
+who is watching live. You see the page as a list of interactive elements (id, tag, label, ...) plus a screenshot.
+Pick exactly ONE next action.
+
+Actions:
+- click(element_id)
+- type(element_id, value | value_from)   value_from = name of a citizen field, e.g. "full_name", "phone", "dob".
+     Personal fields are hidden from you as "<set>"; use value_from for them, never invent values.
+- select(element_id, value | value_from)  value must be one of the element's options (pick the closest).
+- check(element_id, value="true"/"false")
+- scroll(value="down"/"up"), wait
+- ask_human(kind, message, element_id?)  kind: captcha | otp | login | missing_field.
+     Use for ANY captcha, OTP, password/login, DigiLocker/Aadhaar consent, or info you do not have.
+     For otp/missing_field give element_id of the input to fill with the human's answer.
+- request_approval(element_id, message)  REQUIRED before clicking any button that finally submits/applies/pays.
+     message = short summary of what will be submitted.
+- done(message, reference_no)  when the acknowledgement / application number / status page is shown,
+     or the goal is achieved. reference_no = exact number shown on page, else "".
+- fail(message)  only if the goal is truly impossible on this site.
+
+Rules:
+- Read validation errors in the observation and fix them (self-correct) instead of repeating the same action.
+- If the same action failed before, try something different (another element, scroll, select instead of type).
+- Never navigate away from government (.gov.in/.nic.in) sites.
+- Prefer filling all visible required fields before clicking next/continue.
+- Keep `thought` to one short sentence a citizen can understand."""
+
+
+class Decision(BaseModel):
+    thought: str
+    action: Literal["click", "type", "select", "check", "scroll", "wait", "ask_human", "request_approval", "done", "fail"]
+    element_id: int | None = None
+    value: str | None = None
+    value_from: str | None = None
+    kind: Literal["captcha", "otp", "login", "missing_field"] | None = None
+    message: str | None = None
+    reference_no: str | None = None
+
+
+class State(TypedDict, total=False):
+    step: int
+    fails: int
+    snap: dict
+    shot: bytes
+    decision: Decision
+    history: list[dict]
+    outcome: str  # next | human | approval | done | failed
+    receipt: dict
+    error: str
+
+
+class RunSession:
+    """live state of one run: websocket subscribers + inbox for human messages"""
+
+    def __init__(self, run_id: str, goal: str, portal_url: str, profile: dict, sensitive: dict):
+        self.id = run_id
+        self.goal = goal
+        self.portal_url = portal_url
+        self.profile = profile
+        self.sensitive = {k: str(v) for k, v in sensitive.items() if v}
+        self.answers: dict[str, str] = {}
+        self.inbox: asyncio.Queue = asyncio.Queue()
+        self.subs: set = set()
+        self.status = "queued"
+        self.pending: dict | None = None  # current needs_human event, replayed to late joiners
+        self.browser = Browser(self._on_frame)
+        self.task: asyncio.Task | None = None
+        self._last_frame_sent = 0.0
+
+    # ---------- pub/sub ----------
+    async def emit(self, msg: dict):
+        dead = []
+        for ws in list(self.subs):
+            try:
+                await ws.send_json(msg)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.subs.discard(ws)
+
+    async def _on_frame(self, b64: str):
+        now = time.monotonic()
+        if now - self._last_frame_sent < 0.12 or not self.subs:  # ~8fps cap, plenty for a demo
+            return
+        self._last_frame_sent = now
+        await self.emit({"type": "frame", "jpeg": b64})
+
+    async def set_status(self, status: str, **extra):
+        self.status = status
+        async with SessionLocal() as db:
+            run = await db.get(AgentRun, self.id)
+            run.status = status
+            for k, v in extra.items():
+                setattr(run, k, v)
+            await db.commit()
+        await self.emit({"type": "status", "status": status})
+
+    # ---------- llm view of the citizen ----------
+    def citizen_view(self) -> dict:
+        view = {k: v for k, v in self.profile.items() if v is not None}
+        view.update({k: "<set>" for k in self.sensitive})
+        view.update({k: "<set>" for k in self.answers})
+        return view
+
+    def resolve(self, d: Decision) -> str:
+        if d.value_from:
+            key = d.value_from.strip()
+            for src in (self.sensitive, self.answers, self.profile):
+                if key in src and src[key] not in (None, ""):
+                    return str(src[key])
+            raise KeyError(f"citizen field '{key}' is not known — ask the human")
+        return d.value or ""
+
+    # ---------- human in the loop ----------
+    async def wait_human(self, event: dict, expect: set[str]) -> dict:
+        self.pending = event
+        await self.emit(event)
+        deadline = time.monotonic() + HUMAN_TIMEOUT
+        try:
+            while True:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    raise TimeoutError("waited too long for the user")
+                msg = await asyncio.wait_for(self.inbox.get(), timeout=left)
+                t = msg.get("type")
+                if t == "abort":
+                    raise asyncio.CancelledError("aborted by user")
+                if t == "click":
+                    await self.browser.human_click(float(msg["x"]), float(msg["y"]))
+                elif t == "type":
+                    await self.browser.human_type(str(msg.get("text", "")))
+                elif t == "key":
+                    await self.browser.human_key(str(msg.get("key", "Enter")))
+                if t in expect:
+                    return msg
+        finally:
+            self.pending = None
+
+
+# ---------- graph nodes ----------
+
+def _history_text(h: list[dict]) -> str:
+    lines = []
+    for s in h[-10:]:
+        lines.append(f"#{s['step']} {s['action']} -> {s['result']}")
+    return "\n".join(lines) or "(none yet)"
+
+
+def build_graph(rs: RunSession):
+    shots_dir = Path(get_settings().storage_dir) / "runs" / rs.id
+    shots_dir.mkdir(parents=True, exist_ok=True)
+
+    async def record(st: State, d: Decision | None, status: str, result: str) -> str:
+        shot_path = shots_dir / f"{st['step']:03d}.jpg"
+        try:
+            await rs.browser.screenshot(str(shot_path), quality=50)
+            shot_url = f"/files/runs/{rs.id}/{shot_path.name}"
+        except Exception:
+            shot_url = None
+        action = d.model_dump(exclude_none=True, exclude={"thought"}) if d else None
+        if action and action.get("value") and action.get("action") == "type" and d.kind == "otp":
+            action["value"] = "••••"
+        async with SessionLocal() as db:
+            db.add(AgentStep(run_id=rs.id, idx=st["step"], thought=d.thought if d else None, action=action,
+                             status=status, url=rs.browser.page.url, screenshot=shot_url))
+            await db.commit()
+        await rs.emit({"type": "step", "step": {"idx": st["step"], "thought": d.thought if d else None, "action": action,
+                                                  "status": status, "url": rs.browser.page.url, "screenshot": shot_url,
+                                                  "result": result}})
+        return shot_url
+
+    async def observe(st: State) -> State:
+        snap = await rs.browser.snapshot()
+        shot = await rs.browser.screenshot(quality=55)
+        return {"snap": snap, "shot": shot}
+
+    async def decide(st: State) -> State:
+        snap = st["snap"]
+        obs = {
+            "url": snap["url"], "title": snap["title"], "headings": snap["headings"],
+            "validation_errors": snap["errors"], "captcha_detected": snap["captcha"],
+            "elements": snap["elements"], "page_text": snap["text"][:1500],
+        }
+        prompt = [
+            f"GOAL: {rs.goal}\n\nCITIZEN (personal fields hidden): {json.dumps(rs.citizen_view(), ensure_ascii=False)}\n\n"
+            f"PREVIOUS STEPS:\n{_history_text(st.get('history', []))}\n\n"
+            f"OBSERVATION:\n{json.dumps(obs, ensure_ascii=False)}",
+            types.Part.from_bytes(data=st["shot"], mime_type="image/jpeg"),
+        ]
+        d = await llm.generate_json(prompt, Decision, system=SYSTEM, temperature=0.1)
+        return {"decision": d}
+
+    async def guard(st: State) -> State:
+        """deterministic safety rails on top of whatever the model decided"""
+        d = st["decision"]
+        snap = st["snap"]
+        el = next((e for e in snap["elements"] if e["id"] == d.element_id), None) if d.element_id else None
+        if d.action == "click" and el:
+            label = " ".join(str(el.get(k, "")) for k in ("text", "label", "title", "name"))
+            if (el.get("type") == "submit" or el["tag"] == "button") and SUBMIT_RE.search(label) and not re.search(r"\b(otp|search|check|next|continue|login|sign in|verify)\b", label, re.I):
+                d = d.model_copy(update={"action": "request_approval", "message": d.message or f"Submit the form ('{label.strip()[:40]}')?"})
+        if d.action in ("type", "click") and snap["captcha"] and el and re.search(r"captcha", json.dumps(el), re.I):
+            d = d.model_copy(update={"action": "ask_human", "kind": "captcha", "message": "Please solve the CAPTCHA, then press Continue."})
+        if d.action == "type" and el and el.get("type") == "password":
+            d = d.model_copy(update={"action": "ask_human", "kind": "login", "message": "Please enter your password yourself, then press Continue."})
+        return {"decision": d}
+
+    async def act(st: State) -> State:
+        d: Decision = st["decision"]
+        b = rs.browser
+        step = st.get("step", 0) + 1
+        st = {**st, "step": step}
+        hist = list(st.get("history", []))
+        desc = f"{d.action}({d.element_id or ''}{', ' + (d.value_from or d.value or '') if d.action in ('type', 'select') else ''})"
+
+        if d.action in ("ask_human", "request_approval", "done", "fail"):
+            outcome = {"ask_human": "human", "request_approval": "approval", "done": "done", "fail": "failed"}[d.action]
+            return {"step": step, "outcome": outcome}
+
+        try:
+            if d.action == "click":
+                await b.click(d.element_id)
+            elif d.action == "type":
+                await b.fill(d.element_id, rs.resolve(d))
+            elif d.action == "select":
+                await b.select(d.element_id, rs.resolve(d))
+            elif d.action == "check":
+                await b.check(d.element_id, (d.value or "true").lower() != "false")
+            elif d.action == "scroll":
+                await b.scroll((d.value or "down") != "up")
+            elif d.action == "wait":
+                await asyncio.sleep(2)
+            if not allowed(b.page.url):
+                raise RuntimeError("left government site")
+            hist.append({"step": step, "action": desc, "result": "ok"})
+            await record(st, d, "ok", "ok")
+            return {"step": step, "history": hist, "fails": 0, "outcome": "next"}
+        except Exception as e:
+            err = str(e).split("\n")[0][:200]
+            hist.append({"step": step, "action": desc, "result": f"ERROR: {err}"})
+            await record(st, d, "retry", err)
+            fails = st.get("fails", 0) + 1
+            if fails >= MAX_FAILS:
+                # stuck: hand over to the human rather than flail
+                d2 = Decision(thought="I'm stuck on this step, can you help?", action="ask_human", kind="missing_field",
+                              message=f"I couldn't do this: {err}. Please do this step in the live view, then press Continue.")
+                return {"step": step, "history": hist, "fails": 0, "decision": d2, "outcome": "human"}
+            return {"step": step, "history": hist, "fails": fails, "outcome": "next"}
+
+    async def human(st: State) -> State:
+        d: Decision = st["decision"]
+        kind = d.kind or "missing_field"
+        await rs.set_status("needs_human")
+        ev = {"type": "needs_human", "kind": kind, "message": d.message or "Your help is needed", "field": d.value_from}
+        await record(st, d, "human", kind)
+        msg = await rs.wait_human(ev, {"resume", "human_input"})
+        hist = list(st.get("history", []))
+        if msg["type"] == "human_input" and msg.get("value"):
+            val = str(msg["value"])
+            if d.element_id:
+                await rs.browser.fill(d.element_id, val)  # otp goes straight to the page, never to the llm
+            if kind == "missing_field" and d.value_from:
+                rs.answers[d.value_from] = val
+            hist.append({"step": st["step"], "action": f"ask_human({kind})", "result": "human answered and it was entered"})
+        else:
+            hist.append({"step": st["step"], "action": f"ask_human({kind})", "result": "human finished it in the live view"})
+        await rs.browser.settle()
+        await rs.set_status("running")
+        return {"history": hist}
+
+    async def approval(st: State) -> State:
+        d: Decision = st["decision"]
+        await rs.set_status("awaiting_approval")
+        await record(st, d, "human", "approval")
+        await rs.wait_human({"type": "needs_human", "kind": "confirm_submit", "message": d.message or "Submit now?"}, {"approve"})
+        await rs.set_status("running")
+        hist = list(st.get("history", []))
+        try:
+            await rs.browser.click(d.element_id)
+            hist.append({"step": st["step"], "action": f"click({d.element_id}) [approved submit]", "result": "ok"})
+        except Exception as e:
+            hist.append({"step": st["step"], "action": f"click({d.element_id}) [approved submit]", "result": f"ERROR: {e}"})
+        return {"history": hist}
+
+    async def finish(st: State) -> State:
+        d: Decision = st["decision"]
+        shot = await record(st, d, "ok", "done")
+        receipt = {
+            "reference_no": (d.reference_no or "").strip(),
+            "summary": d.message,
+            "url": rs.browser.page.url,
+            "title": st["snap"].get("title"),
+            "screenshot": shot,
+        }
+        return {"receipt": receipt, "outcome": "done"}
+
+    def after_act(st: State) -> str:
+        if st.get("step", 0) >= MAX_STEPS and st["outcome"] == "next":
+            return "out_of_steps"
+        return st["outcome"]
+
+    g = StateGraph(State)
+    for name, fn in [("observe", observe), ("decide", decide), ("guard", guard), ("act", act),
+                     ("human", human), ("approval", approval), ("finish", finish)]:
+        g.add_node(name, fn)
+    g.set_entry_point("observe")
+    g.add_edge("observe", "decide")
+    g.add_edge("decide", "guard")
+    g.add_edge("guard", "act")
+    g.add_conditional_edges("act", after_act, {
+        "next": "observe", "human": "human", "approval": "approval", "done": "finish",
+        "failed": END, "out_of_steps": END,
+    })
+    g.add_edge("human", "observe")
+    g.add_edge("approval", "observe")
+    g.add_edge("finish", END)
+    return g.compile()
+
+
+async def run(rs: RunSession):
+    try:
+        await rs.set_status("running")
+        await rs.browser.start()
+        await rs.browser.goto(rs.portal_url)
+        graph = build_graph(rs)
+        final: dict[str, Any] = await graph.ainvoke({"step": 0, "fails": 0, "history": []}, {"recursion_limit": MAX_STEPS * 6})
+        if final.get("outcome") == "done":
+            await rs.set_status("done", receipt=final["receipt"])
+            await rs.emit({"type": "done", "receipt": final["receipt"]})
+        else:
+            d = final.get("decision")
+            msg = d.message if d and d.action == "fail" else "Stopped: step limit reached"
+            await rs.set_status("failed", error=msg)
+            await rs.emit({"type": "error", "message": msg})
+    except asyncio.CancelledError as e:
+        await rs.set_status("aborted", error=str(e) or "aborted")
+        await rs.emit({"type": "error", "message": "Run aborted"})
+    except Exception as e:
+        log.exception("run %s crashed", rs.id)
+        await rs.set_status("failed", error=str(e)[:500])
+        await rs.emit({"type": "error", "message": f"Agent error: {str(e)[:200]}"})
+    finally:
+        await rs.browser.close()
+
+
+class RunManager:
+    def __init__(self, max_parallel: int = 2):
+        self.sessions: dict[str, RunSession] = {}
+        self.sem = asyncio.Semaphore(max_parallel)
+
+    def start(self, rs: RunSession):
+        self.sessions[rs.id] = rs
+
+        async def go():
+            async with self.sem:
+                await run(rs)
+
+        rs.task = asyncio.create_task(go())
+
+    def get(self, run_id: str) -> RunSession | None:
+        return self.sessions.get(run_id)
+
+
+manager = RunManager()
