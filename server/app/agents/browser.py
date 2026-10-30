@@ -32,14 +32,35 @@ SNAPSHOT_JS = r"""
   };
   let n = 0; const out = [];
   document.querySelectorAll('[data-agent-id]').forEach(e => e.removeAttribute('data-agent-id'));
-  for (const el of document.querySelectorAll(sel)) {
+  // react/angular portals attach click handlers to plain divs - catch those via cursor:pointer
+  const cands = new Set(document.querySelectorAll(sel));
+  for (const el of document.querySelectorAll('div, span, li, img, td')) {
+    if (getComputedStyle(el).cursor !== 'pointer') continue;
+    if (el.parentElement && getComputedStyle(el.parentElement).cursor === 'pointer') continue;
+    if (el.closest(sel) || el.querySelector(sel)) continue;
+    cands.add(el);
+  }
+  for (const el of cands) {
     if (!vis(el) || el.closest('[aria-hidden=true]')) continue;
-    if (el.tagName === 'LABEL' && el.htmlFor) continue;
+    if (el.tagName === 'LABEL' && el.htmlFor) {
+      // styled radios/checkboxes: the real input is hidden, so the label is what you click
+      const target = document.getElementById(el.htmlFor);
+      if (target && vis(target)) continue;
+    }
     const id = ++n; el.setAttribute('data-agent-id', id);
     const d = { id, tag: el.tagName.toLowerCase() };
     const t = el.getAttribute('type'); if (t) d.type = t;
     const role = el.getAttribute('role'); if (role) d.role = role;
-    const txt = (el.innerText || el.value || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+    const alt = el.tagName === 'IMG' ? el.alt : (el.querySelector('img[alt]')?.alt || '');
+    const txt = (el.innerText || el.value || alt || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+    for (const [a, k] of [['aria-checked', 'checked'], ['aria-selected', 'selected'], ['aria-pressed', 'pressed'], ['aria-expanded', 'expanded']]) {
+      const v = el.getAttribute(a); if (v === 'true' || v === 'false') d[k] = v === 'true';
+    }
+    if (el.tagName === 'LABEL') {
+      const inp = el.htmlFor ? document.getElementById(el.htmlFor) : (el.querySelector('input') || (el.previousElementSibling?.tagName === 'INPUT' ? el.previousElementSibling : null));
+      if (inp && ['checkbox', 'radio'].includes(inp.type)) d.checked = inp.checked;
+    }
+    if (/\b(selected|active|checked)\b/.test(el.className?.toString?.() || '') && d.checked === undefined) d.selected = true;
     if (txt && !['input', 'select', 'textarea'].includes(d.tag)) d.text = txt;
     const lab = labelOf(el).replace(/\s+/g, ' ').slice(0, 80); if (lab) d.label = lab;
     for (const a of ['name', 'placeholder', 'title']) { const v = el.getAttribute(a); if (v) d[a] = v.slice(0, 60); }
@@ -100,7 +121,8 @@ class Browser:
     async def _guard(self, route):
         req = route.request
         # sub-resources (cdn, fonts) are fine, but never let the agent navigate off government sites
-        if req.is_navigation_request() and not allowed(req.url):
+        top_level = req.is_navigation_request() and req.frame.parent_frame is None
+        if top_level and not allowed(req.url):
             log.warning("blocked navigation to %s", req.url)
             await route.abort("blockedbyclient")
         else:
@@ -138,13 +160,24 @@ class Browser:
         except Exception:
             pass  # gov sites with long-polling never go idle, that's ok
 
-    async def snapshot(self) -> dict:
+    async def _snap_once(self) -> dict:
         try:
-            snap = await self.page.evaluate(SNAPSHOT_JS)
+            return await self.page.evaluate(SNAPSHOT_JS)
         except Exception as e:  # navigation mid-evaluate
             log.info("snapshot retry: %s", e)
             await self.settle()
-            snap = await self.page.evaluate(SNAPSHOT_JS)
+            return await self.page.evaluate(SNAPSHOT_JS)
+
+    async def snapshot(self) -> dict:
+        # SPAs animate between steps without any network, so wait until two reads agree
+        snap = await self._snap_once()
+        for _ in range(4):
+            await asyncio.sleep(0.45)
+            again = await self._snap_once()
+            if again["headings"] == snap["headings"] and len(again["elements"]) == len(snap["elements"]) and again["text"] == snap["text"]:
+                snap = again
+                break
+            snap = again
         snap["url"] = self.page.url
         snap["title"] = await self.page.title()
         return snap
