@@ -534,6 +534,12 @@ audio {
   border: 1px solid #ddd;
   border-radius: 8px;
 }
+.receipt-citations {
+  overflow-wrap: anywhere;
+}
+.receipt-url {
+  display: block;
+}
 .connection {
   display: flex;
   align-items: center;

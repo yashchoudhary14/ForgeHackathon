@@ -1,6 +1,8 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const server = await createServer({
   server: { middlewareMode: true },
@@ -9,6 +11,8 @@ const server = await createServer({
 after(() => server.close());
 const { request, assetUrl, BASE } =
   await server.ssrLoadModule("/src/api/client.ts");
+const { ReceiptView } = await server.ssrLoadModule("/src/ReceiptView.tsx");
+const { Loading } = await server.ssrLoadModule("/src/components.tsx");
 
 function pendingFetch(t) {
   t.mock.method(
@@ -73,4 +77,50 @@ test("receipt screenshots resolve against the API base and reject unsafe protoco
     new URL("/receipts/run-1.jpg", BASE).href,
   );
   assert.equal(assetUrl("javascript:alert(1)"), undefined);
+});
+
+test("receipt renders reference, summary, source link and API screenshot as a citation", () => {
+  const html = renderToStaticMarkup(
+    createElement(ReceiptView, {
+      receipt: {
+        reference_no: "REF-123",
+        summary: "Your application was submitted.",
+        url: "https://example.gov.in/applications/123",
+        screenshot: "/receipts/run-1.jpg",
+      },
+    }),
+  );
+  assert.match(html, /<ol class="citations receipt-citations">/);
+  assert.match(html, /<strong>REF-123<\/strong>/);
+  assert.match(
+    html,
+    /<blockquote>Your application was submitted\.<\/blockquote>/,
+  );
+  assert.match(html, /href="https:\/\/example.gov.in\/applications\/123"/);
+  assert.ok(
+    html.includes(`src="${new URL("/receipts/run-1.jpg", BASE).href}"`),
+  );
+});
+
+test("unsafe receipt sources do not produce links or images", () => {
+  const html = renderToStaticMarkup(
+    createElement(ReceiptView, {
+      receipt: {
+        url: "javascript:alert(1)",
+        screenshot: "javascript:alert(1)",
+        summary: "Receipt",
+      },
+    }),
+  );
+  assert.doesNotMatch(html, /<a |<img /);
+});
+
+test("slow-operation progress text is exposed as a live status", () => {
+  const html = renderToStaticMarkup(
+    createElement(Loading, {
+      message: "Checking schemes against official rules…",
+    }),
+  );
+  assert.match(html, /role="status"/);
+  assert.match(html, /Checking schemes against official rules…/);
 });

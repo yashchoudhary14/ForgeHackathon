@@ -10,7 +10,7 @@ import type {
   ServerMessage,
 } from "../api/types";
 import { ErrorBox, Loading } from "../components";
-import { ReceiptView } from "./Runs";
+import { ReceiptView } from "../ReceiptView";
 type Human = { kind: HumanKind; message: string; field?: string };
 export default function Run() {
   const { id = "" } = useParams();

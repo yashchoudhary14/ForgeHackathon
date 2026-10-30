@@ -1,41 +1,11 @@
 import { Text } from "../context";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { request, safeUrl, assetUrl } from "../api/client";
-import type { Receipt, RunOut } from "../api/types";
+import { request } from "../api/client";
+import type { RunOut } from "../api/types";
 import { Empty, ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
-export function ReceiptView({ receipt }: { receipt: Receipt }) {
-  return (
-    <div className="receipt">
-      <h2>
-        <Text value={"Application receipt"} />
-      </h2>
-      {receipt.reference_no && (
-        <p>
-          <Text value={"Reference number:"} />
-          <strong>{receipt.reference_no}</strong>
-        </p>
-      )}
-      {receipt.summary && <p>{receipt.summary}</p>}
-      {receipt.url && (
-        <p>
-          <a href={safeUrl(receipt.url)} target="_blank" rel="noreferrer">
-            <Text value={"View application ↗"} />
-          </a>
-        </p>
-      )}
-      {receipt.screenshot && (
-        <a href={assetUrl(receipt.screenshot)} target="_blank" rel="noreferrer">
-          <img
-            src={assetUrl(receipt.screenshot)}
-            alt="Application receipt screenshot"
-          />
-        </a>
-      )}
-    </div>
-  );
-}
+import { ReceiptView } from "../ReceiptView";
 export default function Runs() {
   const { t } = useApp();
   const [runs, setRuns] = useState<RunOut[]>([]),
