@@ -37,7 +37,10 @@ def merge(old: BaseModel, new: BaseModel) -> dict:
 
 
 def missing(data: ProfileData) -> list[str]:
-    return [f for f in KEY_FIELDS if getattr(data, f) is None]
+    gaps = [f for f in KEY_FIELDS if getattr(data, f) is None]
+    if data.is_student and "occupation" in gaps:
+        gaps.remove("occupation")  # "student" is the occupation, asking again sounds dumb
+    return gaps
 
 
 async def extract(text: str, current: ProfileData, current_sensitive: SensitiveData) -> tuple[ProfileData, SensitiveData]:

@@ -144,11 +144,12 @@ async def judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
         verdict, conf = "unknown", min(conf, 0.3)
     if dropped:
         conf *= 0.85
+    missing_info = j.missing_info or [r.claim for r in reasons if r.met is None]
 
     summary = SchemeSummary(**scheme.model_dump(include=set(SchemeSummary.model_fields)))
     return MatchResult(
         scheme=summary, verdict=verdict, confidence=round(conf, 2), reasons=reasons,
-        missing_info=j.missing_info, documents_needed=j.documents_needed,
+        missing_info=missing_info, documents_needed=j.documents_needed,
     )
 
 
