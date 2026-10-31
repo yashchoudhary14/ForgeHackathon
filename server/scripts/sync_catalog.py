@@ -59,9 +59,9 @@ async def save(rows: list[dict]):
         await session.commit()
 
 
-async def main(limit: int | None, batch: int):
+async def main(limit: int | None, batch: int, concurrency: int, pause: float):
     started = time.monotonic()
-    myscheme._limit = asyncio.Semaphore(24)  # one bulk job, myScheme handles this fine
+    myscheme._limit = asyncio.Semaphore(concurrency)  # myScheme answers 429 if pushed too hard
     await db.init_db()
     slugs = await all_slugs(limit)
     fresh = await fresh_slugs()
@@ -72,6 +72,10 @@ async def main(limit: int | None, batch: int):
     for offset in range(0, len(todo), batch):
         chunk = todo[offset:offset + batch]
         results = await asyncio.gather(*(myscheme.fetch_scheme(slug, "en") for slug in chunk), return_exceptions=True)
+        if sum(isinstance(r, Exception) for r in results) > len(chunk) // 2:
+            print("most of the batch failed (rate limit?), cooling down 3 min", flush=True)
+            await asyncio.sleep(180)
+            results = await asyncio.gather(*(myscheme.fetch_scheme(slug, "en") for slug in chunk), return_exceptions=True)
         fetched = []
         for slug, result in zip(chunk, results):
             if isinstance(result, Exception):
@@ -84,6 +88,7 @@ async def main(limit: int | None, batch: int):
             print("embedding batch failed:", type(e).__name__, flush=True)
             vectors = [None] * len(fetched)
         await save([{**values, "embedding": vector} for (_, values), vector in zip(fetched, vectors)])
+        await asyncio.sleep(pause)
         print(f"{min(offset + batch, len(todo))}/{len(todo)} done, {len(failed)} failed, "
               f"{time.monotonic() - started:.0f}s", flush=True)
 
@@ -96,5 +101,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, help="only the first N schemes (for a quick test)")
     parser.add_argument("--batch", type=int, default=200)
+    parser.add_argument("--concurrency", type=int, default=8)
+    parser.add_argument("--pause", type=float, default=5, help="seconds between batches")
     args = parser.parse_args()
-    asyncio.run(main(args.limit, args.batch))
+    asyncio.run(main(args.limit, args.batch, args.concurrency, args.pause))
