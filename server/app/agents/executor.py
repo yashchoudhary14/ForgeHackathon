@@ -63,6 +63,8 @@ Rules:
   `select` handles both native selects and custom overlay dropdowns. Never type into a closed dropdown.
 - Cascading fields may appear after each choice. Use the new observation, never reuse earlier ids.
 - For date inputs use the displayed date format. Never invent a date of birth from age; ask for it.
+- When DOB is supplied as <set>, use type(value_from="dob") on its input, even if readonly.
+  The local helper operates supported calendars without exposing the DOB to you.
 - Fill ordinary required fields before requesting CAPTCHA help. Never read or transcribe CAPTCHA images.
   After the human resumes, preserve their CAPTCHA entry and continue with the requested check.
 - A results list satisfies an eligibility-checking goal; do not apply to a scholarship from that list.
@@ -191,7 +193,10 @@ class RunSession:
                 left = deadline - time.monotonic()
                 if left <= 0:
                     raise TimeoutError("waited too long for the user")
-                msg = await asyncio.wait_for(self.inbox.get(), timeout=left)
+                try:
+                    msg = await asyncio.wait_for(self.inbox.get(), timeout=left)
+                except TimeoutError as exc:
+                    raise TimeoutError("Human response timed out after 15 minutes") from exc
                 t = msg.get("type")
                 if t == "abort":
                     raise asyncio.CancelledError("aborted by user")
@@ -356,12 +361,14 @@ def build_graph(rs: RunSession):
         hist = list(st.get("history", []))
         if msg["type"] == "human_input" and msg.get("value"):
             val = str(msg["value"])
-            if kind == "missing_field" and d.value_from:
-                rs.answers[d.value_from] = val
             el = next((e for e in st["snap"]["elements"] if e["id"] == d.element_id), {})
+            answer_key = d.value_from or el.get("formcontrolname") or el.get("name") or f"human_answer_{st['step']}"
+            if kind == "missing_field":
+                rs.answers[answer_key] = val
             if d.element_id and el.get("tag") in ("input", "textarea") and not el.get("readonly"):
                 await rs.browser.fill(d.element_id, val)  # OTP never goes to the model
-            hist.append({"step": st["step"], "action": f"ask_human({kind})", "result": "human supplied the answer; use value_from to enter it"})
+            hist.append({"step": st["step"], "action": f"ask_human({kind}): {d.message or ''}",
+                         "result": f"Human supplied an answer; use value_from={answer_key} to enter it"})
         else:
             hist.append({"step": st["step"], "action": f"ask_human({kind})", "result": "human finished it in the live view"})
         await rs.browser.settle()

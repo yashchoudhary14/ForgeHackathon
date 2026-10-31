@@ -28,6 +28,9 @@ class ProfileData(BaseModel):
     study_year: int | None = None
     institution_type: str | None = None
     parent_occupation: str | None = None
+    is_single_child: bool | None = None
+    is_hosteller: bool | None = None
+    institution_name: str | None = None
 
 
 class SensitiveData(BaseModel):

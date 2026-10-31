@@ -38,7 +38,11 @@ class Console:
     async def ask(self, m: dict):
         prompt = f"\n>>> AGENT NEEDS YOU ({m['kind']}): {m['message']}\n"
         prompt += ">>> type y to approve, abort to stop: " if m["kind"] == "confirm_submit" else ">>> answer, or Enter when done in browser: "
-        ans = (await asyncio.to_thread(input, prompt)).strip()
+        try:
+            ans = (await asyncio.to_thread(input, prompt)).strip()
+        except EOFError:
+            await self.rs.inbox.put({"type": "abort"})
+            return
         if ans == "abort":
             msg = {"type": "abort"}
         elif m["kind"] == "confirm_submit":

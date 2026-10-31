@@ -17,6 +17,8 @@ Rules:
 - The user may write in Hindi, Hinglish or any Indian language. Output field values in English.
 - Preserve stated religion, course, study_year (first year = 1), institution_type
   (e.g. government college), and parent_occupation separately from the citizen's occupation.
+- Preserve an explicitly stated is_single_child, is_hosteller and institution_name.
+  Explicitly not disabled means disability_percent=0; absence of disability information means null.
 """
 
 ASK_SYSTEM = """You are a friendly government-services helper talking to an ordinary citizen.

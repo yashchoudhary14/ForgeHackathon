@@ -3,6 +3,8 @@ import asyncio
 import base64
 import logging
 import json
+import re
+from datetime import datetime
 from typing import Awaitable, Callable
 from urllib.parse import urlparse
 
@@ -13,6 +15,13 @@ from ..config import get_settings
 log = logging.getLogger(__name__)
 
 VIEWPORT = {"width": 1280, "height": 800}
+
+
+def _same_date(value, fmt, expected):
+    try:
+        return datetime.strptime(value, fmt).date() == expected
+    except ValueError:
+        return False
 
 
 def option_index(texts: list[str], value: str) -> int:
@@ -266,6 +275,12 @@ class Browser:
     async def fill(self, element_id: int, value: str):
         loc = self.el(element_id)
         await loc.scroll_into_view_if_needed(timeout=5000)
+        if await loc.evaluate("e => !!e.readOnly"):
+            hints = await loc.evaluate("e => [e.name,e.id,e.getAttribute('formcontrolname'),e.placeholder].join(' ')")
+            if re.search(r"date|dob|birth", hints, re.I):
+                await self._fill_calendar(loc, value)
+                return
+            raise ValueError("Readonly field: open its chooser instead of typing")
         try:
             await loc.fill(value, timeout=8000)
         except Exception:
@@ -275,6 +290,42 @@ class Browser:
             await self.page.keyboard.type(value, delay=40)
         await loc.dispatch_event("change")
         await loc.dispatch_event("blur")
+
+    async def _fill_calendar(self, loc, value: str):
+        date = None
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                date = datetime.strptime(value, fmt).date()
+                break
+            except ValueError:
+                pass
+        if date is None:
+            raise ValueError("Date must be DD/MM/YYYY or YYYY-MM-DD")
+        field = loc.locator('xpath=ancestor::mat-form-field[1]')
+        if not await field.count():
+            raise ValueError("Readonly date field needs a supported calendar chooser")
+        await field.get_by_role("button", name=re.compile("open calendar", re.I)).click()
+        cal = self.page.locator('mat-calendar:visible').first
+        await cal.wait_for(state="visible", timeout=3000)
+        await cal.get_by_role("button", name="Choose month and year", exact=True).click()
+        year = cal.get_by_role("button", name=str(date.year), exact=True)
+        for _ in range(12):
+            if await year.count():
+                break
+            years = [int(y) for y in await cal.get_by_role("button").all_text_contents()
+                     if y.strip().isdigit() and len(y.strip()) == 4]
+            if not years:
+                raise ValueError("Calendar did not expose a year grid")
+            direction = "Previous" if date.year < min(years) else "Next"
+            await cal.get_by_role("button", name=re.compile(direction + r".*years", re.I)).click()
+        await year.click(timeout=2000)
+        await cal.get_by_role("button", name=f"{date.strftime('%B')} {date.year}", exact=True).click()
+        await cal.get_by_role("button", name=f"{date.day} {date.strftime('%B')} {date.year}", exact=True).click()
+        await self.settle()
+        entered = await loc.input_value()
+        formats = ("%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y")
+        if not any(_same_date(entered, fmt, date) for fmt in formats):
+            raise ValueError("Calendar did not retain the requested date")
 
     async def select(self, element_id: int, value: str):
         loc = self.el(element_id)
