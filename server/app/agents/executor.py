@@ -365,6 +365,9 @@ def build_graph(rs: RunSession):
 
     async def observe(st: State) -> State:
         snap = await rs.browser.snapshot()
+        if snap.get("loading"):
+            await rs.browser.settle()
+            snap = await rs.browser.snapshot()
         shot = await rs.browser.decision_screenshot()
         dig = _digest(snap)
         hist = list(st.get("history", []))
@@ -381,6 +384,11 @@ def build_graph(rs: RunSession):
 
     async def decide(st: State) -> State:
         snap = st["snap"]
+        if snap.get("loading"):
+            errors = "; ".join(snap.get("network_errors", []))
+            return {"decision": Decision(thought="The portal loading overlay is blocking the form.",
+                    action="ask_human", kind="missing_field",
+                    message="The portal is still blocked by its loading overlay. " + (errors or "Please check the live browser.")), "remaining": []}
         if st.get("stagnant", 0) >= 3:
             errors = "; ".join(snap.get("network_errors", []))
             message = "The portal has not changed after three attempts. " + (errors or "Please check the live browser before continuing.")

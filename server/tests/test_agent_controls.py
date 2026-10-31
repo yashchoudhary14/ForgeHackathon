@@ -21,10 +21,13 @@ def test_portal_errors_expose_status_and_path_only_and_clear_on_recovery():
     response.status = 200
     browser._response(response)
     assert not browser.network_errors
-    for url in ("https://scholarships.gov.in/api/imageCaptcha", "https://example.com/analytics"):
+    for url in ("https://scholarships.gov.in/api/otp", "https://example.com/analytics"):
         response.url, response.status = url, 503
         browser._response(response)
     assert not browser.network_errors
+    response.url = "https://scholarships.gov.in/api/imageCaptcha"
+    browser._response(response)
+    assert browser.network_errors == {"POST /api/imageCaptcha": 503}
 
 
 def test_negated_option_with_internal_space_matches_exactly():

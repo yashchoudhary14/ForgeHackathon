@@ -156,7 +156,8 @@ SNAPSHOT_JS = r"""
   const body = textRoot ? textRoot.innerText.replace(/\s+/g, ' ').slice(0, 2500) : '';
   const steps = [...document.querySelectorAll('[aria-current="step"], [role="tab"][aria-selected="true"]')]
     .filter(vis).map(e => e.innerText.trim());
-  return { elements: out, errors: errs, headings: heads, steps, captcha, text: body };
+  const loading = [...document.querySelectorAll('[aria-busy=true], mat-progress-spinner, mat-spinner, .ngx-spinner-overlay, .loading-overlay, .spinner-overlay')].some(vis);
+  return { elements: out, errors: errs, headings: heads, steps, captcha, loading, text: body };
 }
 """
 
@@ -235,7 +236,7 @@ class Browser:
 
     def _response(self, response):
         request = response.request
-        if not allowed(response.url) or request.resource_type not in ("xhr", "fetch") or re.search(r"captcha|otp|password", response.url, re.I):
+        if not allowed(response.url) or request.resource_type not in ("xhr", "fetch") or re.search(r"otp|password", response.url, re.I):
             return
         # Only method/path/status are exposed; response bodies and query values stay private.
         key = f"{request.method} {urlparse(response.url).path}"
@@ -260,7 +261,8 @@ class Browser:
                 await self.page.wait_for_load_state("networkidle", timeout=5000)
             except PlaywrightTimeout:
                 pass  # polling pages need not become idle
-            if attempt == 2 or not any(status in (502, 503, 504) for status in self.network_errors.values()):
+            blocked = await self.page.locator('.ngx-spinner-overlay:visible, .loading-overlay:visible, .spinner-overlay:visible').count()
+            if attempt == 2 or not (blocked or any(status in (502, 503, 504) for status in self.network_errors.values())):
                 break
             # Recover only during initial page loading, before any citizen data is entered.
             # Do not replay POST requests or refresh a partially completed form.
@@ -270,7 +272,7 @@ class Browser:
         # Analytics and polling need not finish before a form can be used.
         await self.page.wait_for_load_state("domcontentloaded", timeout=10000)
         await self.page.wait_for_timeout(150)
-        busy = self.page.locator('[aria-busy="true"], mat-progress-spinner, mat-spinner').filter(visible=True)
+        busy = self.page.locator('[aria-busy="true"], mat-progress-spinner, mat-spinner, .ngx-spinner-overlay, .loading-overlay, .spinner-overlay').filter(visible=True)
         if await busy.count():
             try:
                 await busy.first.wait_for(state="hidden", timeout=2000)
