@@ -16,7 +16,8 @@ export default function Scheme() {
     [busy, setBusy] = useState(""),
     [explanation, setExplanation] = useState<ExplainOut | null>(null),
     [apply, setApply] = useState(false),
-    [portal, setPortal] = useState("");
+    [portal, setPortal] = useState(""),
+    [goal, setGoal] = useState("");
   const retryAction = useRef<() => void>(() => {});
   async function load() {
     retryAction.current = () => void load();
@@ -27,9 +28,10 @@ export default function Scheme() {
     setApply(false);
     try {
       const out = await request<SchemeDetail>(
-        `/schemes/${encodeURIComponent(slug)}?lang=${lang}`,
+        `/schemes/${encodeURIComponent(slug)}?lang=${lang === "hi" ? "hi" : "en"}`,
       );
       setScheme(out);
+      setGoal(`Apply for ${out.name}`);
       setPortal(out.application.find((a) => a.url)?.url || "");
     } catch (e) {
       setError((e as Error).message);
@@ -68,7 +70,7 @@ export default function Scheme() {
       const out = await post<RunOut>("/agent/runs", {
         profile_id: profileId,
         portal_url: portal,
-        goal: `Apply for ${scheme?.name}`,
+        goal: goal.trim(),
         scheme_slug: slug,
       });
       navigate("/runs/" + encodeURIComponent(out.id));
@@ -176,7 +178,15 @@ export default function Scheme() {
                     onChange={(e) => setPortal(e.target.value)}
                     placeholder="https://…"
                   />
-                  <button disabled={!!busy || !safeUrl(portal)}>
+                  <label htmlFor="application-goal">What should the assistant do?</label>
+                  <textarea
+                    id="application-goal"
+                    required
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    disabled={!!busy}
+                  />
+                  <button disabled={!!busy || !safeUrl(portal) || !goal.trim()}>
                     <Text
                       value={busy === "run" ? "Starting…" : "Start application"}
                     />

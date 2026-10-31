@@ -26,3 +26,5 @@ CLAUDE.md
 server/storage/
 SESSION_LOG.md
 *SESSION_LOG*.md
+server/secrets/
+*service-account*.json

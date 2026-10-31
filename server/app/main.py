@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -7,15 +8,20 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .db import init_db
+from .services import llm
 from .routers import agent, assist, chat, documents, profile, schemes, voice
 
 settings = get_settings()
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("google_genai").setLevel(logging.WARNING)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Path(settings.storage_dir).mkdir(parents=True, exist_ok=True)
     await init_db()
+    await llm.initialize_pool()
     yield
 
 
@@ -38,3 +44,8 @@ app.mount("/files", StaticFiles(directory=settings.storage_dir), name="files")
 @app.get("/api/health")
 async def health():
     return {"ok": True, "model": settings.gemini_model}
+
+
+@app.get("/api/health/llm")
+async def llm_health():
+    return await llm.health_status()

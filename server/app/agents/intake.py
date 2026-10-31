@@ -65,4 +65,7 @@ async def follow_up(data: ProfileData, language: str) -> str | None:
         return None
     ask = gaps[:2]  # two at a time feels natural, more is an interrogation
     prompt = f"Language: {language}\nAlready known: {data.model_dump_json(exclude_none=True)}\nMissing: {', '.join(ask)}"
-    return (await llm.generate(prompt, system=ASK_SYSTEM, temperature=0.4)).strip()
+    async def question():
+        return (await llm.generate(prompt, system=ASK_SYSTEM, temperature=0.4, model="lite")).strip()
+
+    return await llm.cached("intake.follow_up", [data.model_dump(exclude_none=True), language, ask, ASK_SYSTEM], question)
