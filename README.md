@@ -5,11 +5,15 @@ Know your rights, claim them. Forge Gen AI buildathon - Theme 1 (Civic Pulse).
 Run the API from `server/` with `uvicorn app.main:app`. PostgreSQL must have pgvector;
 startup creates the tables, including `llm_cache`.
 
+Judge deployment: see [DEPLOYMENT.md](DEPLOYMENT.md) for the Docker image,
+Neon/Vercel setup, verification commands, and the current HF free-hosting blocker.
+
 ### Gemini free-tier demo
 
 Configure `GEMINI_API_KEY` and `GEMINI_MODEL_POOL` in `server/.env` (see
-`server/.env.example`). Startup probes each pool model once with a 10-second
-deadline and only uses models that answer. Probes count against the same RPM
+`server/.env.example`). Startup probes each pool model with a 10-second
+deadline and only uses models that answer. Results (including failures) persist
+in Postgres and are reused across restarts for less than one hour. Probes count against the same RPM
 window as normal calls. The pool takes precedence over the legacy primary/fallback
 settings; existing explicit `model=` names remain class hints. `model="lite"` and
 `model="strong"` prefer that class, with fallback to available capacity.
