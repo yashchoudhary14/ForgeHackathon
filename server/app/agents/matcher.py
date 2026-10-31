@@ -18,6 +18,10 @@ For every distinct criterion in the official text produce one reason:
 - met: true / false / null (null = profile doesn't say, we need to ask)
 - quote: copy the exact words from the official text that state this criterion (verbatim, max 30 words). No paraphrase.
 - section: "eligibility", "exclusions", or "details"
+- For exclusions, also set exclusion_applies: true if the exclusion applies to this citizen,
+  false if it clearly does not, null if unknown. met means the citizen PASSES the restriction,
+  not whether the excluded condition is true. Never infer a completed prior degree or receipt
+  of another scholarship from missing data or from being a first-year undergraduate.
 Then give a verdict:
 - eligible: every criterion met and no exclusion applies
 - likely: nothing failed but some are unknown
@@ -56,6 +60,7 @@ class _Reason(BaseModel):
     met: bool | None
     quote: str
     section: str
+    exclusion_applies: bool | None = None
 
 
 class _Judgement(BaseModel):
@@ -76,8 +81,30 @@ def target_text(scheme: SchemeDetail) -> str:
     return f"{scheme.name}\n{scheme.brief or ''}\n{scheme.details_md}"
 
 
+def occupational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
+    """An exhaustive farmer-only eligibility list needs a stated farming role.
+
+    This is recommendation triage, not a formal finding of ineligibility. Do not
+    mistake farmer-family scholarships or mixed student/farmer groups for own-role credit.
+    """
+    occupation = _norm(p.occupation or "")
+    if not (p.is_student or occupation == "student"):
+        return False
+    if (p.land_acres or 0) > 0 or re.search(r"farm|agricultur|cultivat|fish|livestock|animal husbandry", occupation):
+        return False
+    text = _norm(scheme.eligibility_md)
+    if re.search(r"\b(children|child|wards|sons|daughters|dependents|students|families|family)\b", text):
+        return False
+    lines = [_norm(line) for line in scheme.eligibility_md.splitlines() if _norm(line)]
+    lines = [line for line in lines if line not in ("eligibility", "eligibility criteria")]
+    return bool(lines) and all(re.search(r"\b(farmers?|cultivators?|tenant farmers?|share croppers?|sharecroppers?|oral lessees)\b", line) for line in lines)
+
+
 async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
     """True means keep. Unsupported drops and unavailable triage fail open."""
+    if occupational_target_mismatch(p, scheme):
+        log.info("triage dropped %s: farmer-only target without a stated farming role", scheme.slug)
+        return False
     official = f"{target_text(scheme)}\n{scheme.eligibility_md}\n{scheme.exclusions_md}"
     try:
         async def screen():
@@ -207,8 +234,11 @@ async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
     for r in j.reasons:
         src = sources.get(r.section, "")
         if quote_found(r.quote, src):
+            met = r.met
+            if r.section == "exclusions":
+                met = None if r.exclusion_applies is None else not r.exclusion_applies
             reasons.append(Reason(
-                claim=r.claim, met=r.met,
+                claim=r.claim, met=met,
                 citation=Citation(source_url=scheme.source_url, title=scheme.name, quote=r.quote, section=r.section),
             ))
         else:

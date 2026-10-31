@@ -60,6 +60,8 @@ def detail(slug, name, eligibility):
     (False, "", True),
 ])
 async def test_triage_requires_official_target_evidence(monkeypatch, drop, quote, keep):
+    # Isolate the model-evidence gate; the deterministic occupation gate has recorded-source tests.
+    monkeypatch.setattr(matcher, "occupational_target_mismatch", lambda p, s: False)
     result = matcher._Triage(drop=drop, reason="Citizen is a student", quote=quote)
     monkeypatch.setattr(llm, "cached", AsyncMock(return_value=result.model_dump()))
     scheme = detail("farm", "Farm credit", "Farmers who are owner cultivators")
@@ -111,3 +113,16 @@ async def test_judge_can_verify_course_restriction_in_description(monkeypatch):
     assert judged.verdict == "not_eligible"
     assert judged.reasons[0].citation.section == "details"
     assert scheme.details_md in generate.await_args.args[0]
+
+
+@pytest.mark.parametrize("applies,expected", [(False, "eligible"), (True, "not_eligible"), (None, "likely")])
+async def test_exclusion_polarity_is_explicit(monkeypatch, applies, expected):
+    scheme = detail("study", "Post-matric", "The applicant should be a student.")
+    scheme.exclusions_md = "A student who already completed an equivalent degree is excluded."
+    result = matcher._Judgement(verdict="not_eligible", confidence=0.9, missing_info=[], documents_needed=[], reasons=[
+        matcher._Reason(claim="Student", met=True, quote=scheme.eligibility_md, section="eligibility"),
+        matcher._Reason(claim="Prior equivalent degree", met=False, quote=scheme.exclusions_md,
+                        section="exclusions", exclusion_applies=applies),
+    ])
+    monkeypatch.setattr(llm, "generate_json", AsyncMock(return_value=result))
+    assert (await matcher._judge(BIHAR_STUDENT, scheme)).verdict == expected

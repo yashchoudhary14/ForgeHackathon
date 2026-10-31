@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from app.agents.matcher import target_text
+from app.agents.matcher import occupational_target_mismatch, target_text
 from app.schemas import ProfileData, SchemeDetail
 
 
@@ -26,3 +26,11 @@ def test_both_recorded_post_matric_schemes_have_sc_and_income_rules():
         scheme = recorded(slug)
         assert "Scheduled Caste" in scheme.eligibility_md
         assert "income" in scheme.eligibility_md
+
+
+def test_farmer_credit_needs_farming_evidence_but_student_can_also_farm():
+    student = ProfileData(is_student=True, occupation="student", course="B.Sc")
+    assert occupational_target_mismatch(student, recorded("kcc"))
+    student.land_acres = 2
+    assert not occupational_target_mismatch(student, recorded("kcc"))
+    assert not occupational_target_mismatch(student, recorded("pmsscstb"))
