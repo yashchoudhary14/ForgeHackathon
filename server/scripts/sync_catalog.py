@@ -16,8 +16,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import select  # noqa: E402
 from sqlalchemy.dialects.postgresql import insert  # noqa: E402
 
+from google.genai import types  # noqa: E402
+
 from app import db, models  # noqa: E402
-from app.services import myscheme  # noqa: E402
+from app.config import get_settings  # noqa: E402
+from app.services import llm, myscheme  # noqa: E402
 
 
 all_slugs = myscheme.all_slugs
@@ -31,13 +34,28 @@ async def fresh_slugs() -> set[str]:
         return set(rows.scalars())
 
 
+async def embed(details) -> list[list[float]]:
+    """one embedding call per 100 schemes, skipping the per-text cache writes llm.embed does"""
+    settings = get_settings()
+    vectors = []
+    for i in range(0, len(details), 100):
+        texts = [f"{d.name}\n{d.brief or ''}\n{d.eligibility_md}" for d in details[i:i + 100]]
+        response, *_ = await llm._run_call(lambda name: llm.client().aio.models.embed_content(
+            model=name, contents=texts, config=types.EmbedContentConfig(
+                task_type="RETRIEVAL_DOCUMENT", output_dimensionality=settings.embed_dim)), kind="embedding")
+        vectors += [e.values for e in response.embeddings]
+    return vectors
+
+
 async def save(rows: list[dict]):
-    # one session per batch: a session per scheme exhausts the pool on a remote db
+    # one statement per batch: a round trip per scheme is far too slow on a remote db
+    if not rows:
+        return
+    stmt = insert(models.Scheme).values(rows)
+    stmt = stmt.on_conflict_do_update(index_elements=[models.Scheme.slug, models.Scheme.lang],
+                                      set_={c: stmt.excluded[c] for c in ("scheme_id", "name", "data", "embedding", "fetched_at")})
     async with db.SessionLocal() as session:
-        for values in rows:
-            changed = {key: value for key, value in values.items() if key != "embedding"}
-            await session.execute(insert(models.Scheme).values(**values).on_conflict_do_update(
-                index_elements=[models.Scheme.slug, models.Scheme.lang], set_=changed))
+        await session.execute(stmt)
         await session.commit()
 
 
@@ -60,10 +78,12 @@ async def main(limit: int | None, batch: int):
                 failed.append((slug, f"{type(result).__name__}: {result}"[:120]))
             else:
                 fetched.append(result)
-        await save([values for _, values in fetched])
-        details = [detail for detail, _ in fetched]
-        for i in range(0, len(details), 100):
-            await myscheme.index_schemes(details[i:i + 100])
+        try:
+            vectors = await embed([detail for detail, _ in fetched])
+        except Exception as e:  # rows still help matching without the semantic index
+            print("embedding batch failed:", type(e).__name__, flush=True)
+            vectors = [None] * len(fetched)
+        await save([{**values, "embedding": vector} for (_, values), vector in zip(fetched, vectors)])
         print(f"{min(offset + batch, len(todo))}/{len(todo)} done, {len(failed)} failed, "
               f"{time.monotonic() - started:.0f}s", flush=True)
 
