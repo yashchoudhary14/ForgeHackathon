@@ -205,7 +205,7 @@ export interface RunOut {
   steps: RunStepOut[];
 }
 export type HumanKind =
-  "captcha" | "otp" | "missing_field" | "confirm_submit" | "login";
+  | "captcha" | "otp" | "missing_field" | "confirm_submit" | "confirm_upload" | "login" | "payment";
 export type ServerMessage =
   | { type: "frame"; jpeg: string }
   | { type: "step"; step: RunStepOut }
@@ -219,3 +219,14 @@ export type ClientMessage =
   | { type: "type"; text: string }
   | { type: "key"; key: string }
   | { type: "resume" | "approve" | "abort" };
+
+export interface NotificationOut {
+  id: number | string;
+  kind: string;
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  read: boolean;
+  created_at: string;
+  meta?: Record<string, unknown> | null;
+}
