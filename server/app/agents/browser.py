@@ -339,6 +339,11 @@ class Browser:
     async def select(self, element_id: int, value: str):
         loc = self.el(element_id)
         if await loc.evaluate("el => el.tagName !== 'SELECT'"):
+            if await loc.get_attribute("role") == "option":
+                option_index([await loc.inner_text()], value)
+                await loc.click(timeout=5000)
+                await self.settle()
+                return
             if await loc.get_attribute("role") != "combobox":
                 raise ValueError("Target is not a select or combobox; use the current observation's field id")
             # ARIA comboboxes (including Angular Material) render options in a portal.

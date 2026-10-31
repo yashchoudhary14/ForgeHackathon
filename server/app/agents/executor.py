@@ -65,6 +65,10 @@ Rules:
 - Do not interact with disabled controls. Complete enabled prerequisite fields first.
 - Use citizen keys from the supplied profile, not portal control names. Social community uses caste;
   hostel status uses is_hosteller, and explicit disability_percent=0 means not disabled.
+- Translate portal education categories from course/education_level: undergraduate study is post-matric.
+  A workflow choice explicitly requested in the GOAL can use value_from="goal" and its exact option label.
+- Human answers are available in CITIZEN under their recorded keys. Use those keys; never ask the same
+  question again after an answer is recorded. Personal answers remain hidden as <set>.
 - For date inputs use the displayed date format. Never invent a date of birth from age; ask for it.
 - When DOB is supplied as <set>, use type(value_from="dob") on its input, even if readonly.
   The local helper operates supported calendars without exposing the DOB to you.
@@ -179,12 +183,17 @@ class RunSession:
     def citizen_view(self) -> dict:
         view = {k: v for k, v in self.profile.items() if v is not None}
         view.update({k: "<set>" for k in self.sensitive})
-        view.update({k: "<set>" for k in self.answers})
+        personal = re.compile(r"name|phone|mobile|email|dob|birth|address|bank|ifsc|aadhaar|account|password|otp|human_answer_", re.I)
+        view.update({k: "<set>" if personal.search(k) else v for k, v in self.answers.items()})
         return view
 
     def resolve(self, d: Decision) -> str:
         if d.value_from:
             key = d.value_from.strip()
+            if key == "goal":
+                if d.action != "select" or not d.value or not re.search(r"(?<!\w)" + re.escape(d.value) + r"(?!\w)", self.goal, re.I):
+                    raise ValueError("Workflow choice must be explicitly named in the goal")
+                return d.value
             for src in (self.sensitive, self.answers, self.profile):
                 if key in src and src[key] not in (None, ""):
                     if d.action == "select" and d.value and key not in self.sensitive:
@@ -315,7 +324,11 @@ def build_graph(rs: RunSession):
             d = d.model_copy(update={"action": "ask_human", "kind": "captcha", "message": "Please solve the CAPTCHA, then press Continue."})
         if d.action == "type" and el and el.get("type") == "password":
             d = d.model_copy(update={"action": "ask_human", "kind": "login", "message": "Please enter your password yourself, then press Continue."})
-        d = require_source(d, el, {**rs.profile, **rs.sensitive, **rs.answers})
+        workflow = bool(el and re.search(r"application|service|benefit|scholarship|incentive|language|workflow|scheme|sort|page", el.get("label", ""), re.I))
+        known = {**rs.profile, **rs.sensitive, **rs.answers}
+        if workflow and d.action == "select" and d.value and re.search(r"(?<!\w)" + re.escape(d.value) + r"(?!\w)", rs.goal, re.I):
+            known["goal"] = rs.goal
+        d = require_source(d, el, known)
         return {"decision": d}
 
     async def act(st: State) -> State:

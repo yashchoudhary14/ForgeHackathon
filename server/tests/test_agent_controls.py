@@ -46,3 +46,17 @@ def test_boolean_sources_use_portal_yes_no_labels(answer, label):
     rs = RunSession("unit", "", "https://scholarships.gov.in/", {"is_single_child": answer}, {})
     decision = Decision(thought="Select supplied answer", action="select", value_from="is_single_child")
     assert rs.resolve(decision) == label
+
+
+def test_human_answers_visible_except_personal_fields():
+    rs = RunSession("unit", "", "https://scholarships.gov.in/", {}, {})
+    rs.answers.update(scheme_type_id="Post Matric/Top Class/MCM", dob="23/04/2007")
+    assert rs.citizen_view()["scheme_type_id"] == "Post Matric/Top Class/MCM"
+    assert rs.citizen_view()["dob"] == "<set>"
+
+
+def test_goal_cannot_supply_unspecified_application_history():
+    rs = RunSession("unit", "Check scholarship eligibility", "https://scholarships.gov.in/", {}, {})
+    assert rs.resolve(Decision(thought="Workflow choice", action="select", value_from="goal", value="Scholarship")) == "Scholarship"
+    with pytest.raises(ValueError):
+        rs.resolve(Decision(thought="Unknown history", action="select", value_from="goal", value="Renewal"))
