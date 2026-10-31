@@ -176,8 +176,40 @@ def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
     if p.occupation:
         kws.append(p.occupation)
     if p.land_acres:
-        kws.append("farmer")
+        kws.extend(["kisan samman nidhi", "kisan credit card", "crop insurance", "farmer"])
+    if p.age is not None and p.age >= 60:
+        kws.append("old age pension")
+    if "widow" in (p.marital_status or "").lower():
+        kws.append("widow pension")
+    if p.disability_percent:
+        kws.extend(["disability employment", "disabled self employment", "disability aids"])
+    if p.is_pregnant:
+        kws.extend(["maternity", "janani suraksha", "mamata"])
+    if "street vendor" in (p.occupation or "").lower():
+        kws.append("svanidhi")
     return list(dict.fromkeys(kws)) or [""]
+
+
+def candidate_priority(p: ProfileData, s: SchemeSummary) -> int:
+    """Rank explicit beneficiary matches before generic search hits, before capping.
+
+    Stable sorting preserves search relevance within each priority. This is a
+    retrieval hint only: official eligibility still decides the verdict.
+    """
+    title = _norm(s.name)
+    category = CASTE_NAMES.get(p.caste or "")
+    category_hit = bool(category and category in title)
+    state_hit = bool(p.state and (s.state == p.state or _norm(p.state) in title))
+    target_hit = bool(
+        (p.is_student and "scholarship" in title)
+        or (p.land_acres and re.search(r"kisan|farmer|crop", title))
+        or (p.age is not None and p.age >= 60 and "old age" in title)
+        or ("widow" in (p.marital_status or "").lower() and "widow" in title)
+        or (p.disability_percent and re.search(r"disab|divyang", title))
+        or (p.is_pregnant and re.search(r"maternity|matru|janani|mamata", title))
+        or ("street vendor" in (p.occupation or "").lower() and re.search(r"svanidhi|street vendor", title))
+    )
+    return 4 * category_hit + 2 * target_hit + state_hit
 
 
 async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[SchemeSummary]:
@@ -196,11 +228,15 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
     # state-only pass recovers these; official eligibility is checked later.
     queries = [(kw, filters) for kw in keywords_for(p, keyword)]
     recall_filters = {"state": p.state} if p.state else {}
-    queries.extend((kw, recall_filters) for kw in keywords_for(p, keyword) if kw and "scholarship" in kw)
+    queries.extend((kw, recall_filters) for kw in keywords_for(p, keyword) if kw)
     # central schemes (e.g. post matric for SC) carry no state tag, run the category queries unfiltered too
     caste = CASTE_NAMES.get(p.caste or "")
     if caste:
         queries.extend((kw, {}) for kw in keywords_for(p, keyword) if caste in kw)
+    # National programmes may lack state and demographic facets too.
+    queries.extend((kw, {}) for kw in keywords_for(p, keyword)
+                   if kw and kw != p.occupation and "scholarship" not in kw)
+    queries = list({(kw, tuple(sorted(f.items()))): (kw, f) for kw, f in queries}.values())
     pages = await asyncio.gather(*(search(kw, f) for kw, f in queries))
     # Interleave pages so one generic page cannot crowd out state/category hits.
     for i in range(max((len(page) for page in pages), default=0)):
@@ -218,7 +254,7 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
                     seen.setdefault(s.slug, s)
     except Exception as e:
         log.info("semantic search skipped: %s", e)
-    return list(seen.values())[: max(32, limit * 4)]
+    return sorted(seen.values(), key=lambda s: candidate_priority(p, s), reverse=True)[: max(32, limit * 4)]
 
 
 async def judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:

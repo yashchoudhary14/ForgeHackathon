@@ -48,6 +48,37 @@ async def test_recall_keeps_working_when_a_search_fails(monkeypatch):
     assert await matcher.candidates(BIHAR_STUDENT, None, 8) == [central]
 
 
+async def test_specific_central_hit_below_interleaved_cap_is_promoted(monkeypatch):
+    central = SchemeSummary(slug="pmssc", name="Post Matric Scholarship For Scheduled Caste", state="All")
+
+    async def search(kw, filters, **kwargs):
+        items = [SchemeSummary(slug=f"{kw}-{len(filters)}-{i}", name="Generic scholarship") for i in range(12)]
+        if kw == "post matric scholarship scheduled caste" and not filters:
+            items[-1] = central
+        return SearchOut(total=len(items), items=items)
+
+    monkeypatch.setattr(myscheme, "search", search)
+    monkeypatch.setattr(myscheme, "semantic_search", AsyncMock(return_value=[]))
+    found = await matcher.candidates(BIHAR_STUDENT, None, 8)
+    assert len(found) == 32
+    assert found[0].slug == "pmssc"
+
+
+@pytest.mark.parametrize("profile,query", [
+    (ProfileData(land_acres=2), "kisan samman nidhi"),
+    (ProfileData(age=68, marital_status="widow"), "old age pension"),
+    (ProfileData(disability_percent=40), "disabled self employment"),
+    (ProfileData(is_pregnant=True), "janani suraksha"),
+    (ProfileData(occupation="street vendor"), "svanidhi"),
+])
+async def test_special_groups_get_relaxed_and_national_recall(monkeypatch, profile, query):
+    search = AsyncMock(return_value=SearchOut(total=0, items=[]))
+    monkeypatch.setattr(myscheme, "search", search)
+    monkeypatch.setattr(myscheme, "semantic_search", AsyncMock(return_value=[]))
+    await matcher.candidates(profile.model_copy(update={"state": "Delhi"}), None, 8)
+    assert any(c.args[0] == query and c.kwargs["filters"] == {} for c in search.await_args_list)
+
+
 def detail(slug, name, eligibility):
     return SchemeDetail(id=slug, slug=slug, name=name, eligibility_md=eligibility,
                         source_url=f"https://www.myscheme.gov.in/schemes/{slug}")

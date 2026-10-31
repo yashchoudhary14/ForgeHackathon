@@ -23,6 +23,7 @@ class ProfileData(BaseModel):
     disability_percent: int | None = None
     marital_status: str | None = None
     is_bpl: bool | None = None
+    is_pregnant: bool | None = None
     land_acres: float | None = None
     is_minority: bool | None = None
     religion: str | None = None
