@@ -87,7 +87,10 @@ SNAPSHOT_JS = r"""
     cands.add(el);
   }
   for (const el of cands) {
-    if (!vis(el) || el.closest('[aria-hidden=true]')) continue;
+    // Some portals leave the application aria-hidden after closing nested dialogs.
+    // With no active dialog, visible controls remain usable despite that stale ancestor.
+    if (!vis(el) || el.getAttribute('aria-hidden') === 'true' ||
+        (root !== document && el.closest('[aria-hidden=true]'))) continue;
     if (el.tagName === 'LABEL' && el.htmlFor) {
       // styled radios/checkboxes: the real input is hidden, so the label is what you click
       const target = document.getElementById(el.htmlFor);

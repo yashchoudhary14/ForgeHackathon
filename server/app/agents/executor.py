@@ -89,6 +89,8 @@ Rules:
 - For date inputs use the displayed date format. Never invent a date of birth from age; ask for it.
 - When DOB is supplied as <set>, use type(value_from="dob") on its input, even if readonly.
   The local helper operates supported calendars without exposing the DOB to you.
+- Other readonly text fields often open a lookup dialog. Click them to select a value;
+  do not try to type into a readonly institution, university or board lookup.
 - Fill ordinary required fields before requesting CAPTCHA help. Never read or transcribe CAPTCHA images.
   After the human resumes, preserve their CAPTCHA entry and continue with the requested check.
 - A results list satisfies an eligibility-checking goal; do not apply to a scholarship from that list.
