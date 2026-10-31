@@ -26,8 +26,9 @@ def cache_key(namespace: str, parts) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-async def read(key: str):
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=get_settings().llm_cache_ttl_hours)
+async def read(key: str, *, ttl_hours: float | None = None):
+    cutoff = datetime.now(timezone.utc) - timedelta(
+        hours=get_settings().llm_cache_ttl_hours if ttl_hours is None else ttl_hours)
     try:
         async with SessionLocal() as session:
             row = await session.scalar(select(LLMCache).where(LLMCache.key == key, LLMCache.created_at >= cutoff))

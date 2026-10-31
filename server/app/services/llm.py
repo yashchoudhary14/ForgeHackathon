@@ -1,5 +1,6 @@
 """thin wrapper over gemini so the rest of the code doesnt care about the sdk"""
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -48,7 +49,19 @@ def pool() -> ModelPool:
 
 async def initialize_pool() -> ModelPool:
     scheduler = pool()
-    await scheduler.probe(client, get_settings().gemini_probe_timeout)
+    settings = get_settings()
+    # Separate projects/configurations without storing the API key in the DB.
+    fingerprint = hashlib.sha256(settings.gemini_api_key.encode()).hexdigest()
+    key = cache_key("model_probe_v1", [fingerprint, settings.model_pool,
+                                     settings.gemini_rpm, settings.gemini_model_rpm])
+
+    async def load():
+        return await llm_cache.read(key, ttl_hours=1)
+
+    async def save(value):
+        await llm_cache.write(key, value)
+
+    await scheduler.probe(client, settings.gemini_probe_timeout, load=load, save=save)
     return scheduler
 
 
