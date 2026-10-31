@@ -1,8 +1,13 @@
 import type { ChatEvent, ChatIn } from "./types";
 import { createSseParser } from "./sse";
-export const BASE = (
-  import.meta.env.VITE_API_URL || "http://localhost:8000"
-).replace(/\/$/, "");
+export const BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000")
+  .trim()
+  .replace(/\/+$/, "");
+export function websocketUrl(path: string): string {
+  const url = new URL(BASE + "/api" + path);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.href;
+}
 export const assetUrl = (url: string) => safeUrl(url);
 export function safeUrl(url?: string | null): string | undefined {
   if (!url) return;

@@ -1,7 +1,7 @@
 import { Text } from "../context";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { BASE, request } from "../api/client";
+import { request, websocketUrl } from "../api/client";
 import { applyRunEvent, isTerminal, mergeRunSnapshot } from "../api/run-state";
 import type {
   ClientMessage,
@@ -47,12 +47,9 @@ export default function Run() {
     const connect = () => {
       if (disposed || finished) return;
       setConnection(attempts ? "Reconnecting…" : "Connecting…");
-      const url = new URL(BASE);
-      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-      url.pathname =
-        url.pathname.replace(/\/$/, "") +
-        `/api/agent/runs/${encodeURIComponent(id)}/ws`;
-      const ws = new WebSocket(url);
+      const ws = new WebSocket(
+        websocketUrl(`/agent/runs/${encodeURIComponent(id)}/ws`),
+      );
       const liveSteps = new Set<number>();
       socket.current = ws;
       ws.onopen = () => {

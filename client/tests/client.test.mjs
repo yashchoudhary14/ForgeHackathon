@@ -7,12 +7,19 @@ import { renderToStaticMarkup } from "react-dom/server";
 const server = await createServer({
   server: { middlewareMode: true },
   appType: "custom",
+  optimizeDeps: { noDiscovery: true, include: [] },
 });
 after(() => server.close());
-const { request, assetUrl, BASE } =
+const { request, assetUrl, BASE, websocketUrl } =
   await server.ssrLoadModule("/src/api/client.ts");
 const { ReceiptView } = await server.ssrLoadModule("/src/ReceiptView.tsx");
 const { Loading } = await server.ssrLoadModule("/src/components.tsx");
+
+test("agent websocket uses the configured backend base", () => {
+  const expected = new URL(BASE + "/api/agent/runs/demo/ws");
+  expected.protocol = expected.protocol === "https:" ? "wss:" : "ws:";
+  assert.equal(websocketUrl("/agent/runs/demo/ws"), expected.href);
+});
 
 function pendingFetch(t) {
   t.mock.method(
