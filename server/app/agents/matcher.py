@@ -3,11 +3,13 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import aclosing
 import logging
+from html import unescape
 import re
 from typing import Literal
 
 from pydantic import BaseModel
 
+from ..config import get_settings
 from ..schemas import Citation, MatchResult, ProfileData, Reason, SchemeDetail, SchemeSummary
 from ..services import llm
 
@@ -38,6 +40,10 @@ qualifying groups are OR, not AND: satisfying one route is enough. Do not fail a
 inapplicable branch (for example high-performing-state rules for a low-performing-state resident).
 Read exceptions with their rule; an exception can restore eligibility. Future renewal/payment
 conditions are not proof of a present failure. Missing ordinary facts remain unknown.
+For school-course restrictions, check whether the applicant passed a matriculation-equivalent
+Class 10 before entering the current course. Class XI alone does not prove a continuous-course
+exclusion applies. If board equivalence or the course transition is unknown, mark it null,
+and quote the exception as well as the restriction. Do not turn uncertainty into a failure.
 Special conditions (disability, widow, orphan, minority, BPL card, ex-serviceman, rank holder, single girl child...):
 if the profile does not mention them, treat them as NOT applying (met=false), the citizen can correct us later.
 Course level matters: a B.Sc/B.A/B.Com student is undergraduate, not postgraduate.
@@ -133,8 +139,27 @@ def qualified_restriction(quote: str, official: str) -> bool:
         r"\b(however|unless|except|exception|provided that)\b", _norm(paragraph)) for paragraph in paragraphs)
 
 
+def explicit_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> str | None:
+    """Return official evidence for unambiguous jurisdiction or student mismatches."""
+    if p.state and scheme.state:
+        states = {_norm(state) for state in re.split(r",|;|\n", scheme.state)}
+        if not states & {"all", "all india", "india", _norm(p.state)}:
+            return f"Scheme jurisdiction: {scheme.state}"
+    if p.is_student is False:
+        # A worker's children being students does not require the worker to enroll.
+        for line in scheme.eligibility_md.splitlines():
+            if re.search(r"\bapplicant must be a (?:(?:girl|boy) )?student\b", _norm(line)):
+                if not qualified_restriction(line, scheme.eligibility_md):
+                    return line.strip()
+    return None
+
+
 async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
     """True means keep. Unsupported drops and unavailable triage fail open."""
+    evidence = explicit_target_mismatch(p, scheme)
+    if evidence:
+        log.info("triage dropped %s: official target restriction %r", scheme.slug, evidence)
+        return False
     if occupational_target_mismatch(p, scheme):
         log.info("triage dropped %s: farmer-only target without a stated farming role", scheme.slug)
         return False
@@ -163,21 +188,13 @@ async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
 
 
 def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9ऀ-෿]+", " ", s.lower()).strip()
+    return re.sub(r"[^a-z0-9ऀ-෿]+", " ", unescape(s).lower()).strip()
 
 
 def quote_found(quote: str, source: str) -> bool:
-    """llms love to 'fix' quotes. accept exact match after normalising, or 85% of words in order-ish window"""
+    """Require a contiguous source span after markup/punctuation normalization."""
     q, src = _norm(quote), _norm(source)
-    if not q:
-        return False
-    if q in src:
-        return True
-    words = q.split()
-    if len(words) < 4:
-        return False
-    hits = sum(1 for w in words if w in src)
-    return hits / len(words) >= 0.85
+    return bool(q) and f" {q} " in f" {src} "
 
 
 def profile_filters(p: ProfileData) -> dict:
@@ -233,7 +250,8 @@ def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
     if p.is_pregnant or re.search(r"pregnan", occupation):
         kws.extend(["maternity", "pregnant women", "janani"])
     if re.search(r"street vendor|hawker", occupation):
-        kws.extend(["street vendor", "unorganised worker", "micro enterprise loan"])
+        # Extra words broaden myScheme search and crowd out enterprise credit.
+        kws.extend(["street vendor", "unorganised worker", "micro enterprise", "micro enterprise loan"])
     return list(dict.fromkeys(kws)) or [""]
 
 
@@ -291,6 +309,7 @@ def relevance(p: ProfileData, scheme: SchemeSummary) -> int:
     if re.search(r"street vendor|hawker", occupation):
         topic(r"street vendor|hawker", 32)
         topic(r"unorgani[sz]ed|micro enterprise|self employment|business|entrepreneur", 16)
+        topic(r"micro credit|micro enterprises?|\btrading\b", 24)
     if p.gender == "male" and re.search(r"\bwomen\b|\bgirl|\bmahila\b", title):
         score -= 24
     return score
@@ -343,6 +362,7 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
 async def judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
     result = await llm.cached("matcher.judge", [
         scheme.slug, p.model_dump(exclude_none=True), scheme.model_dump(mode="json"), JUDGE_SYSTEM,
+        get_settings().gemini_judge_model,
     ], lambda: _judge(p, scheme))
     return MatchResult.model_validate(result)
 
@@ -356,7 +376,8 @@ async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
         f"DOCUMENTS:\n{scheme.documents_md[:1500]}\n\n"
         f"Citizen profile: {p.model_dump_json(exclude_none=True)}"
     )
-    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM, model="strong", thinking_level="LOW")
+    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM,
+                                model=get_settings().gemini_judge_model, thinking_level="LOW")
 
     reasons: list[Reason] = []
     dropped = 0

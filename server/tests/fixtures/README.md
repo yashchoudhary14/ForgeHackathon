@@ -5,6 +5,10 @@ Matcher regression records fetched on 2026-10-31: `match-kcc.json`,
 official detail/documents/FAQ responses from `https://www.myscheme.gov.in/api/apisetu/`
 for the corresponding slugs. Each record retains its original `source_url`.
 
+`match-pmssc.json`, `match-pre-sc.json`, and `match-pmmy.json` were recorded
+on 2026-11-01 from the same official API for jurisdiction, student-target,
+and microenterprise-credit regressions. They are test-only source records.
+
 - `myscheme-pm-kisan.json`: https://www.myscheme.gov.in/api/apisetu/schemes?slug=pm-kisan&lang=en
 - `myscheme-search.json`: https://www.myscheme.gov.in/api/apisetu/search/schemes?lang=en&q=%5B%5D&keyword=scholarship&sort=&from=0&size=2
 - `myscheme-documents.json`: https://www.myscheme.gov.in/api/apisetu/schemes/62a70e86f038bd8499a6aa53/documents?lang=en

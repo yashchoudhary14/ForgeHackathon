@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # empty = default credentials (gcloud auth application-default login, or the cloud run service account)
     gcp_credentials: str = ""
     gemini_model: str = "gemini-3.5-flash"
+    gemini_judge_model: str = "gemini-3.7-flash"
     gemini_fallback_models: str = "gemini-3.6-flash,gemini-3.5-flash-lite"
     gemini_model_pool: str = (
         "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,"
