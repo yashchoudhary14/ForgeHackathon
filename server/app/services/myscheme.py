@@ -16,6 +16,8 @@ from .markdown import field_markdown
 
 BASE = "https://www.myscheme.gov.in"
 _client: httpx.AsyncClient | None = None
+# scheme rules change rarely; scripts/sync_catalog.py refreshes the whole catalogue
+SCHEME_MAX_AGE = timedelta(days=7)
 _limit = asyncio.Semaphore(12)  # a cold match fetches ~32 schemes x 3 calls; 4 starved the load timeout on cloud run
 CASTES = {
     "general": "General", "obc": "Other Backward Class (OBC)",
@@ -168,7 +170,7 @@ async def get_scheme(slug: str, lang: str = "en", *, index: bool = True) -> Sche
     async with db.SessionLocal() as session:
         cached = await session.get(models.Scheme, (slug, lang))
         # rows written by older code may lack the parsed detail, refetch those
-    if cached and "detail" in (cached.data or {}) and cached.fetched_at.replace(tzinfo=timezone.utc) > now - timedelta(hours=24):
+    if cached and "detail" in (cached.data or {}) and cached.fetched_at.replace(tzinfo=timezone.utc) > now - SCHEME_MAX_AGE:
         detail = _cached_detail(cached.data, lang)
         if index and cached.embedding is None:
             await index_schemes([detail], lang)
