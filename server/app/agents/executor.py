@@ -203,6 +203,8 @@ class RunSession:
         self.task: asyncio.Task | None = None
         self._last_frame_sent = 0.0
         self.llm_calls = 0
+        self.steps = 0
+        self.human_wait_seconds = 0.0
 
     # ---------- pub/sub ----------
     async def emit(self, msg: dict):
@@ -259,6 +261,7 @@ class RunSession:
 
     # ---------- human in the loop ----------
     async def wait_human(self, event: dict, expect: set[str]) -> dict:
+        waiting_since = time.monotonic()
         self.pending = event
         await self.emit(event)
         deadline = time.monotonic() + HUMAN_TIMEOUT
@@ -283,6 +286,7 @@ class RunSession:
                 if t in expect:
                     return msg
         finally:
+            self.human_wait_seconds += time.monotonic() - waiting_since
             self.pending = None
 
 
@@ -398,6 +402,7 @@ def build_graph(rs: RunSession):
                          "result": "The page changed before execution; plan discarded"})
             return {"history": hist, "outcome": "next", "remaining": [], "stale": False}
         step = st.get("step", 0) + 1
+        rs.steps = step
         st = {**st, "step": step}
         hist = list(st.get("history", []))
         # History uses visible names; node ids stay stable while the document lives.

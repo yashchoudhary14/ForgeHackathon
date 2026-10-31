@@ -8,6 +8,7 @@ or just press enter after doing it in the browser window. type "abort" to stop.
 """
 import asyncio
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -53,6 +54,7 @@ class Console:
 
 
 async def main(url: str, goal: str, about: str):
+    started = time.monotonic()
     await init_db()
     data, sens = await intake.extract(about, ProfileData(), SensitiveData())
     print("profile:", data.model_dump(exclude_none=True))
@@ -65,11 +67,16 @@ async def main(url: str, goal: str, about: str):
         await db.commit()
     rs = RunSession(run.id, goal, url, p.data, sens.model_dump(exclude_none=True))
     rs.subs.add(Console(rs))
+    agent_started = time.monotonic()
     await executor.run(rs)
     async with SessionLocal() as db:
         r = await db.get(AgentRun, run.id)
         print("\nFINAL:", r.status, r.receipt or r.error)
         print("Planning LLM calls:", rs.llm_calls)
+        print("RUN METRICS:", {"steps": rs.steps, "planning_calls": rs.llm_calls,
+              "wall_seconds": round(time.monotonic() - started, 2),
+              "agent_seconds_excluding_human": round(time.monotonic() - agent_started - rs.human_wait_seconds, 2),
+              "human_wait_seconds": round(rs.human_wait_seconds, 2)}, flush=True)
 
 
 if __name__ == "__main__":
