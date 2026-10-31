@@ -1,8 +1,10 @@
 import asyncio
 from unittest.mock import AsyncMock
 
+import pytest
+
 from app.agents import matcher
-from app.schemas import ProfileData, SchemeDetail, SchemeSummary, SearchOut
+from app.schemas import MatchResult, ProfileData, SchemeDetail, SchemeSummary, SearchOut
 from app.services import llm, myscheme
 
 
@@ -44,3 +46,68 @@ async def test_recall_keeps_working_when_a_search_fails(monkeypatch):
     monkeypatch.setattr(myscheme, "search", search)
     monkeypatch.setattr(myscheme, "semantic_search", AsyncMock(return_value=[central]))
     assert await matcher.candidates(BIHAR_STUDENT, None, 8) == [central]
+
+
+def detail(slug, name, eligibility):
+    return SchemeDetail(id=slug, slug=slug, name=name, eligibility_md=eligibility,
+                        source_url=f"https://www.myscheme.gov.in/schemes/{slug}")
+
+
+@pytest.mark.parametrize("drop,quote,keep", [
+    (True, "Farmers who are owner cultivators", False),
+    (True, "Invented eligibility restriction", True),
+    (True, "", True),
+    (False, "", True),
+])
+async def test_triage_requires_official_target_evidence(monkeypatch, drop, quote, keep):
+    result = matcher._Triage(drop=drop, reason="Citizen is a student", quote=quote)
+    monkeypatch.setattr(llm, "cached", AsyncMock(return_value=result.model_dump()))
+    scheme = detail("farm", "Farm credit", "Farmers who are owner cultivators")
+    assert await matcher.triage(BIHAR_STUDENT, scheme) is keep
+
+
+async def test_triage_failure_keeps_candidate(monkeypatch):
+    monkeypatch.setattr(llm, "cached", AsyncMock(side_effect=RuntimeError("provider unavailable")))
+    assert await matcher.triage(BIHAR_STUDENT, detail("sc", "SC students", "SC students"))
+
+
+async def test_match_drops_mismatches_before_judging_and_allows_twelve_judges(monkeypatch):
+    schemes = [detail(str(i), "Post-matric scholarship", "SC students") for i in range(12)]
+    schemes += [detail("kcc", "Kisan Credit Card", "Farmers"),
+                detail("psgs-deg", "Pragati Technical Degree", "Technical degree students")]
+    monkeypatch.setattr(matcher, "candidates", AsyncMock(return_value=schemes))
+    monkeypatch.setattr(myscheme, "get_scheme", AsyncMock(side_effect=lambda slug, **kw: next(s for s in schemes if s.slug == slug)))
+    monkeypatch.setattr(matcher, "triage", AsyncMock(side_effect=lambda p, s: s.slug not in {"kcc", "psgs-deg"}))
+    active = peak = 0
+    all_started = asyncio.Event()
+
+    async def judge(p, s):
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        if active == 12:
+            all_started.set()
+        await asyncio.wait_for(all_started.wait(), 2)
+        active -= 1
+        return MatchResult(scheme=s, verdict="likely", confidence=0.9, reasons=[])
+
+    judge_mock = AsyncMock(side_effect=judge)
+    monkeypatch.setattr(matcher, "judge", judge_mock)
+    results = await matcher.match(BIHAR_STUDENT)
+    assert peak == 12 and judge_mock.await_count == 12
+    assert not {"kcc", "psgs-deg"} & {r.scheme.slug for r in results}
+
+
+async def test_judge_can_verify_course_restriction_in_description(monkeypatch):
+    scheme = detail("technical", "Girl scholarship", "The applicant must be a girl student.")
+    scheme.details_md = "Only students pursuing an AICTE technical degree may apply."
+    result = matcher._Judgement(verdict="likely", confidence=0.9, missing_info=[], documents_needed=[], reasons=[
+        matcher._Reason(claim="Technical degree required", met=False,
+                        quote=scheme.details_md, section="details"),
+    ])
+    generate = AsyncMock(return_value=result)
+    monkeypatch.setattr(llm, "generate_json", generate)
+    judged = await matcher._judge(BIHAR_STUDENT, scheme)
+    assert judged.verdict == "not_eligible"
+    assert judged.reasons[0].citation.section == "details"
+    assert scheme.details_md in generate.await_args.args[0]
