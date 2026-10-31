@@ -206,11 +206,20 @@ export interface RunOut {
 }
 export type HumanKind =
   | "captcha" | "otp" | "missing_field" | "confirm_submit" | "confirm_upload" | "login" | "payment";
+export interface Human {
+  kind: HumanKind;
+  message: string;
+  field?: string;
+  guide?: { title?: string; steps?: string[]; lang?: string };
+  crop?: string | null;
+  audio_url?: string | null;
+  document?: { title?: string; doc_type?: string } | null;
+}
 export type ServerMessage =
   | { type: "frame"; jpeg: string }
   | { type: "step"; step: RunStepOut }
   | { type: "status"; status: RunStatus }
-  | { type: "needs_human"; kind: HumanKind; message: string; field?: string }
+  | ({ type: "needs_human" } & Human)
   | { type: "done"; receipt: Receipt }
   | { type: "error"; message: string };
 export type ClientMessage =
