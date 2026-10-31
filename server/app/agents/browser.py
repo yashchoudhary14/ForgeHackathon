@@ -6,7 +6,7 @@ import json
 from typing import Awaitable, Callable
 from urllib.parse import urlparse
 
-from playwright.async_api import BrowserContext, Page, TimeoutError as PlaywrightTimeout, async_playwright
+from playwright.async_api import BrowserContext, Page, TimeoutError as PlaywrightTimeout, async_playwright, expect
 
 from ..config import get_settings
 
@@ -246,11 +246,18 @@ class Browser:
         if await loc.get_attribute("aria-expanded") == "true":
             return
         try:
-            await loc.click(timeout=1000)
+            await loc.scroll_into_view_if_needed(timeout=3000)
+            box = await loc.bounding_box()
+            # The arrow side is clear of floating labels that cover the center.
+            position = {"x": max(1, box["width"] - 15), "y": box["height"] / 2} if box else None
+            await loc.click(position=position, timeout=1000)
         except PlaywrightTimeout:
-            # Floating labels can cover a select's center; use its ARIA keyboard action.
+            pass
+        if await loc.get_attribute("aria-expanded") != "true":
+            # Do not toggle a panel that a delayed click already opened.
             await loc.focus()
             await loc.press("Enter")
+        await expect(loc).to_have_attribute("aria-expanded", "true", timeout=2000)
 
     async def fill(self, element_id: int, value: str):
         loc = self.el(element_id)
