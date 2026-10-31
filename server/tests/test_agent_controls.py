@@ -1,7 +1,7 @@
 import pytest
 
 from app.agents.browser import option_index
-from app.agents.executor import Decision, RunSession, require_source
+from app.agents.executor import Decision, RunSession, require_source, explicitly_requested_option
 
 
 def test_option_match_does_not_confuse_male_and_female():
@@ -84,3 +84,10 @@ def test_goal_cannot_supply_unspecified_application_history():
     assert rs.resolve(Decision(thought="Workflow choice", action="select", value_from="goal", value="Scholarship")) == "Scholarship"
     with pytest.raises(ValueError):
         rs.resolve(Decision(thought="Unknown history", action="select", value_from="goal", value="Renewal"))
+
+
+def test_goal_supports_only_explicitly_named_overlay_options():
+    d = Decision(thought="Choose requested service", action="click", value_from="goal")
+    assert explicitly_requested_option(d, {"role": "option", "text": "Scholarship"}, "Check scholarship eligibility")
+    assert not explicitly_requested_option(d, {"role": "option", "text": "Renewal"}, "Check scholarship eligibility")
+    assert not explicitly_requested_option(d, {"role": "button", "text": "Scholarship"}, "Check scholarship eligibility")

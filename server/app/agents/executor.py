@@ -162,6 +162,16 @@ class State(TypedDict, total=False):
     error: str
 
 
+def explicitly_requested_option(d: Decision, el: dict | None, goal: str) -> bool:
+    if d.action == "select":
+        label = d.value
+    elif d.action == "click" and el and el.get("role") == "option":
+        label = el.get("text")
+    else:
+        return False
+    return bool(label and re.search(r"(?<!\w)" + re.escape(label.strip()) + r"(?!\w)", goal, re.I))
+
+
 def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
     """A model's default answer is not evidence about a citizen."""
     if not el or d.action not in ("type", "select", "check", "click"):
@@ -398,9 +408,8 @@ def build_graph(rs: RunSession):
             d = d.model_copy(update={"action": "ask_human", "kind": "captcha", "message": "Please solve the CAPTCHA, then press Continue."})
         if d.action == "type" and el and el.get("type") == "password":
             d = d.model_copy(update={"action": "ask_human", "kind": "login", "message": "Please enter your password yourself, then press Continue."})
-        workflow = bool(el and re.search(r"application|service|benefit|scholarship|incentive|language|workflow|scheme|sort|page", el.get("label", ""), re.I))
         known = {**rs.profile, **rs.sensitive, **rs.answers}
-        if workflow and d.action == "select" and d.value and re.search(r"(?<!\w)" + re.escape(d.value) + r"(?!\w)", rs.goal, re.I):
+        if explicitly_requested_option(d, el, rs.goal):
             known["goal"] = rs.goal
         d = require_source(d, el, known)
         return {"decision": d, "snap": snap, "stale": False}
