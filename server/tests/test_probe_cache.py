@@ -50,3 +50,26 @@ async def test_failed_probe_is_reused_for_an_hour_and_expired_probe_is_refreshed
     third = ModelPool(["missing"], "embedding")
     await third.probe(client, 1, load=load)
     assert generate.await_count == 2
+
+
+async def test_probe_cache_separates_vertex_projects_locations_and_backends(cache_db, monkeypatch):
+    generate = AsyncMock(return_value=SimpleNamespace(text="OK"))
+    monkeypatch.setattr(llm, "client", lambda: SimpleNamespace(
+        aio=SimpleNamespace(models=SimpleNamespace(generate_content=generate))))
+    configurations = [
+        dict(gemini_backend="vertex", gcp_project="project-a", gcp_location="global"),
+        dict(gemini_backend="vertex", gcp_project="project-b", gcp_location="global"),
+        dict(gemini_backend="vertex", gcp_project="project-a", gcp_location="asia-south1"),
+        dict(gemini_backend="aistudio", gemini_api_key="test-key"),
+        dict(gemini_backend="vertex", gcp_project="project-a", vertex_api_key="vertex-key"),
+    ]
+    for expected, configuration in enumerate(configurations, 1):
+        settings = Settings(_env_file=None, gemini_model_pool="working", **configuration)
+        monkeypatch.setattr(llm, "get_settings", lambda: settings)
+        llm._pool = None
+        await llm.initialize_pool()
+        llm._pool = None
+        restored = await llm.initialize_pool()
+        assert generate.await_count == expected
+        assert restored.initialized
+        assert restored.best_first == (settings.gemini_backend == "vertex")

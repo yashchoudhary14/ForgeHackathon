@@ -21,7 +21,7 @@ logging.getLogger("google_genai").setLevel(logging.WARNING)
 async def lifespan(app: FastAPI):
     Path(settings.storage_dir).mkdir(parents=True, exist_ok=True)
     await init_db()
-    if settings.gemini_api_key:
+    if settings.gemini_backend == "vertex" or settings.gemini_api_key:
         await llm.initialize_pool()
     try:
         yield

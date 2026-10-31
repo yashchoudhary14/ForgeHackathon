@@ -74,9 +74,13 @@ def pool() -> ModelPool:
 async def initialize_pool() -> ModelPool:
     scheduler = pool()
     settings = get_settings()
-    # Separate projects/configurations without storing the API key in the DB.
-    fingerprint = hashlib.sha256(settings.gemini_api_key.encode()).hexdigest()
-    key = cache_key("model_probe_v1", [fingerprint, settings.model_pool,
+    # AI Studio and Vertex projects/locations have separate availability/quotas.
+    # Hash credentials so neither keys nor credential JSON are stored in cache keys.
+    credential = (settings.vertex_api_key or settings.gcp_credentials
+                  if settings.gemini_backend == "vertex" else settings.gemini_api_key)
+    fingerprint = hashlib.sha256(credential.encode()).hexdigest()
+    key = cache_key("model_probe_v2", [settings.gemini_backend, settings.gcp_project,
+                                     settings.gcp_location, fingerprint, settings.model_pool,
                                      settings.gemini_rpm, settings.gemini_model_rpm])
 
     async def load():

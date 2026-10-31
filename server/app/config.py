@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     # "vertex" bills gemini to a google cloud project (free trial credits work there, not on ai studio keys)
-    gemini_backend: str = "aistudio"
+    gemini_backend: Literal["aistudio", "vertex"] = "aistudio"
     gcp_project: str = ""
     gcp_location: str = "global"
     # either a vertex api key (console > credentials > api key bound to a service account) ...

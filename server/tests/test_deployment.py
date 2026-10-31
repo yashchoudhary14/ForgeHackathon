@@ -1,5 +1,6 @@
 import asyncio
 import ssl
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
@@ -9,6 +10,7 @@ from websockets.asyncio.client import connect as real_websocket_connect
 from websockets.asyncio.server import serve
 
 from app import db, main, neon
+from app.config import Settings
 from app.services import llm
 
 
@@ -71,3 +73,17 @@ async def test_health_pings_do_not_touch_gemini_or_database(monkeypatch):
             response = await client.get("/api/health")
             assert response.status_code == 200 and response.json()["ok"]
     forbidden.assert_not_called()
+
+
+@pytest.mark.parametrize("backend,expected_probes", [("vertex", 1), ("aistudio", 0)])
+async def test_startup_restores_vertex_pool_without_an_api_key(monkeypatch, tmp_path, backend, expected_probes):
+    settings = Settings(_env_file=None, gemini_backend=backend, gcp_project="test-project",
+                        storage_dir=str(tmp_path), gemini_api_key="")
+    initialize = AsyncMock()
+    monkeypatch.setattr(main, "settings", settings)
+    monkeypatch.setattr(main, "init_db", AsyncMock())
+    monkeypatch.setattr(main, "engine", SimpleNamespace(dispose=AsyncMock()))
+    monkeypatch.setattr(llm, "initialize_pool", initialize)
+    async with main.lifespan(main.app):
+        pass
+    assert initialize.await_count == expected_probes
