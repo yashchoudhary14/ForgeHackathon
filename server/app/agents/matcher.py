@@ -81,12 +81,17 @@ def profile_filters(p: ProfileData) -> dict:
 def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
     kws = [extra] if extra else []
     if p.is_student:
+        # Specific queries precede generic pages full of unrelated courses.
+        if p.caste:
+            kws.extend([f"post matric scholarship {p.caste}", f"scholarship {p.caste}"])
+        if p.state:
+            kws.extend([f"{p.state} post matric scholarship", f"{p.state} scholarship"])
         kws.append("scholarship")
     if p.occupation:
         kws.append(p.occupation)
     if p.land_acres:
         kws.append("farmer")
-    return kws or [""]
+    return list(dict.fromkeys(kws)) or [""]
 
 
 async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[SchemeSummary]:
@@ -94,24 +99,36 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
 
     filters = profile_filters(p)
     seen: dict[str, SchemeSummary] = {}
-    for kw in keywords_for(p, keyword):
+    async def search(kw: str, search_filters: dict):
         try:
-            res = await myscheme.search(kw, filters=filters, offset=0, size=limit)
+            return (await myscheme.search(kw, filters=search_filters, offset=0, size=max(12, limit))).items
         except Exception as e:
             log.warning("myscheme search failed for %r: %s", kw, e)
-            continue
-        for s in res.items:
+            return []
+
+    # Official records sometimes omit age/student/category metadata. A relaxed
+    # state-only pass recovers these; official eligibility is checked later.
+    queries = [(kw, filters) for kw in keywords_for(p, keyword)]
+    recall_filters = {"state": p.state} if p.state else {}
+    queries.extend((kw, recall_filters) for kw in keywords_for(p, keyword) if kw and "scholarship" in kw)
+    pages = await asyncio.gather(*(search(kw, f) for kw, f in queries))
+    # Interleave pages so one generic page cannot crowd out state/category hits.
+    for i in range(max((len(page) for page in pages), default=0)):
+        for page in pages:
+            if i >= len(page):
+                continue
+            s = page[i]
             seen.setdefault(s.slug, s)
     # semantic pass over cached schemes catches ones keyword search misses
     try:
         query = f"{p.occupation or ''} {p.education_level or ''} {p.state or ''} {keyword or ''}".strip()
         if query:
             for s in await myscheme.semantic_search(query, k=limit):
-                if not p.state or not s.state or s.state == p.state:
+                if not p.state or not s.state or s.state == p.state or s.state == "All":
                     seen.setdefault(s.slug, s)
     except Exception as e:
         log.info("semantic search skipped: %s", e)
-    return list(seen.values())[: limit * 2]
+    return list(seen.values())[: max(32, limit * 4)]
 
 
 async def judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
