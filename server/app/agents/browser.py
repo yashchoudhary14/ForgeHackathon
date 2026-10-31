@@ -13,6 +13,18 @@ log = logging.getLogger(__name__)
 
 VIEWPORT = {"width": 1280, "height": 800}
 
+
+def option_index(texts: list[str], value: str) -> int:
+    """Prefer exact labels and reject ambiguous substring matches."""
+    normalize = lambda s: " ".join(s.split()).casefold()
+    want = normalize(value)
+    exact = [i for i, text in enumerate(texts) if normalize(text) == want]
+    matches = exact or [i for i, text in enumerate(texts)
+        if want and normalize(text) and (want in normalize(text) or normalize(text) in want)]
+    if len(matches) != 1:
+        raise ValueError(f"Choose one exact option from {texts}; requested {value!r}")
+    return matches[0]
+
 # tags every visible interactive element with data-agent-id and returns a compact description
 SNAPSHOT_JS = r"""
 () => {
@@ -26,6 +38,9 @@ SNAPSHOT_JS = r"""
     const p = el.closest('label'); if (p) return p.innerText.trim();
     const al = el.getAttribute('aria-label'); if (al) return al;
     const lb = el.getAttribute('aria-labelledby'); if (lb) { const n = document.getElementById(lb); if (n) return n.innerText.trim(); }
+    const field = el.closest('mat-form-field, .form-group, .form-field');
+    const caption = field?.querySelector('mat-label, label');
+    if (caption) return caption.innerText.trim();
     // table layouts: label in previous cell
     const td = el.closest('td'); if (td && td.previousElementSibling) return td.previousElementSibling.innerText.trim();
     return '';
@@ -73,13 +88,18 @@ SNAPSHOT_JS = r"""
       d.options = [...el.options].slice(0, 40).map(o => o.text.trim()).filter(Boolean);
       d.value = el.options[el.selectedIndex]?.text?.trim();
     }
+    if (role === 'combobox') {
+      d.value = (el.innerText || el.value || '').trim().replace(/\s+/g, ' ').slice(0, 100);
+      const list = document.getElementById(el.getAttribute('aria-controls'));
+      if (list) d.options = [...list.querySelectorAll('[role=option]')].filter(vis).map(o => o.innerText.trim());
+    }
     if (el.required || el.getAttribute('aria-required') === 'true') d.required = true;
     if (el.disabled) d.disabled = true;
     if (el.getAttribute('aria-invalid') === 'true') d.invalid = true;
     out.push(d);
     if (n >= 150) break;
   }
-  const errs = [...document.querySelectorAll('[role=alert], .error, .errors, .invalid-feedback, .text-danger, .field-validation-error, .alert-danger, .help-block.error')]
+  const errs = [...document.querySelectorAll('mat-error, [role=alert], .error, .errors, .invalid-feedback, .text-danger, .field-validation-error, .alert-danger, .help-block.error')]
     .filter(vis).map(e => e.innerText.trim()).filter(Boolean).slice(0, 8);
   const heads = [...document.querySelectorAll('h1,h2,h3,legend')].filter(vis).map(e => e.innerText.trim()).filter(Boolean).slice(0, 8);
   const captcha = !!document.querySelector('iframe[src*="recaptcha"], iframe[src*="hcaptcha"], img[src*="captcha" i], img[id*="captcha" i], input[name*="captcha" i], input[id*="captcha" i]');
@@ -155,10 +175,9 @@ class Browser:
         await self.settle()
 
     async def settle(self):
-        try:
-            await self.page.wait_for_load_state("networkidle", timeout=6000)
-        except Exception:
-            pass  # gov sites with long-polling never go idle, that's ok
+        # Analytics and polling need not finish before a form can be used.
+        await self.page.wait_for_load_state("domcontentloaded", timeout=10000)
+        await self.page.wait_for_timeout(150)
 
     async def _snap_once(self) -> dict:
         try:
@@ -172,7 +191,7 @@ class Browser:
         # SPAs animate between steps without any network, so wait until two reads agree
         snap = await self._snap_once()
         for _ in range(4):
-            await asyncio.sleep(0.45)
+            await asyncio.sleep(0.15)
             again = await self._snap_once()
             if again["headings"] == snap["headings"] and len(again["elements"]) == len(snap["elements"]) and again["text"] == snap["text"]:
                 snap = again
@@ -209,17 +228,22 @@ class Browser:
 
     async def select(self, element_id: int, value: str):
         loc = self.el(element_id)
+        if await loc.evaluate("el => el.tagName !== 'SELECT'"):
+            # ARIA comboboxes (including Angular Material) render options in a portal.
+            if await loc.get_attribute("aria-expanded") != "true":
+                await loc.click(timeout=5000)
+            options = self.page.get_by_role("option").filter(visible=True)
+            await options.first.wait_for(state="visible", timeout=5000)
+            texts = await options.all_inner_texts()
+            await options.nth(option_index(texts, value)).click(timeout=5000)
+            await self.settle()
+            return
         try:
             await loc.select_option(label=value, timeout=5000)
         except Exception:
             # fall back to fuzzy match on option text
             opts = await loc.evaluate("s => [...s.options].map(o => [o.value, o.text.trim()])")
-            want = value.strip().lower()
-            pick = next((v for v, t in opts if t.lower() == want), None) or next(
-                (v for v, t in opts if want in t.lower() or t.lower() in want and t), None
-            )
-            if pick is None:
-                raise ValueError(f"no option like {value!r}; options: {[t for _, t in opts][:15]}")
+            pick = opts[option_index([text for _, text in opts], value)][0]
             await loc.select_option(value=pick)
         await self.settle()
 

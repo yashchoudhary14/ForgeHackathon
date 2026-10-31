@@ -59,6 +59,14 @@ Rules:
 - Elements show their state (checked / selected / value). If an option is already checked or a field already
   has the right value, do NOT click/type it again — move to the next field or click Next.
 - Trust the history: "NOTHING CHANGED" means your last action had no effect; do something different.
+- For an ARIA combobox, click it to inspect its overlay options, then select the exact option text.
+  `select` handles both native selects and custom overlay dropdowns. Never type into a closed dropdown.
+- Cascading fields may appear after each choice. Use the new observation, never reuse earlier ids.
+- For date inputs use the displayed date format. Never invent a date of birth from age; ask for it.
+- Fill ordinary required fields before requesting CAPTCHA help. Never read or transcribe CAPTCHA images.
+  After the human resumes, preserve their CAPTCHA entry and continue with the requested check.
+- A results list satisfies an eligibility-checking goal; do not apply to a scholarship from that list.
+  If the goal requests a count, reference_no must be the observed list count, including zero results.
 - Keep `thought` to one short sentence a citizen can understand."""
 
 
