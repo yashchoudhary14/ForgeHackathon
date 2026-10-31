@@ -25,6 +25,20 @@ class ProfileData(BaseModel):
     is_bpl: bool | None = None
     land_acres: float | None = None
     is_minority: bool | None = None
+    religion: str | None = None
+    course: str | None = None
+    study_year: int | None = None
+    institution_type: str | None = None
+    parent_occupation: str | None = None
+    is_single_child: bool | None = None
+    is_hosteller: bool | None = None
+    institution_name: str | None = None
+    institution_state: str | None = None
+    institution_district: str | None = None
+    study_mode: str | None = None
+    previous_class_percentage: float | None = Field(default=None, ge=0, le=100)
+    previous_board: str | None = None
+    previous_passing_year: int | None = None
 
 
 class SensitiveData(BaseModel):

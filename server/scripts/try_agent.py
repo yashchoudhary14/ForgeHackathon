@@ -8,6 +8,7 @@ or just press enter after doing it in the browser window. type "abort" to stop.
 """
 import asyncio
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -29,7 +30,7 @@ class Console:
             return
         if t == "step":
             s = m["step"]
-            print(f"#{s['idx']:>2} [{s['status']}] {s['thought']}\n     {s['action']} -> {s.get('result')}", flush=True)
+            print(f"#{s['idx']:>2} [call {self.rs.llm_calls}, {s['status']}] {s['thought']}\n     {s['action']} -> {s.get('result')}", flush=True)
         elif t == "needs_human":
             asyncio.create_task(self.ask(m))
         else:
@@ -38,7 +39,11 @@ class Console:
     async def ask(self, m: dict):
         prompt = f"\n>>> AGENT NEEDS YOU ({m['kind']}): {m['message']}\n"
         prompt += ">>> type y to approve, abort to stop: " if m["kind"] == "confirm_submit" else ">>> answer, or Enter when done in browser: "
-        ans = (await asyncio.to_thread(input, prompt)).strip()
+        try:
+            ans = (await asyncio.to_thread(input, prompt)).strip()
+        except EOFError:
+            await self.rs.inbox.put({"type": "abort"})
+            return
         if ans == "abort":
             msg = {"type": "abort"}
         elif m["kind"] == "confirm_submit":
@@ -49,6 +54,7 @@ class Console:
 
 
 async def main(url: str, goal: str, about: str):
+    started = time.monotonic()
     await init_db()
     data, sens = await intake.extract(about, ProfileData(), SensitiveData())
     print("profile:", data.model_dump(exclude_none=True))
@@ -61,10 +67,16 @@ async def main(url: str, goal: str, about: str):
         await db.commit()
     rs = RunSession(run.id, goal, url, p.data, sens.model_dump(exclude_none=True))
     rs.subs.add(Console(rs))
+    agent_started = time.monotonic()
     await executor.run(rs)
     async with SessionLocal() as db:
         r = await db.get(AgentRun, run.id)
         print("\nFINAL:", r.status, r.receipt or r.error)
+        print("Planning LLM calls:", rs.llm_calls)
+        print("RUN METRICS:", {"steps": rs.steps, "planning_calls": rs.llm_calls,
+              "wall_seconds": round(time.monotonic() - started, 2),
+              "agent_seconds_excluding_human": round(time.monotonic() - agent_started - rs.human_wait_seconds, 2),
+              "human_wait_seconds": round(rs.human_wait_seconds, 2)}, flush=True)
 
 
 if __name__ == "__main__":

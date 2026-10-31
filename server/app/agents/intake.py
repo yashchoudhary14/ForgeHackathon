@@ -15,7 +15,15 @@ Rules:
 - caste: general | obc | sc | st | pvtg | dnt. gender: male | female | transgender. residence: urban | rural.
 - Put name, phone, email, dob, address, father_name, bank_ifsc only in `sensitive`.
 - The user may write in Hindi, Hinglish or any Indian language. Output field values in English.
+- Preserve stated religion, course, study_year (first year = 1), institution_type
+  (e.g. government college), and parent_occupation separately from the citizen's occupation.
+- Preserve an explicitly stated is_single_child, is_hosteller and institution_name.
+- Preserve explicitly supplied institution_state and institution_district separately from the
+  citizen's home state. Never infer an institution's location from the citizen's residence.
+  Explicitly not disabled means disability_percent=0; absence of disability information means null.
 - Preserve the exact stated degree in course (e.g. B.Sc, not only undergraduate) and study_year.
+- Preserve supplied study_mode, previous_class_percentage, previous_board and previous_passing_year
+  for education forms. Keep these previous academic results separate from the current course/year.
 """
 
 ASK_SYSTEM = """You are a friendly government-services helper talking to an ordinary citizen.
