@@ -29,6 +29,10 @@ def option_index(texts: list[str], value: str) -> int:
     normalize = lambda s: re.sub(r"[\W_]+", "", s.casefold())
     words = lambda s: " " + " ".join(re.findall(r"\w+", s.casefold())) + " "
     want = normalize(value)
+    # A supplied numeric zero can represent false on a binary Yes/No control.
+    # Keep numeric dropdowns (including percentage fields) matched literally.
+    if value.strip() == "0" and {normalize(text) for text in texts} == {"yes", "no"}:
+        want = "no"
     exact = [i for i, text in enumerate(texts) if normalize(text) == want]
     matches = exact or [i for i, text in enumerate(texts)
         if want and normalize(text) and (words(value) in words(text) or words(text) in words(value))]
