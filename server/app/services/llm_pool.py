@@ -70,10 +70,10 @@ def cooldown_seconds(error: Exception) -> float:
         return 3600
     if status_code(error) == 429:
         # RPD exhaustion cannot be cured by rotating back to the same model each minute.
-        details = str(getattr(error, "response_json", "")) + str(error)
+        details = str(getattr(error, "response_json", "")) + str(getattr(error, "details", "")) + str(error)
         daily = re.search(r"per.?day|daily|requestsperday", details, re.I)
         delay = retry_delay(error)
-        return max(delay or 0, 86400) if daily else (60 if delay is None else delay)
+        return delay if delay is not None else (86400 if daily else 60)
     return 5 if isinstance(error, TimeoutError) else 60
 
 
@@ -136,6 +136,9 @@ class ModelPool:
             try:
                 while True:
                     now = time.monotonic()
+                    names = [name for name in names if self.states[name].enabled]
+                    if not names:
+                        raise RuntimeError("No Gemini models are available for this request")
                     for name in names:
                         self._prune(self.states[name], now)
                     ready = [self.states[name] for name in names
@@ -145,9 +148,11 @@ class ModelPool:
                     has_priority = not any(ticket[1] & previous[1] for previous in earlier)
                     if ready and has_priority:
                         def rank(state):
-                            preferred = ("lite" in state.name) if preference == "lite" else (
-                                "lite" not in state.name if preference == "strong" else state.name == preference)
-                            return (not preferred if preference else False, len(state.requests), state.last_selected)
+                            wants_lite = preference == "lite" or (preference not in {None, "strong"} and "lite" in preference)
+                            preferred = ("lite" in state.name) == wants_lite
+                            return (not preferred if preference else False, len(state.requests),
+                                    state.name != preference if preference not in {None, "lite", "strong"} else False,
+                                    state.last_selected)
 
                         state = min(ready, key=rank)
                         state.requests.append(now)
@@ -191,6 +196,9 @@ class ModelPool:
             return {
                 "ready": bool(self.names()), "initialized": self.initialized,
                 "scope": "process", "waiting": len(self.waiters), "limited": self.limited,
+                "available_now": sum(state.enabled and state.kind == "generation"
+                                     and state.cooldown_until <= now and len(state.requests) < self.rpm
+                                     for state in self.states.values()),
                 "models": [{
                     "model": state.name, "class": "embedding" if state.kind == "embedding" else (
                         "lite" if "lite" in state.name else "strong"),

@@ -105,5 +105,12 @@ def test_structured_retry_delay(delay, expected):
 
 def test_daily_cap_is_not_retried_each_minute():
     error = RuntimeError("429 GenerateRequestsPerDay exhausted")
-    error.response_json = {"error": {"details": [{"retryDelay": "30s"}]}}
     assert cooldown_seconds(error) >= 86400
+    error.details = {"error": {"details": [{"retryDelay": "30s"}]}}
+    assert cooldown_seconds(error) == 30
+
+
+async def test_legacy_model_argument_still_balances_load_within_class():
+    pool = ready_pool(["strong-a", "strong-b", "lite-a"], rpm=12)
+    assert (await pool.acquire("strong-a"))[0] == "strong-a"
+    assert (await pool.acquire("strong-a"))[0] == "strong-b"
