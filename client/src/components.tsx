@@ -207,7 +207,7 @@ export function MicButton({
       setRecording(true);
       timer.current = setTimeout(() => {
         if (rec.state === "recording") rec.stop();
-      }, 120000);
+      }, 29000);
     } catch (e) {
       stream.current?.getTracks().forEach((t) => t.stop());
       setError(
@@ -234,7 +234,7 @@ export function MicButton({
       {recording && (
         <p role="status">
           <Text
-            value={"Recording… tap stop when finished. Maximum 2 minutes."}
+            value={"Recording… tap stop when finished. Maximum 29 seconds."}
           />
         </p>
       )}
