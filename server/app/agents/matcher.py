@@ -10,6 +10,7 @@ from ..schemas import Citation, MatchResult, ProfileData, Reason, SchemeDetail, 
 from ..services import llm
 
 log = logging.getLogger(__name__)
+MATCH_SECONDS = 55.0
 
 JUDGE_SYSTEM = """You decide whether a citizen qualifies for an Indian government scheme.
 You get the scheme's OFFICIAL eligibility and exclusion text and the citizen's profile.
@@ -328,7 +329,8 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
         query = " ".join(filter(None, [p.occupation, p.course, p.education_level,
                          CASTE_NAMES.get(p.caste or ""), p.state, *keywords_for(p, keyword)]))
         if query:
-            for s in await myscheme.semantic_search(query, k=max(16, limit * 2)):
+            semantic = await asyncio.wait_for(myscheme.semantic_search(query, k=max(16, limit * 2)), timeout=4)
+            for s in semantic:
                 if not p.state or not s.state or s.state == p.state or s.state == "All":
                     seen.setdefault(s.slug, s)
     except Exception as e:
@@ -398,22 +400,23 @@ ORDER = {"eligible": 0, "likely": 1, "unknown": 2, "not_eligible": 3}
 async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang: str = "en") -> list[MatchResult]:
     from ..services import myscheme
 
-    cands = await candidates(p, keyword, limit)
+    cands: list[SchemeSummary] = []
+    results: list[MatchResult] = []
     sem = asyncio.Semaphore(24)  # paid vertex quota, 4 was for the free tier
 
     async def load(s: SchemeSummary) -> SchemeDetail | None:
         try:
-            return await myscheme.get_scheme(s.slug, lang="en", index=False)
+            return await asyncio.wait_for(myscheme.get_scheme(s.slug, lang="en", index=False), timeout=10)
         except Exception as e:
             log.warning("loading %s failed: %s", s.slug, e)
             return None
 
-    details = [d for d in await asyncio.gather(*(load(s) for s in cands)) if d]
-    try:
-        await myscheme.index_schemes(details)
-    except Exception as e:
-        # Text/citations remain authoritative if the optional vector index is unavailable.
-        log.warning("candidate batch indexing skipped: %s", e)
+    async def index(details):
+        try:
+            await myscheme.index_schemes(details)
+        except Exception as e:
+            # Text/citations remain authoritative if the optional index is unavailable.
+            log.warning("candidate batch indexing skipped: %s", e)
 
     async def one(detail: SchemeDetail) -> MatchResult | None:
         async with sem:
@@ -422,12 +425,26 @@ async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang
                     return None
                 if not await triage(p, detail):
                     return None
-                return await judge(p, detail)
+                result = await judge(p, detail)
+                results.append(result)
+                return result
             except Exception as e:
                 log.warning("judging %s failed: %s", detail.slug, e)
                 return None
 
-    results = [r for r in await asyncio.gather(*(one(d) for d in details)) if r]
+    async def collect():
+        nonlocal cands
+        cands = await candidates(p, keyword, limit)
+        details = [d for d in await asyncio.gather(*(load(s) for s in cands)) if d]
+        # Indexing is independent of judging; do not put it on the critical path.
+        await asyncio.gather(index(details), *(one(d) for d in details))
+
+    try:
+        await asyncio.wait_for(collect(), timeout=MATCH_SECONDS)
+    except TimeoutError:
+        log.warning("match time budget reached; returning %s completed judgements", len(results))
     priority = {s.slug: relevance(p, s) for s in cands}
-    results.sort(key=lambda r: (ORDER[r.verdict], -priority.get(r.scheme.slug, 0), -r.confidence))
+    positions = {s.slug: i for i, s in enumerate(cands)}
+    results.sort(key=lambda r: (ORDER[r.verdict], -priority.get(r.scheme.slug, 0), -r.confidence,
+                                positions.get(r.scheme.slug, len(cands))))
     return results[:limit]

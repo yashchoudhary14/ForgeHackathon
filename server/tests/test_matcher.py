@@ -152,6 +152,29 @@ async def test_judge_can_verify_course_restriction_in_description(monkeypatch):
     assert scheme.details_md in generate.await_args.args[0]
 
 
+async def test_time_budget_keeps_completed_results_and_cancels_slow_work(monkeypatch):
+    schemes = [detail("ready", "Relevant scholarship", "SC students"), detail("slow", "Other scholarship", "SC students")]
+    monkeypatch.setattr(matcher, "MATCH_SECONDS", 0.05)
+    monkeypatch.setattr(matcher, "candidates", AsyncMock(return_value=schemes))
+    monkeypatch.setattr(myscheme, "get_scheme", AsyncMock(side_effect=lambda slug, **kw: next(s for s in schemes if s.slug == slug)))
+    monkeypatch.setattr(myscheme, "index_schemes", AsyncMock())
+    monkeypatch.setattr(matcher, "triage", AsyncMock(return_value=True))
+    cancelled = asyncio.Event()
+
+    async def judge(p, scheme):
+        if scheme.slug == "slow":
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+        return MatchResult(scheme=scheme, verdict="likely", confidence=0.9, reasons=[])
+
+    monkeypatch.setattr(matcher, "judge", judge)
+    results = await matcher.match(BIHAR_STUDENT)
+    assert [r.scheme.slug for r in results] == ["ready"]
+    assert cancelled.is_set()
+
+
 @pytest.mark.parametrize("applies,expected", [(False, "eligible"), (True, "not_eligible"), (None, "likely")])
 async def test_exclusion_polarity_is_explicit(monkeypatch, applies, expected):
     scheme = detail("study", "Post-matric", "The applicant should be a student.")
