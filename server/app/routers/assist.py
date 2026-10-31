@@ -1,7 +1,11 @@
 """ai endpoints: conversational intake, eligibility matching, explainer"""
+import asyncio
+import json
 import logging
+from contextlib import aclosing, suppress
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..agents import explainer, intake, matcher
@@ -15,6 +19,7 @@ from ..services import crypto
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["assist"])
+MATCH_KEEPALIVE_SECONDS = 10
 
 
 async def load_profile(db: AsyncSession, pid: str) -> Profile:
@@ -61,6 +66,40 @@ async def match_schemes(body: MatchIn, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         log.exception("match failed")
         raise HTTPException(502, f"couldn't reach scheme data right now ({type(e).__name__})")
+
+
+async def match_events(profile: ProfileData, keyword: str | None, limit: int):
+    async with aclosing(matcher.match_stream(profile, keyword, limit)) as events:
+        pending = None
+        try:
+            yield ": keepalive\n\n"
+            while True:
+                pending = asyncio.create_task(anext(events))
+                while not (await asyncio.wait({pending}, timeout=MATCH_KEEPALIVE_SECONDS))[0]:
+                    yield ": keepalive\n\n"
+                try:
+                    event = pending.result()
+                except StopAsyncIteration:
+                    break
+                yield "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"
+        except Exception:
+            log.exception("match stream failed")
+            yield 'data: {"type":"error","message":"Could not check schemes right now. Please try again."}\n\n'
+        finally:
+            if pending is not None:
+                pending.cancel()
+                with suppress(asyncio.CancelledError, Exception):
+                    await pending
+
+
+@router.post("/schemes/match/stream")
+async def stream_match_schemes(body: MatchIn, db: AsyncSession = Depends(get_db)):
+    row = await load_profile(db, body.profile_id)
+    profile = ProfileData(**row.data)
+    return StreamingResponse(
+        match_events(profile, body.keyword, body.limit), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/explain", response_model=ExplainOut)
