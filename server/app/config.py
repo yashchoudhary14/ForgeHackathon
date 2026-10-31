@@ -13,6 +13,15 @@ class Settings(BaseSettings):
     database_transport: Literal["auto", "tcp", "websocket"] = "auto"
 
     gemini_api_key: str = ""
+    # "vertex" bills gemini to a google cloud project (free trial credits work there, not on ai studio keys)
+    gemini_backend: str = "aistudio"
+    gcp_project: str = ""
+    gcp_location: str = "global"
+    # either a vertex api key (console > credentials > api key bound to a service account) ...
+    vertex_api_key: str = ""
+    # ... or a credentials json (service account or gcloud user login): file path or the json itself
+    # empty = default credentials (gcloud auth application-default login, or the cloud run service account)
+    gcp_credentials: str = ""
     gemini_model: str = "gemini-3.5-flash"
     gemini_fallback_models: str = "gemini-3.6-flash,gemini-3.5-flash-lite"
     gemini_model_pool: str = (

@@ -28,14 +28,38 @@ _cooldown: dict[str, float] = {}  # compatibility view of provider cooldowns
 def client() -> genai.Client:
     global _client
     if _client is None:
-        key = get_settings().gemini_api_key
-        if not key:
-            raise RuntimeError("GEMINI_API_KEY not set")
+        s = get_settings()
         # Hidden SDK retries would bypass RPM accounting and provider cooldowns.
-        _client = genai.Client(api_key=key, http_options=types.HttpOptions(
-            retry_options=types.HttpRetryOptions(attempts=1),
-        ))
+        http = types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1))
+        if s.gemini_backend == "vertex" and s.vertex_api_key:
+            _client = genai.Client(vertexai=True, api_key=s.vertex_api_key, http_options=http)
+        elif s.gemini_backend == "vertex":
+            creds, project = _gcp_credentials(s.gcp_credentials)
+            project = s.gcp_project or project
+            if not project:
+                raise RuntimeError("GCP_PROJECT not set")
+            _client = genai.Client(vertexai=True, project=project, location=s.gcp_location,
+                                   credentials=creds, http_options=http)
+        else:
+            if not s.gemini_api_key:
+                raise RuntimeError("GEMINI_API_KEY not set")
+            _client = genai.Client(api_key=s.gemini_api_key, http_options=http)
     return _client
+
+
+def _gcp_credentials(value: str):
+    """service account json (file path or raw json). empty -> default credentials from gcloud / the host"""
+    if not value:
+        return None, None
+    from pathlib import Path
+
+    from google.oauth2 import credentials, service_account
+
+    info = json.loads(value) if value.lstrip().startswith("{") else json.loads(Path(value).read_text())
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+    if info.get("type") == "authorized_user":  # gcloud application-default login file
+        return credentials.Credentials.from_authorized_user_info(info, scopes), info.get("quota_project_id")
+    return service_account.Credentials.from_service_account_info(info, scopes=scopes), info.get("project_id")
 
 
 def pool() -> ModelPool:
