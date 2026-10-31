@@ -46,7 +46,8 @@ async def main(limit: int | None, batch: int):
     myscheme._limit = asyncio.Semaphore(24)  # one bulk job, myScheme handles this fine
     await db.init_db()
     slugs = await all_slugs(limit)
-    todo = [slug for slug in slugs if slug not in await fresh_slugs()]
+    fresh = await fresh_slugs()
+    todo = [slug for slug in slugs if slug not in fresh]
     print(f"catalogue: {len(slugs)} schemes, {len(todo)} to sync", flush=True)
 
     failed = []
