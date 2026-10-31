@@ -27,14 +27,35 @@ _cooldown: dict[str, float] = {}  # compatibility view of provider cooldowns
 def client() -> genai.Client:
     global _client
     if _client is None:
-        key = get_settings().gemini_api_key
-        if not key:
-            raise RuntimeError("GEMINI_API_KEY not set")
+        s = get_settings()
         # Hidden SDK retries would bypass RPM accounting and provider cooldowns.
-        _client = genai.Client(api_key=key, http_options=types.HttpOptions(
-            retry_options=types.HttpRetryOptions(attempts=1),
-        ))
+        http = types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1))
+        if s.gemini_backend == "vertex":
+            creds, project = _gcp_credentials(s.gcp_credentials)
+            project = s.gcp_project or project
+            if not project:
+                raise RuntimeError("GCP_PROJECT not set")
+            _client = genai.Client(vertexai=True, project=project, location=s.gcp_location,
+                                   credentials=creds, http_options=http)
+        else:
+            if not s.gemini_api_key:
+                raise RuntimeError("GEMINI_API_KEY not set")
+            _client = genai.Client(api_key=s.gemini_api_key, http_options=http)
     return _client
+
+
+def _gcp_credentials(value: str):
+    """service account json (file path or raw json). empty -> default credentials from gcloud / the host"""
+    if not value:
+        return None, None
+    from pathlib import Path
+
+    from google.oauth2 import service_account
+
+    info = json.loads(value) if value.lstrip().startswith("{") else json.loads(Path(value).read_text())
+    creds = service_account.Credentials.from_service_account_info(
+        info, scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    return creds, info.get("project_id")
 
 
 def pool() -> ModelPool:

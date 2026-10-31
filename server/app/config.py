@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/adhikaar"
 
     gemini_api_key: str = ""
+    # "vertex" bills gemini to a google cloud project (free trial credits work there, not on ai studio keys)
+    gemini_backend: str = "aistudio"
+    gcp_project: str = ""
+    gcp_location: str = "global"
+    # service account key: path to the json file, or the json itself (handy for hosting secrets)
+    gcp_credentials: str = ""
     gemini_model: str = "gemini-3.5-flash"
     gemini_fallback_models: str = "gemini-3.6-flash,gemini-3.5-flash-lite"
     gemini_model_pool: str = (
