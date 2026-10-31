@@ -38,7 +38,7 @@ def cache_db(monkeypatch):
         monkeypatch.setattr(llm_cache, "SessionLocal", factory)
         monkeypatch.setattr(llm_cache, "_locks", weakref.WeakValueDictionary())
         monkeypatch.setattr(llm_cache, "stats", dict(hits=0, misses=0, writes=0, errors=0))
-        monkeypatch.setattr(llm, "_embedding_lock", asyncio.Lock())
+        monkeypatch.setattr(llm, "_embedding_inflight", {})
         yield session
     engine.dispose()
 
@@ -137,6 +137,26 @@ async def test_embedding_cache_deduplicates_and_separates_tasks(cache_db, models
     assert models.embed_content.await_count == 1
     await llm.embed_query("same")
     assert models.embed_content.await_count == 2
+
+
+async def test_concurrent_embeddings_run_in_parallel_and_share_duplicates(cache_db, models, monkeypatch):
+    monkeypatch.setattr(llm.get_settings(), "gemini_call_timeout", 1)
+    active = peak = 0
+
+    async def embed(**kwargs):
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0.05)
+        active -= 1
+        return SimpleNamespace(embeddings=[SimpleNamespace(values=[1.0, 2.0, 3.0]) for text in kwargs["contents"]])
+
+    models.embed_content.side_effect = embed
+    results = await asyncio.gather(*(llm.embed([text]) for text in ["a", "b", "c", "a"]))
+    assert peak == 3
+    assert models.embed_content.await_count == 3
+    assert results[0] == results[3]
+    assert not llm._embedding_inflight
 
 
 async def test_health_reports_usage_and_cache_without_credentials(cache_db, models):
