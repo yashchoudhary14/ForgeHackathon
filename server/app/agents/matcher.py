@@ -133,8 +133,27 @@ def qualified_restriction(quote: str, official: str) -> bool:
         r"\b(however|unless|except|exception|provided that)\b", _norm(paragraph)) for paragraph in paragraphs)
 
 
+def explicit_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> str | None:
+    """Return official evidence for unambiguous jurisdiction or student mismatches."""
+    if p.state and scheme.state:
+        states = {_norm(state) for state in re.split(r",|;|\n", scheme.state)}
+        if not states & {"all", "all india", "india", _norm(p.state)}:
+            return f"Scheme jurisdiction: {scheme.state}"
+    if p.is_student is False:
+        # A worker's children being students does not require the worker to enroll.
+        for line in scheme.eligibility_md.splitlines():
+            if re.search(r"\bapplicant must be a (?:(?:girl|boy) )?student\b", _norm(line)):
+                if not qualified_restriction(line, scheme.eligibility_md):
+                    return line.strip()
+    return None
+
+
 async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
     """True means keep. Unsupported drops and unavailable triage fail open."""
+    evidence = explicit_target_mismatch(p, scheme)
+    if evidence:
+        log.info("triage dropped %s: official target restriction %r", scheme.slug, evidence)
+        return False
     if occupational_target_mismatch(p, scheme):
         log.info("triage dropped %s: farmer-only target without a stated farming role", scheme.slug)
         return False
@@ -233,7 +252,8 @@ def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
     if p.is_pregnant or re.search(r"pregnan", occupation):
         kws.extend(["maternity", "pregnant women", "janani"])
     if re.search(r"street vendor|hawker", occupation):
-        kws.extend(["street vendor", "unorganised worker", "micro enterprise loan"])
+        # Extra words broaden myScheme search and crowd out enterprise credit.
+        kws.extend(["street vendor", "unorganised worker", "micro enterprise", "micro enterprise loan"])
     return list(dict.fromkeys(kws)) or [""]
 
 
@@ -291,6 +311,7 @@ def relevance(p: ProfileData, scheme: SchemeSummary) -> int:
     if re.search(r"street vendor|hawker", occupation):
         topic(r"street vendor|hawker", 32)
         topic(r"unorgani[sz]ed|micro enterprise|self employment|business|entrepreneur", 16)
+        topic(r"micro credit|micro enterprises?|\btrading\b", 24)
     if p.gender == "male" and re.search(r"\bwomen\b|\bgirl|\bmahila\b", title):
         score -= 24
     return score

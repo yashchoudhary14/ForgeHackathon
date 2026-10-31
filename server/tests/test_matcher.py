@@ -108,6 +108,31 @@ async def test_triage_failure_keeps_candidate(monkeypatch):
     assert await matcher.triage(BIHAR_STUDENT, detail("sc", "SC students", "SC students"))
 
 
+async def test_explicit_mismatches_do_not_depend_on_model_availability(monkeypatch):
+    generate = AsyncMock(side_effect=AssertionError("clear mismatch needs no model"))
+    monkeypatch.setattr(llm, "generate_json", generate)
+    scheme = detail("unseen", "Student support", "The applicant must be a student.")
+    assert not await matcher.triage(ProfileData(is_student=False), scheme)
+    scheme.state = "Punjab"
+    assert not await matcher.triage(ProfileData(state="Bihar"), scheme)
+    generate.assert_not_called()
+
+
+async def test_vendor_recall_does_not_need_the_semantic_cache(monkeypatch):
+    from tests.test_matcher_records import recorded
+
+    credit = recorded("pmmy")
+    credit.slug = "unseen-enterprise-credit"
+
+    async def search(kw, **kwargs):
+        return SearchOut(total=1 if kw == "micro enterprise" else 0,
+                         items=[credit] if kw == "micro enterprise" else [])
+
+    monkeypatch.setattr(myscheme, "search", search)
+    monkeypatch.setattr(myscheme, "semantic_search", AsyncMock(return_value=[]))
+    assert await matcher.candidates(ProfileData(state="Delhi", occupation="street vendor"), None, 8) == [credit]
+
+
 async def test_match_drops_mismatches_before_judging_and_allows_twelve_judges(monkeypatch):
     schemes = [detail(str(i), "Post-matric scholarship", "SC students") for i in range(12)]
     schemes += [detail("kcc", "Kisan Credit Card", "Farmers"),
