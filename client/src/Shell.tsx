@@ -16,6 +16,7 @@ const Explain = lazy(() => import("./pages/Explain"));
 const Ask = lazy(() => import("./pages/Ask"));
 const Run = lazy(() => import("./pages/Run"));
 const Runs = lazy(() => import("./pages/Runs"));
+const Alerts = lazy(() => import("./pages/Alerts"));
 const Talk = lazy(() => import("./pages/Talk"));
 
 export function useUnread(profileId: string) {
@@ -91,6 +92,7 @@ export default function AppRoutes() {
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/talk" element={<Talk />} />
+        <Route path="/alerts" element={<Alerts />} />
         <Route path="/schemes" element={<Schemes />} />
         <Route path="/schemes/:slug" element={<Scheme />} />
         <Route path="/explain" element={<Explain />} />
