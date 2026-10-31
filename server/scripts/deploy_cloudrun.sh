@@ -16,7 +16,7 @@ if ! command -v "$GCLOUD" >/dev/null 2>&1 && [[ -n "${LOCALAPPDATA:-}" ]]; then
     sdk="$(cygpath -u "$LOCALAPPDATA")/Google/Cloud SDK/google-cloud-sdk/bin/gcloud.cmd"
     if [[ -f "$sdk" ]]; then GCLOUD="$sdk"; fi
 fi
-if ! command -v "$GCLOUD" >/dev/null 2>&1; then
+if ! command -v "$GCLOUD" >/dev/null 2>&1 && [[ ! -f "$GCLOUD" ]]; then
     echo "gcloud not found; set GCLOUD to its executable path." >&2
     exit 1
 fi
