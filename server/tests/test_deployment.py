@@ -64,6 +64,9 @@ async def test_neon_binary_transport_and_connection_cleanup(monkeypatch):
 
 
 async def test_health_pings_do_not_touch_gemini_or_database(monkeypatch):
+    monkeypatch.setattr(main, "settings", Settings(
+        _env_file=None, gemini_backend="vertex", gemini_model="legacy-unused",
+        gemini_model_pool="best-model,fallback-model"))
     forbidden = AsyncMock(side_effect=AssertionError("liveness cannot call providers"))
     monkeypatch.setattr(llm, "initialize_pool", forbidden)
     monkeypatch.setattr(llm, "client", forbidden)
@@ -71,7 +74,8 @@ async def test_health_pings_do_not_touch_gemini_or_database(monkeypatch):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://test") as client:
         for _ in range(5):
             response = await client.get("/api/health")
-            assert response.status_code == 200 and response.json()["ok"]
+            assert response.status_code == 200
+            assert response.json() == {"ok": True, "gemini_backend": "vertex", "model": "best-model"}
     forbidden.assert_not_called()
 
 

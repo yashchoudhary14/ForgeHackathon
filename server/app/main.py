@@ -47,7 +47,9 @@ app.mount("/files", StaticFiles(directory=settings.storage_dir), name="files")
 
 @app.get("/api/health")
 async def health():
-    return {"ok": True, "model": settings.gemini_model}
+    models = settings.model_pool
+    return {"ok": True, "gemini_backend": settings.gemini_backend,
+            "model": models[0] if models else None}
 
 
 @app.get("/api/health/llm")
