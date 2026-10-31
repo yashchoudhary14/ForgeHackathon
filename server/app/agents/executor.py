@@ -165,9 +165,13 @@ def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
         return d
     aliases = {"community": "caste", "hosteler": "is_hosteller", "hosteller": "is_hosteller",
                "single_girl_child": "is_single_child", "college": "institution_name",
+               "institute_name": "institution_name", "college_name": "institution_name",
                "date_of_birth": "dob", "parent_profession": "parent_occupation"}
     if d.value_from and known.get(d.value_from) in (None, ""):
-        alias = aliases.get(d.value_from)
+        normalize = lambda key: re.sub(r"[^a-z0-9]", "", key.casefold())
+        normalized = {normalize(key): key for key in known}
+        normalized.update({normalize(key): value for key, value in aliases.items()})
+        alias = normalized.get(normalize(d.value_from))
         if alias and known.get(alias) not in (None, ""):
             d = d.model_copy(update={"value_from": alias})
     label = el.get("field_label") or el.get("label") or el.get("name") or el.get("placeholder") or "this field"

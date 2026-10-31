@@ -48,6 +48,14 @@ def test_supplied_fact_allows_option_translation():
     assert require_source(d, {"role": "combobox", "label": "Caste"}, {"caste": "sc"}) == d
 
 
+@pytest.mark.parametrize("key", ["instituteName", "college_name", "InstitutionName"])
+def test_portal_institute_names_reuse_known_institution(key):
+    d = Decision(thought="Search college", action="type", element_id=1, value_from=key)
+    known = {"institution_name": "IIT Guwahati"}
+    got = require_source(d, {"tag": "input", "label": "Institute Name"}, known)
+    assert got.action == "type" and got.value_from == "institution_name"
+
+
 @pytest.mark.parametrize("answer,label", [(True, "Yes"), (False, "No")])
 def test_boolean_sources_use_portal_yes_no_labels(answer, label):
     rs = RunSession("unit", "", "https://scholarships.gov.in/", {"is_single_child": answer}, {})
