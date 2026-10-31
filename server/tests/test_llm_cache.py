@@ -38,7 +38,7 @@ def cache_db(monkeypatch):
         monkeypatch.setattr(llm_cache, "SessionLocal", factory)
         monkeypatch.setattr(llm_cache, "_locks", weakref.WeakValueDictionary())
         monkeypatch.setattr(llm_cache, "stats", dict(hits=0, misses=0, writes=0, errors=0))
-        monkeypatch.setattr(llm, "_embedding_lock", asyncio.Lock())
+        monkeypatch.setattr(llm, "_embedding_key_locks", weakref.WeakValueDictionary())
         yield session
     engine.dispose()
 
@@ -136,6 +136,23 @@ async def test_embedding_cache_deduplicates_and_separates_tasks(cache_db, models
     assert await llm.embed(["other", "same"]) == [first[2], first[0]]
     assert models.embed_content.await_count == 1
     await llm.embed_query("same")
+    assert models.embed_content.await_count == 2
+
+
+async def test_independent_embeddings_overlap_and_duplicates_coalesce(cache_db, models):
+    started = set()
+    both = asyncio.Event()
+
+    async def embed(**kwargs):
+        started.update(kwargs["contents"])
+        if started == {"first", "second"}:
+            both.set()
+        await asyncio.wait_for(both.wait(), 2)
+        return SimpleNamespace(embeddings=[SimpleNamespace(values=[1.0, 2.0, 3.0]) for _ in kwargs["contents"]])
+
+    models.embed_content.side_effect = embed
+    results = await asyncio.gather(llm.embed(["first"]), llm.embed(["second"]), llm.embed(["first"]))
+    assert results[0] == results[2]
     assert models.embed_content.await_count == 2
 
 

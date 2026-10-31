@@ -5,7 +5,8 @@ import json
 import logging
 import time
 from typing import Any, TypeVar
-from contextlib import suppress
+from contextlib import AsyncExitStack, suppress
+from weakref import WeakValueDictionary
 
 from google import genai
 from google.genai import types
@@ -21,7 +22,7 @@ T = TypeVar("T", bound=BaseModel)
 
 _client: genai.Client | None = None
 _pool: ModelPool | None = None
-_embedding_lock = asyncio.Lock()
+_embedding_key_locks = WeakValueDictionary()
 _cooldown: dict[str, float] = {}  # compatibility view of provider cooldowns
 
 
@@ -257,7 +258,12 @@ async def embed(texts: list[str], task: str = "RETRIEVAL_DOCUMENT") -> list[list
     keys = [cache_key("embedding", [settings.gemini_embed_model, settings.embed_dim, task, text]) for text in texts]
     found = {}
     # Coalesce duplicate texts in a batch, and overlapping concurrent batches.
-    async with _embedding_lock:
+    async with AsyncExitStack() as stack:
+        # Independent cold scheme records must not queue behind every other
+        # embedding. Sorted key locks still coalesce overlapping batches.
+        for key in sorted(set(keys)):
+            lock = _embedding_key_locks.setdefault(key, asyncio.Lock())
+            await stack.enter_async_context(lock)
         missing = {}
         for key, text in zip(keys, texts):
             if key in found or key in missing:
