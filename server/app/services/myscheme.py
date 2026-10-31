@@ -163,6 +163,20 @@ async def index_schemes(details: list[SchemeDetail], lang: str = "en") -> None:
         await session.commit()
 
 
+async def fetch_scheme(slug: str, lang: str = "en") -> tuple[SchemeDetail, dict]:
+    """live fetch only: the parsed scheme and the row values to store (no embedding)"""
+    data = await _get("schemes", slug=slug, lang=lang)
+    if not data.get("_id"):
+        raise LookupError("Scheme not found")
+    documents, faqs = await asyncio.gather(
+        _get(f"schemes/{quote(data['_id'], safe='')}/documents", lang=lang),
+        _get(f"schemes/{quote(data['_id'], safe='')}/faqs", lang=lang))
+    detail = parse_detail(slug, lang, data, documents, faqs)
+    return detail, dict(slug=slug, lang=lang, scheme_id=detail.id, name=detail.name,
+                        data={"raw": data, "documents": documents, "faqs": faqs, "detail": detail.model_dump()},
+                        embedding=None, fetched_at=datetime.now(timezone.utc))
+
+
 async def get_scheme(slug: str, lang: str = "en", *, index: bool = True) -> SchemeDetail:
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", slug) or lang not in ("en", "hi"):
         raise ValueError("Invalid slug or unsupported scheme language (use en or hi)")
@@ -175,17 +189,9 @@ async def get_scheme(slug: str, lang: str = "en", *, index: bool = True) -> Sche
         if index and cached.embedding is None:
             await index_schemes([detail], lang)
         return detail
-    data = await _get("schemes", slug=slug, lang=lang)
-    if not data.get("_id"):
-        raise LookupError("Scheme not found")
-    documents, faqs = await asyncio.gather(
-        _get(f"schemes/{quote(data['_id'], safe='')}/documents", lang=lang),
-        _get(f"schemes/{quote(data['_id'], safe='')}/faqs", lang=lang))
-    detail = parse_detail(slug, lang, data, documents, faqs)
-    embedding = (await llm.embed([f"{detail.name}\n{detail.brief or ''}\n{detail.eligibility_md}"]))[0] if index else None
-    values = dict(slug=slug, lang=lang, scheme_id=detail.id, name=detail.name,
-                  data={"raw": data, "documents": documents, "faqs": faqs,
-                        "detail": detail.model_dump()}, embedding=embedding, fetched_at=now)
+    detail, values = await fetch_scheme(slug, lang)
+    if index:
+        values["embedding"] = (await llm.embed([f"{detail.name}\n{detail.brief or ''}\n{detail.eligibility_md}"]))[0]
     async with db.SessionLocal() as session:
         changed = values if index else {key: value for key, value in values.items() if key != "embedding"}
         await session.execute(insert(models.Scheme).values(**values).on_conflict_do_update(
