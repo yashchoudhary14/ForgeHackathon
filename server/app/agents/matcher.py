@@ -29,6 +29,12 @@ Then give a verdict:
 - unknown: text too vague to judge
 confidence 0..1. missing_info: short questions for unknown criteria. documents_needed: from the documents text.
 Do not invent criteria that are not in the text.
+Respect the official scheme jurisdiction, including state restrictions omitted from the eligibility prose.
+Scope criteria to the applicable beneficiary/state/course branch. Alternative routes and lists of
+qualifying groups are OR, not AND: satisfying one route is enough. Do not fail an applicant for an
+inapplicable branch (for example high-performing-state rules for a low-performing-state resident).
+Read exceptions with their rule; an exception can restore eligibility. Future renewal/payment
+conditions are not proof of a present failure. Missing ordinary facts remain unknown.
 Special conditions (disability, widow, orphan, minority, BPL card, ex-serviceman, rank holder, single girl child...):
 if the profile does not mention them, treat them as NOT applying (met=false), the citizen can correct us later.
 Course level matters: a B.Sc/B.A/B.Com student is undergraduate, not postgraduate.
@@ -78,7 +84,8 @@ class _Triage(BaseModel):
 
 
 def target_text(scheme: SchemeDetail) -> str:
-    return f"{scheme.name}\n{scheme.brief or ''}\n{scheme.details_md}"
+    jurisdiction = f"Scheme jurisdiction: {scheme.state}\n" if scheme.state else ""
+    return f"{scheme.name}\n{jurisdiction}{scheme.brief or ''}\n{scheme.details_md}"
 
 
 def occupational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
@@ -177,7 +184,77 @@ def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
         kws.append(p.occupation)
     if p.land_acres:
         kws.append("farmer")
+    occupation = _norm(p.occupation or "")
+    if p.land_acres or re.search(r"farm|cultivat|agricultur", occupation):
+        kws.extend(["kisan", "agriculture", "crop insurance"])
+    if _norm(p.marital_status or "") in {"widow", "widowed"}:
+        kws.extend(["widow pension", "single women pension"])
+    if p.age is not None and p.age >= 60:
+        kws.append("old age pension")
+    if p.disability_percent:
+        kws.extend(["disability", "skill development disabilities", "self employment disabled"])
+    if re.search(r"unemploy|job seek", occupation):
+        kws.extend(["employment", "skill development"])
+    if p.is_pregnant or re.search(r"pregnan", occupation):
+        kws.extend(["maternity", "pregnant women", "janani"])
+    if re.search(r"street vendor|hawker", occupation):
+        kws.extend(["street vendor", "unorganised worker", "micro enterprise loan"])
     return list(dict.fromkeys(kws)) or [""]
+
+
+def relevance(p: ProfileData, scheme: SchemeSummary) -> int:
+    """Rank beneficiary fit before the bounded shortlist; never whitelist scheme slugs."""
+    title = _norm(scheme.name)
+    context = _norm(f"{scheme.brief or ''} {' '.join(scheme.tags)}")
+    state = _norm(scheme.state or "")
+    own_state = _norm(p.state or "")
+    score = 0
+    if own_state and state and state not in {"all", "all india"}:
+        score += 12 if f" {own_state} " in f" {state} " else -60
+
+    def topic(pattern, weight):
+        nonlocal score
+        if re.search(pattern, title):
+            score += weight
+        elif re.search(pattern, context):
+            score += weight // 2
+
+    category_patterns = {
+        "sc": r"\bscheduled castes?\b|\bsc\b",
+        "st": r"\bscheduled tribes?\b|\bst\b",
+        "obc": r"\bother backward|\bobc\b|\bbackward class|\bpichda varg\b",
+        "pvtg": r"particularly vulnerable tribal|\bpvtg\b",
+        "dnt": r"denotified|de notified|\bdnt\b",
+    }
+    categories = {key for key, pattern in category_patterns.items() if re.search(pattern, title)}
+    if p.caste and categories:
+        score += 20 if p.caste in categories else -24
+    if p.is_student:
+        topic(r"scholarship|chhatravritti|chhaatravrtti", 16)
+        education = _norm(f"{p.course or ''} {p.education_level or ''}")
+        if re.search(r"\bug\b|undergrad|b sc|b a\b|b com|b tech|class 1[12]", education):
+            topic(r"post matric|post metric|postmatric", 16)
+            if re.search(r"pre matric|post graduate|post doctoral|fellowship", title):
+                score -= 24
+    occupation = _norm(p.occupation or "")
+    if p.land_acres or re.search(r"farm|cultivat|agricultur", occupation):
+        topic(r"farmer|kisan|agricultur|crop", 24)
+    if _norm(p.marital_status or "") in {"widow", "widowed"}:
+        topic(r"widow|vidhva|ekal nari|single wom", 28)
+    if p.age is not None and p.age >= 60:
+        topic(r"old age|elderly|senior citizen|vrdhavastha|vridh", 24)
+    if p.disability_percent:
+        topic(r"disabil|disabled|divyang|differently abled", 28)
+        if re.search(r"unemploy|job seek", occupation):
+            topic(r"employment|skill|kaushal|vocational", 20)
+    if p.is_pregnant or re.search(r"pregnan", occupation):
+        topic(r"matern|pregnan|matru|janani|lactat", 32)
+    if re.search(r"street vendor|hawker", occupation):
+        topic(r"street vendor|hawker", 32)
+        topic(r"unorgani[sz]ed|micro enterprise|self employment|business|entrepreneur", 16)
+    if p.gender == "male" and re.search(r"\bwomen\b|\bgirl|\bmahila\b", title):
+        score -= 24
+    return score
 
 
 async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[SchemeSummary]:
@@ -187,7 +264,7 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
     seen: dict[str, SchemeSummary] = {}
     async def search(kw: str, search_filters: dict):
         try:
-            return (await myscheme.search(kw, filters=search_filters, offset=0, size=max(12, limit))).items
+            return (await myscheme.search(kw, filters=search_filters, offset=0, size=max(24, limit))).items
         except Exception as e:
             log.warning("myscheme search failed for %r: %s", kw, e)
             return []
@@ -196,11 +273,12 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
     # state-only pass recovers these; official eligibility is checked later.
     queries = [(kw, filters) for kw in keywords_for(p, keyword)]
     recall_filters = {"state": p.state} if p.state else {}
-    queries.extend((kw, recall_filters) for kw in keywords_for(p, keyword) if kw and "scholarship" in kw)
+    queries.extend((kw, recall_filters) for kw in keywords_for(p, keyword) if kw)
     # central schemes (e.g. post matric for SC) carry no state tag, run the category queries unfiltered too
     caste = CASTE_NAMES.get(p.caste or "")
     if caste:
         queries.extend((kw, {}) for kw in keywords_for(p, keyword) if caste in kw)
+    queries = list({(kw, tuple(sorted(f.items()))): (kw, f) for kw, f in queries}.values())
     pages = await asyncio.gather(*(search(kw, f) for kw, f in queries))
     # Interleave pages so one generic page cannot crowd out state/category hits.
     for i in range(max((len(page) for page in pages), default=0)):
@@ -218,7 +296,7 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
                     seen.setdefault(s.slug, s)
     except Exception as e:
         log.info("semantic search skipped: %s", e)
-    return list(seen.values())[: max(32, limit * 4)]
+    return sorted(seen.values(), key=lambda s: -relevance(p, s))[: max(32, limit * 4)]
 
 
 async def judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
@@ -300,5 +378,6 @@ async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang
                 return None
 
     results = [r for r in await asyncio.gather(*(one(s) for s in cands)) if r]
-    results.sort(key=lambda r: (ORDER[r.verdict], -r.confidence))
+    priority = {s.slug: relevance(p, s) for s in cands}
+    results.sort(key=lambda r: (ORDER[r.verdict], -priority.get(r.scheme.slug, 0), -r.confidence))
     return results[:limit]

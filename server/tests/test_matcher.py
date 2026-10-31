@@ -48,6 +48,41 @@ async def test_recall_keeps_working_when_a_search_fails(monkeypatch):
     assert await matcher.candidates(BIHAR_STUDENT, None, 8) == [central]
 
 
+async def test_specific_central_sc_hit_survives_the_shortlist_cap(monkeypatch):
+    central = SchemeSummary(slug="pmssc", name="Post Matric Scholarship For Scheduled Caste", state="All")
+
+    async def search(kw, filters, offset, size):
+        # A relevant record is deep in the unfiltered category pass, behind enough
+        # different generic records to overflow an interleaved 32-entry shortlist.
+        prefix = str(sorted(filters.items())) + kw
+        items = [SchemeSummary(slug=f"{prefix}-{i}", name="General financial support", state="All") for i in range(size)]
+        if not filters and kw == "post matric scholarship scheduled caste":
+            items[-1] = central
+        return SearchOut(total=len(items), items=items)
+
+    monkeypatch.setattr(myscheme, "search", search)
+    monkeypatch.setattr(myscheme, "semantic_search", AsyncMock(return_value=[]))
+    found = await matcher.candidates(BIHAR_STUDENT, None, 8)
+    assert len(found) == 32 and central in found[:4]
+    assert matcher.relevance(BIHAR_STUDENT, central) > matcher.relevance(
+        BIHAR_STUDENT, SchemeSummary(slug="other", name="Post Matric Scholarship For Scheduled Caste", state="Tamil Nadu"))
+
+
+def test_life_stage_queries_and_ranking_do_not_depend_on_scheme_slugs():
+    cases = [
+        (ProfileData(state="Uttar Pradesh", occupation="farmer", land_acres=2), "kisan", "Kisan Credit Card"),
+        (ProfileData(state="Rajasthan", age=68, marital_status="widowed"), "widow pension", "Widow Pension"),
+        (ProfileData(state="Maharashtra", disability_percent=40, occupation="unemployed job seeker"), "disability", "Skill Development of Persons with Disabilities"),
+        (ProfileData(state="Odisha", is_pregnant=True), "maternity", "Maternity Assistance for Pregnant Women"),
+        (ProfileData(state="Delhi", occupation="street vendor"), "street vendor", "Street Vendor Working Capital"),
+    ]
+    for profile, query, title in cases:
+        assert query in matcher.keywords_for(profile, None)
+        specific = SchemeSummary(slug="unseen-specific", name=title, state=profile.state)
+        generic = SchemeSummary(slug="unseen-generic", name="General assistance", state="All")
+        assert matcher.relevance(profile, specific) > matcher.relevance(profile, generic)
+
+
 def detail(slug, name, eligibility):
     return SchemeDetail(id=slug, slug=slug, name=name, eligibility_md=eligibility,
                         source_url=f"https://www.myscheme.gov.in/schemes/{slug}")
