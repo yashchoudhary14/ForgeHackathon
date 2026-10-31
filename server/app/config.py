@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/adhikaar"
+    # Neon WSS uses HTTPS port 443, including on port-restricted Spaces.
+    database_transport: Literal["auto", "tcp", "websocket"] = "auto"
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash"
