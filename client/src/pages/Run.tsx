@@ -11,7 +11,20 @@ import type {
 } from "../api/types";
 import { ErrorBox, Loading } from "../components";
 import { ReceiptView } from "../ReceiptView";
+import { Globe, Monitor, ShieldCheck } from "lucide-react";
 type Human = { kind: HumanKind; message: string; field?: string };
+const actionLabels: Record<string, string> = {
+  click: "Selecting a field or button",
+  type: "Filling in your details",
+  select: "Choosing an option",
+  scroll: "Checking the next section",
+  navigate: "Opening a portal page",
+  goto: "Opening a portal page",
+  wait: "Waiting for the portal",
+  ask_human: "Waiting for your help",
+  request_approval: "Waiting for your approval",
+  done: "Finishing the application",
+};
 export default function Run() {
   const { id = "" } = useParams();
   const [run, setRun] = useState<RunOut | null>(null),
@@ -26,7 +39,8 @@ export default function Run() {
     [epoch, setEpoch] = useState(0);
   const socket = useRef<WebSocket | null>(null),
     canvas = useRef<HTMLCanvasElement>(null),
-    end = useRef<HTMLDivElement>(null),
+    timeline = useRef<HTMLElement>(null),
+    humanPanel = useRef<HTMLElement>(null),
     lastFrame = useRef<HTMLImageElement | null>(null),
     frameVersion = useRef(0);
   useEffect(() => {
@@ -153,7 +167,16 @@ export default function Run() {
             setConnection("Finished");
             ws.close();
           } else if (msg.type === "error") {
-            setError(msg.message);
+            if (
+              msg.message === "run is not live (finished or server restarted)"
+            ) {
+              finished = true;
+              setConnection("Unavailable");
+              setError(
+                "This live session has ended. Your saved steps are still available. Start a new application from the scheme page when you’re ready.",
+              );
+              ws.close();
+            } else setError(msg.message);
           }
         } catch {
           setError(
@@ -205,8 +228,18 @@ export default function Run() {
     };
   }, [id, epoch]);
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const list = timeline.current;
+    if (list) list.scrollTop = list.scrollHeight;
   }, [run?.steps]);
+  useEffect(() => {
+    if (human) {
+      humanPanel.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+      humanPanel.current?.focus({ preventScroll: true });
+    }
+  }, [human]);
   useEffect(() => {
     const c = canvas.current,
       img = lastFrame.current;
@@ -234,7 +267,10 @@ export default function Run() {
       setAnswer("");
     }
   }
-  if (loading) return <Loading />;
+  if (loading)
+    return (
+      <Loading message="Restoring your application and connecting to the live browser…" />
+    );
   return (
     <>
       <div className="page-heading">
@@ -269,13 +305,68 @@ export default function Run() {
           >
             <Text value={connection} />
           </div>
-          {run.error && <ErrorBox error={run.error} />}{" "}
+          {run.error && (
+            <ErrorBox error={run.error} retry={() => setEpoch((e) => e + 1)} />
+          )}{" "}
+          {!isTerminal(run.status) && connection !== "Unavailable" && (
+            <div className="run-guidance">
+              <ShieldCheck size={20} />
+              <p>
+                <strong>
+                  <Text value="You stay in control" />
+                </strong>
+                <br />
+                <Text value="The agent pauses for CAPTCHA, OTP and your approval before submission." />
+              </p>
+            </div>
+          )}
+          {!human &&
+            !isTerminal(run.status) &&
+            connection !== "Unavailable" && (
+              <section className="panel control-status" aria-live="polite">
+                <h2>
+                  <Text
+                    value={
+                      run.status === "needs_human" ||
+                      run.status === "awaiting_approval"
+                        ? "Restoring your next action…"
+                        : "No action needed from you yet"
+                    }
+                  />
+                </h2>
+                <p>
+                  <Text
+                    value={
+                      run.status === "needs_human" ||
+                      run.status === "awaiting_approval"
+                        ? "Reconnecting to retrieve the request. If it does not appear, try again."
+                        : "Watch the browser and steps below. We’ll show your next action here."
+                    }
+                  />
+                </p>
+                {(run.status === "needs_human" ||
+                  run.status === "awaiting_approval") && (
+                  <button
+                    className="secondary"
+                    onClick={() => setEpoch((e) => e + 1)}
+                  >
+                    <Text value="Try again" />
+                  </button>
+                )}
+              </section>
+            )}
           {human && (
-            <section className="panel human" role="alert">
+            <section
+              className="panel human"
+              role="alert"
+              ref={humanPanel}
+              tabIndex={-1}
+              aria-labelledby="human-heading"
+            >
               <span className="eyebrow">
                 <Text value={"YOUR HELP IS NEEDED"} />
               </span>
-              <h2>
+              <h2 id="human-heading">
                 <Text
                   value={
                     human.kind === "confirm_submit"
@@ -290,6 +381,20 @@ export default function Run() {
                   }
                 />
               </h2>
+              <div className="human-gates" aria-label="Human checkpoints">
+                {[
+                  ["captcha", "CAPTCHA"],
+                  ["otp", "OTP"],
+                  ["confirm_submit", "Final approval"],
+                ].map(([kind, label]) => (
+                  <span
+                    key={kind}
+                    className={human.kind === kind ? "active" : ""}
+                  >
+                    <Text value={label} />
+                  </span>
+                ))}
+              </div>
               <p>{human.message}</p>
               {human.kind === "confirm_submit" ? (
                 <>
@@ -322,7 +427,11 @@ export default function Run() {
                     disabled={connection !== "Connected"}
                     onClick={() => {
                       setTakeover(true);
-                      canvas.current?.focus();
+                      canvas.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      });
+                      canvas.current?.focus({ preventScroll: true });
                     }}
                   >
                     <Text value={"Take over"} />
@@ -349,7 +458,13 @@ export default function Run() {
                   }}
                 >
                   <label htmlFor="human-answer">
-                    {human.field || "Your answer"}
+                    <Text
+                      value={
+                        human.kind === "otp"
+                          ? "One-time password (OTP)"
+                          : human.field || "Your answer"
+                      }
+                    />
                   </label>
                   <input
                     id="human-answer"
@@ -372,14 +487,30 @@ export default function Run() {
             </section>
           )}
           <div className="run-grid">
-            <section className="panel">
+            <section className="panel browser-panel">
               <h2>
                 <Text value={"Live browser"} />
               </h2>
+              <div className="browser-address">
+                <Globe size={14} />
+                <span>{run.portal_url}</span>
+                <span className="badge">
+                  <Text
+                    value={takeover ? "You are in control" : "Watch live"}
+                  />
+                </span>
+              </div>
               <div className="browser">
                 {!hasFrame && (
-                  <p style={{ padding: "2rem" }}>
-                    <Text value={"Waiting for the browser view…"} />
+                  <p className="browser-wait" role="status">
+                    <Monitor size={36} />
+                    <Text
+                      value={
+                        isTerminal(run.status) || connection === "Unavailable"
+                          ? "This application has ended. Check the steps and receipt below."
+                          : "Opening the portal. The live browser will appear here…"
+                      }
+                    />
                   </p>
                 )}
                 <canvas
@@ -476,6 +607,7 @@ export default function Run() {
             </section>
             <section
               className="panel timeline"
+              ref={timeline}
               aria-label="Application steps"
               aria-live="polite"
             >
@@ -493,24 +625,30 @@ export default function Run() {
                   {run.steps.map((step) => (
                     <li key={step.idx}>
                       <small>
-                        <Text value={"Step"} />
-                        {step.idx + 1} · {step.status}
+                        <Text value={"Step"} /> {step.idx + 1} ·{" "}
+                        <Text value={step.status.replaceAll("_", " ")} />
                       </small>
                       {step.thought && <p>{step.thought}</p>}
+                      {step.action && (
+                        <span className="tool">
+                          <Text
+                            value={
+                              actionLabels[String(step.action.action)] ||
+                              "Working on the portal"
+                            }
+                          />
+                        </span>
+                      )}
                       {step.result && (
                         <p className="step-result">
                           <Text value="Result:" /> {step.result}
                         </p>
-                      )}
-                      {step.action && (
-                        <pre>{JSON.stringify(step.action, null, 2)}</pre>
                       )}
                       {step.url && <small>{step.url}</small>}
                     </li>
                   ))}
                 </ol>
               )}
-              <div ref={end} />
             </section>
           </div>
           {run.receipt && (
