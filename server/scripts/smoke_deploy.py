@@ -1,4 +1,4 @@
-"""Run inside the API container: python scripts/smoke_deploy.py [--agent].
+"""Check a local container or live API: --base-url URL [--agent] [--hindi-explain].
 
 The optional real agent test consumes Gemini quota and stores one demo profile
 and run. Its goal only reads the requested government page.
@@ -10,13 +10,14 @@ import os
 import uuid
 import wave
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 from websockets.asyncio.client import connect
 
 
-async def main(base: str, agent: bool):
-    async with httpx.AsyncClient(base_url=base, timeout=60) as client:
+async def main(base: str, agent: bool, hindi_explain: bool = False, origin: str | None = None):
+    async with httpx.AsyncClient(base_url=base, timeout=180, follow_redirects=True) as client:
         before = (await client.get("/api/health/llm")).json()
         for _ in range(5):
             health = await client.get("/api/health")
@@ -33,21 +34,50 @@ async def main(base: str, agent: bool):
         assert result["total"] > 0 and result["items"]
         print(f"schemes/search: 200; total={result['total']}", flush=True)
 
-        # Exercise the actual writable storage mount and public audio route.
-        folder = Path(os.environ["STORAGE_DIR"]) / "audio"
-        folder.mkdir(parents=True, exist_ok=True)
-        filename = "smoke-" + uuid.uuid4().hex + ".wav"
-        path = folder / filename
-        try:
-            with wave.open(str(path), "wb") as output:
-                output.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
-                output.writeframes(b"\x00\x00" * 80)
-            response = await client.get("/files/audio/" + filename)
+        if origin:
+            response = await client.options("/api/explain", headers={
+                "Origin": origin, "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            })
             response.raise_for_status()
-            assert response.content == path.read_bytes()
-            print("audio: writable storage; /files/audio returns the WAV bytes", flush=True)
-        finally:
-            path.unlink(missing_ok=True)
+            assert response.headers.get("access-control-allow-origin") == origin
+            print("cors: exact frontend origin accepted", flush=True)
+
+        # Exercise the actual writable storage mount and public audio route.
+        if urlsplit(base).hostname in {"localhost", "127.0.0.1", "::1"} and os.getenv("STORAGE_DIR"):
+            folder = Path(os.environ["STORAGE_DIR"]) / "audio"
+            folder.mkdir(parents=True, exist_ok=True)
+            filename = "smoke-" + uuid.uuid4().hex + ".wav"
+            path = folder / filename
+            try:
+                with wave.open(str(path), "wb") as output:
+                    output.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
+                    output.writeframes(b"\x00\x00" * 80)
+                response = await client.get("/files/audio/" + filename)
+                response.raise_for_status()
+                assert response.content == path.read_bytes()
+                print("audio: writable storage; /files/audio returns the WAV bytes", flush=True)
+            finally:
+                path.unlink(missing_ok=True)
+
+        if hindi_explain:
+            response = await client.post("/api/explain", json={
+                "source": {"type": "scheme", "slug": "pm-kisan"},
+                "language": "hi", "with_audio": True,
+            })
+            response.raise_for_status()
+            explained = response.json()
+            assert explained["language"] == "hi" and explained["citations"]
+            assert any("\u0900" <= ch <= "\u097f" for ch in explained["summary"])
+            assert explained["audio_url"], "Hindi explanation did not produce speech audio"
+            audio = await client.get(explained["audio_url"])
+            audio.raise_for_status()
+            assert audio.content[:4] == b"RIFF" and audio.content[8:12] == b"WAVE"
+            print("hindi explain: " + json.dumps({
+                "title": explained["title"], "summary": explained["summary"],
+                "citations": len(explained["citations"]), "audio_url": explained["audio_url"],
+                "audio_bytes": len(audio.content),
+            }, ensure_ascii=False), flush=True)
 
         if not agent:
             return
@@ -63,7 +93,9 @@ async def main(base: str, agent: bool):
         response.raise_for_status()
         run_id = response.json()["id"]
         ws_url = base.replace("http://", "ws://").replace("https://", "wss://")
-        async with connect(ws_url + f"/api/agent/runs/{run_id}/ws", max_size=8 * 1024 * 1024) as ws:
+        headers = {"Cookie": "; ".join(f"{name}={value}" for name, value in client.cookies.items())}
+        async with connect(ws_url + f"/api/agent/runs/{run_id}/ws", additional_headers=headers,
+                           max_size=8 * 1024 * 1024) as ws:
             frames = 0
 
             async def receive():
@@ -102,5 +134,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:" + os.getenv("PORT", "7860"))
     parser.add_argument("--agent", action="store_true")
+    parser.add_argument("--hindi-explain", action="store_true")
+    parser.add_argument("--origin", help="Exact Vercel origin for a CORS preflight check")
     args = parser.parse_args()
-    asyncio.run(main(args.base_url.rstrip("/"), args.agent))
+    asyncio.run(main(args.base_url.rstrip("/"), args.agent, args.hindi_explain, args.origin))
