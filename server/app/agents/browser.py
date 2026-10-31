@@ -183,6 +183,7 @@ class Browser:
         self._adopt_lock = asyncio.Lock()
         self.navigation_id = 0
         self.network_errors: dict[str, int] = {}
+        self._api_slots = asyncio.Semaphore(3)
 
     async def start(self):
         self._pw = await async_playwright().start()
@@ -202,6 +203,15 @@ class Browser:
         if top_level and not allowed(req.url):
             log.warning("blocked navigation to %s", req.url)
             await route.abort("blockedbyclient")
+        elif req.resource_type in ("xhr", "fetch"):
+            # Government backends can reject a burst of parallel lookup requests.
+            # Gate the original requests; never duplicate or retry a POST.
+            async with self._api_slots:
+                await route.continue_()
+                try:
+                    await asyncio.wait_for(req.response(), timeout=15)
+                except (TimeoutError, PlaywrightTimeout):
+                    pass
         else:
             await route.continue_()
 
