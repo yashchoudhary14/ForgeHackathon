@@ -40,6 +40,16 @@ def test_filter_mapping_includes_universal_schemes():
     assert len(filters) == 13
 
 
+def test_punjab_scheme_state_survives_parsing_and_old_cache_reads():
+    raw = recorded("myscheme-pmssc.json")
+    detail = myscheme.parse_detail("pmssc", "en", raw, {}, {})
+    assert detail.state == "Punjab"
+    legacy = detail.model_dump()
+    legacy["state"] = None
+    repaired = myscheme._cached_detail({"raw": raw, "detail": legacy}, "en")
+    assert repaired.state == "Punjab"
+
+
 @pytest.mark.live
 @pytest.mark.asyncio
 async def test_live_myscheme_search():

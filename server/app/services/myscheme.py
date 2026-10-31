@@ -101,7 +101,7 @@ def _label(value):
 def _summary(fields: dict) -> SchemeSummary:
     return SchemeSummary(slug=fields["slug"], name=fields["schemeName"],
         ministry=_label(fields.get("nodalMinistryName") or fields.get("nodalDepartmentName")),
-        state=_label(fields.get("beneficiaryState")), tags=fields.get("tags") or [],
+        state=_label(fields.get("beneficiaryState") or fields.get("state")), tags=fields.get("tags") or [],
         brief=fields.get("briefDescription"))
 
 
@@ -138,6 +138,16 @@ def parse_detail(slug: str, lang: str, data: dict, documents: dict, faqs: dict) 
         source_url=BASE + "/schemes/" + slug)
 
 
+def _cached_detail(data: dict, lang: str) -> SchemeDetail:
+    detail = SchemeDetail.model_validate(data["detail"])
+    # Older parsed records lost basicDetails.state; recover official metadata
+    # without another network or embedding call, including for semantic recall.
+    if not detail.state:
+        basic = data.get("raw", {}).get(lang, {}).get("basicDetails", {})
+        detail.state = _label(basic.get("state"))
+    return detail
+
+
 async def get_scheme(slug: str, lang: str = "en") -> SchemeDetail:
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", slug) or lang not in ("en", "hi"):
         raise ValueError("Invalid slug or unsupported scheme language (use en or hi)")
@@ -146,7 +156,7 @@ async def get_scheme(slug: str, lang: str = "en") -> SchemeDetail:
         cached = await session.get(models.Scheme, (slug, lang))
         # rows written by older code may lack the parsed detail, refetch those
         if cached and "detail" in (cached.data or {}) and cached.fetched_at.replace(tzinfo=timezone.utc) > now - timedelta(hours=24):
-            return SchemeDetail.model_validate(cached.data["detail"])
+            return _cached_detail(cached.data, lang)
     data = await _get("schemes", slug=slug, lang=lang)
     if not data.get("_id"):
         raise LookupError("Scheme not found")
@@ -176,7 +186,7 @@ async def semantic_search(query: str, k: int) -> list[SchemeSummary]:
     results, seen = [], set()
     for row in rows:
         if row.slug not in seen and "detail" in (row.data or {}):
-            results.append(SchemeSummary.model_validate(row.data["detail"]))
+            results.append(SchemeSummary.model_validate(_cached_detail(row.data, row.lang).model_dump()))
             seen.add(row.slug)
         if len(results) == k:
             break
