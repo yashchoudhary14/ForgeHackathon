@@ -26,7 +26,7 @@ export function MatchCards({ matches }: { matches: MatchResult[] }) {
         const pct = Math.round(Math.max(0, Math.min(1, m.confidence)) * 100);
         const slug = encodeURIComponent(m.scheme.slug);
         return (
-          <Card key={m.scheme.slug} className="flex flex-col gap-3">
+          <Card as="article" key={m.scheme.slug} className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <VerdictChip verdict={m.verdict} />
               <span className="text-sm text-ink-soft">{pct}%</span>

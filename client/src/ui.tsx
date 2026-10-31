@@ -34,13 +34,15 @@ export function Card({
   children,
   className,
   tint,
+  as: Tag = "section",
 }: {
   children: ReactNode;
   className?: string;
   tint?: "peach" | "blue";
+  as?: "section" | "article" | "div";
 }) {
   return (
-    <section
+    <Tag
       className={cx(
         "rounded-[28px] p-5 sm:p-6",
         tint === "peach"
@@ -52,7 +54,7 @@ export function Card({
       )}
     >
       {children}
-    </section>
+    </Tag>
   );
 }
 
