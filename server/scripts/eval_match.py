@@ -1,6 +1,6 @@
 """Live matcher regressions using official myScheme data and the configured LLM.
 
-From server/: python scripts/eval_match.py --fresh --model gemini-3.8-flash --rpm 600
+From server/: python scripts/eval_match.py --fresh --model gemini-3.8-flash,gemini-3.1-flash-lite --rpm 600
 Exits nonzero on missing candidates, wrong verdicts, or target-group leakage.
 """
 import argparse
@@ -55,6 +55,7 @@ CASES.update({
                                disability_percent=40, education_level="graduate", course="B.A completed",
                                occupation="unemployed graduate job seeker", is_student=False, annual_income=60000),
         "expected": {"Assistance for aids and appliances (ADIP)": r"(adip|assistance.*(aids|appliances))",
+                     "National disability skill development plan": r"national action plan.*skill development.*disabilit",
                      "Financial assistance for disabled self-employment": r"(self employment.*(disab|divyang)|(disab|divyang).*self employment)"},
     },
     "mp-obc-class11": {
@@ -67,6 +68,7 @@ CASES.update({
         "profile": ProfileData(state="Odisha", age=25, gender="female", residence="rural",
                                is_pregnant=True, is_bpl=True, annual_income=60000),
         "expected": {"MAMATA": r"mamata", "Janani Suraksha Yojana": r"janani suraksha",
+                     "Pradhan Mantri Matru Vandana Yojana": r"matru vandana",
                      "Janani Shishu Suraksha Karyakram": r"janani shishu suraksha"},
     },
     "delhi-street-vendor": {
@@ -176,7 +178,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", action="append", choices=CASES)
     parser.add_argument("--limit", type=int, choices=range(1, 21), default=8)
-    parser.add_argument("--model", help="Pin a model; defaults to the configured pool")
+    parser.add_argument("--model", help="Model or comma-separated pool; include a lite model for triage")
     parser.add_argument("--rpm", type=int, help="Per-model local RPM budget for a paid-quota run")
     parser.add_argument("--fresh", action="store_true")
     parser.add_argument("--max-seconds", type=float, default=60, help="Per-profile match latency budget")
