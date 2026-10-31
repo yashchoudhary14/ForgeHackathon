@@ -87,7 +87,7 @@ async def test_probe_keeps_only_answering_models_and_runs_once():
     generate = AsyncMock(side_effect=generate)
     client = lambda: SimpleNamespace(aio=SimpleNamespace(models=SimpleNamespace(generate_content=generate)))
     await asyncio.gather(pool.probe(client, 0.01), pool.probe(client, 0.01))
-    assert pool.names() == ["working"]
+    assert pool.names() == ["working", "slow"]  # slow stays, just cooling down
     assert generate.await_count == 4
     assert all(state.total == 1 for state in pool.states.values() if state.kind == "generation")
     health = await pool.snapshot()

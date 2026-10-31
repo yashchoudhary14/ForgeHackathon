@@ -89,12 +89,14 @@ class ModelPool:
         self.condition = asyncio.Condition()
         self.probe_lock = asyncio.Lock()
         self.initialized = False
+        self.probed_at = 0.0
         self.waiters: list[tuple[object, set[str]]] = []
         self.limited = 0
 
     async def probe(self, client, timeout: float):
         async with self.probe_lock:
-            if self.initialized:
+            # re-probe if boot happened during a network blip, otherwise we'd be dead till restart
+            if self.initialized and (self.names() or time.monotonic() - self.probed_at < 60):
                 return
 
             async def one(state):
@@ -111,12 +113,15 @@ class ModelPool:
                 except Exception as error:
                     state.failures += 1
                     state.status = "probe_timeout" if isinstance(error, TimeoutError) else f"probe_error_{status_code(error) or 'unknown'}"
+                    # slow or busy isn't dead - keep it in the pool, the cooldown keeps it out for now
+                    state.enabled = isinstance(error, TimeoutError) or status_code(error) in {429, 500, 502, 503, 504}
                     state.cooldown_until = time.monotonic() + cooldown_seconds(error)
                 log.info("llm model=%s ms=%d cached=false limited=false status=%s",
                          state.name, (time.monotonic() - started) * 1000, state.status)
 
             await asyncio.gather(*(one(state) for state in self.states.values() if state.kind == "generation"))
             self.initialized = True
+            self.probed_at = time.monotonic()
 
     def names(self, kind: str = "generation") -> list[str]:
         return [state.name for state in self.states.values() if state.enabled and state.kind == kind]
