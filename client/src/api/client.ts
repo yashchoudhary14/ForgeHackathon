@@ -1,4 +1,4 @@
-import type { ChatEvent, ChatIn } from "./types";
+import type { ChatEvent, ChatIn, MatchEvent, MatchIn } from "./types";
 import { createSseParser } from "./sse";
 import { responseError } from "./errors";
 export const BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000")
@@ -65,12 +65,23 @@ export async function request<T>(
 }
 export const post = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "POST", body: JSON.stringify(body) });
-export async function streamChat(
+export const streamChat = (
   input: ChatIn,
   onEvent: (event: ChatEvent) => void,
   signal: AbortSignal,
+) => streamEvents("/chat", input, onEvent, signal);
+export const streamMatches = (
+  input: MatchIn,
+  onEvent: (event: MatchEvent) => void,
+  signal: AbortSignal,
+) => streamEvents("/schemes/match/stream", input, onEvent, signal);
+async function streamEvents<T extends ChatEvent | MatchEvent>(
+  path: string,
+  input: unknown,
+  onEvent: (event: T) => void,
+  signal: AbortSignal,
 ) {
-  const res = await fetch(BASE + "/api/chat", {
+  const res = await fetch(BASE + "/api" + path, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -90,7 +101,7 @@ export async function streamChat(
       doneEvent = true;
       return;
     }
-    const event = JSON.parse(data) as ChatEvent;
+    const event = JSON.parse(data) as T;
     if (event.type === "error") throw new Error(event.message);
     if (event.type === "done") doneEvent = true;
     onEvent(event);
