@@ -2,10 +2,11 @@
 import asyncio
 import base64
 import logging
+import json
 from typing import Awaitable, Callable
 from urllib.parse import urlparse
 
-from playwright.async_api import BrowserContext, Page, async_playwright
+from playwright.async_api import BrowserContext, Page, TimeoutError as PlaywrightTimeout, async_playwright
 
 from ..config import get_settings
 
@@ -37,6 +38,10 @@ SNAPSHOT_JS = r"""
     if (el.id) { const l = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); if (l) return l.innerText.trim(); }
     const p = el.closest('label'); if (p) return p.innerText.trim();
     const al = el.getAttribute('aria-label'); if (al) return al;
+    for (let group = el.parentElement; group && !group.matches('form, body'); group = group.parentElement) {
+      const captions = group.querySelectorAll(':scope > label');
+      if (captions.length === 1) return captions[0].innerText.trim();
+    }
     const lb = el.getAttribute('aria-labelledby'); if (lb) { const n = document.getElementById(lb); if (n) return n.innerText.trim(); }
     const field = el.closest('mat-form-field, .form-group, .form-field');
     const caption = field?.querySelector('mat-label, label');
@@ -219,8 +224,21 @@ class Browser:
     async def click(self, element_id: int):
         loc = self.el(element_id)
         await loc.scroll_into_view_if_needed(timeout=5000)
-        await loc.click(timeout=8000)
+        if await loc.get_attribute("role") == "combobox":
+            await self._open_combobox(loc)
+        else:
+            await loc.click(timeout=8000)
         await self.settle()
+
+    async def _open_combobox(self, loc):
+        if await loc.get_attribute("aria-expanded") == "true":
+            return
+        try:
+            await loc.click(timeout=1000)
+        except PlaywrightTimeout:
+            # Floating labels can cover a select's center; use its ARIA keyboard action.
+            await loc.focus()
+            await loc.press("Enter")
 
     async def fill(self, element_id: int, value: str):
         loc = self.el(element_id)
@@ -240,8 +258,13 @@ class Browser:
         if await loc.evaluate("el => el.tagName !== 'SELECT'"):
             # ARIA comboboxes (including Angular Material) render options in a portal.
             if await loc.get_attribute("aria-expanded") != "true":
-                await loc.click(timeout=5000)
-            options = self.page.get_by_role("option").filter(visible=True)
+                await self._open_combobox(loc)
+            # Native <option> nodes elsewhere in the page can appear "visible" to
+            # Playwright even with their select closed. Scope to an actual open listbox.
+            options = self.page.locator('[role="listbox"]:visible [role="option"]:visible')
+            controls = await loc.get_attribute("aria-controls") or await loc.get_attribute("aria-owns")
+            if controls:
+                options = self.page.locator(f'[id={json.dumps(controls.split()[0])}] [role="option"]')
             await options.first.wait_for(state="visible", timeout=5000)
             texts = await options.all_inner_texts()
             await options.nth(option_index(texts, value)).click(timeout=5000)
