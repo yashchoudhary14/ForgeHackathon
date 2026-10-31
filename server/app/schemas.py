@@ -18,6 +18,8 @@ class ProfileData(BaseModel):
     occupation: str | None = None
     is_student: bool | None = None
     education_level: str | None = None  # "class 10", "ug", "pg", ...
+    course: str | None = None  # preserve the degree, e.g. B.Sc rather than only "ug"
+    study_year: int | None = None
     disability_percent: int | None = None
     marital_status: str | None = None
     is_bpl: bool | None = None
