@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import get_settings
 from .db import engine, init_db
 from .services import llm
-from .routers import agent, assist, chat, documents, profile, schemes, voice
+from .routers import agent, assist, chat, documents, profile, schemes, talk, voice
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
@@ -38,7 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (assist, profile, schemes, documents, chat, voice, agent):
+for r in (assist, profile, schemes, documents, chat, voice, agent, talk):
     app.include_router(r.router, prefix="/api")
 
 Path(settings.storage_dir).mkdir(parents=True, exist_ok=True)

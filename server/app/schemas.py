@@ -57,6 +57,7 @@ class ProfileIn(BaseModel):
     data: ProfileData = ProfileData()
     sensitive: SensitiveData = SensitiveData()
     language: Lang = "en"
+    mode: Literal["talk", "manual"] = "manual"
 
 
 class ProfileOut(ProfileIn):
@@ -259,3 +260,24 @@ class RunOut(BaseModel):
 #   {"type":"type","text":"..."} / {"type":"key","key":"Enter"}
 #   {"type":"resume"}                             after user solved captcha / logged in
 #   {"type":"approve"} / {"type":"abort"}         final submit gate
+
+
+# ---------- talk ----------
+
+class ProfileUpdate(BaseModel):
+    data: ProfileData | None = None
+    sensitive: SensitiveData | None = None
+    language: Lang | None = None
+    mode: Literal["talk", "manual"] | None = None
+
+
+class TalkIn(BaseModel):
+    profile_id: str = Field(min_length=1, max_length=32)
+    text: str | None = Field(default=None, max_length=12000)
+    lang: Lang | None = None
+
+
+class TalkReply(BaseModel):
+    text: str = Field(min_length=1, max_length=1200)
+    quick_replies: list[str] = Field(default_factory=list, max_length=4)
+    application_offer_slug: str | None = Field(default=None, description="Only when text asks consent to APPLY to this one scheme; otherwise null")
