@@ -117,6 +117,15 @@ async def search(keyword: str, filters: dict, offset: int, size: int) -> SearchO
                      items=[_summary(hit.get("fields", hit)) for hit in hits.get("items", [])])
 
 
+async def all_slugs(limit: int | None = None) -> list[str]:
+    """The catalogue listing shared by sync_catalog and the alerts monitor."""
+    first = await search("", filters={}, offset=0, size=100)
+    total = min(first.total, limit) if limit else first.total
+    pages = [first] + await asyncio.gather(*(search("", filters={}, offset=offset, size=100)
+                                            for offset in range(100, total, 100)))
+    return list(dict.fromkeys(s.slug for page in pages for s in page.items))[:total]
+
+
 def parse_detail(slug: str, lang: str, data: dict, documents: dict, faqs: dict) -> SchemeDetail:
     localized = data.get(lang)
     if not localized:

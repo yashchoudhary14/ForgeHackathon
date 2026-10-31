@@ -56,6 +56,8 @@ MIGRATIONS = [
     "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS mode VARCHAR(10) DEFAULT 'manual'",
     "ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS kind VARCHAR(20) DEFAULT 'application'",
     "ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS meta JSON DEFAULT '{}'",
+    "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS dedup_key VARCHAR(64)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ix_notifications_dedup_key ON notifications (dedup_key)",
 ]
 
 

@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Literal
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -151,6 +152,7 @@ class ExplainSource(BaseModel):
 
 class ExplainIn(BaseModel):
     source: ExplainSource
+    compare_to: ExplainSource | None = None  # source = old, compare_to = new
     profile_id: str | None = None
     language: Lang = "en"
     with_audio: bool = True
@@ -167,6 +169,14 @@ class ExplainOut(BaseModel):
     citations: list[Citation]
     language: Lang
     audio_url: str | None = None
+    rights: list["ExplainedClaim"] = []
+    duties: list["ExplainedClaim"] = []
+    restrictions: list["ExplainedClaim"] = []
+    deadline_details: list["ExplainedClaim"] = []
+    how_to_apply: list["ExplainedClaim"] = []
+    document_details: list["ExplainedClaim"] = []
+    personal_impacts: list["ExplainedClaim"] = []
+    changes: list["DocumentChange"] = []
 
 
 class DocumentOut(BaseModel):
@@ -360,3 +370,75 @@ class ReportActorIn(BaseModel):
 class CivicRunOut(BaseModel):
     run_id: str
     draft: ComplaintDraft | None = None
+# ---------- alerts ----------
+
+class CompareIn(BaseModel):
+    old: ExplainSource
+    new: ExplainSource
+    profile_id: str | None = None
+    language: Lang = "en"
+    with_audio: bool = False
+
+class ExplainedClaim(BaseModel):
+    text: str
+    citation: Citation
+
+
+class DocumentChange(BaseModel):
+    title: str
+    description: str
+    old_citation: Citation
+    new_citation: Citation
+    affects_profile: bool | None  # null when no profile or insufficient facts
+    impact: str
+
+
+ExplainOut.model_rebuild()
+
+
+class NotificationOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: int
+    kind: str
+    title: str
+    body: str
+    link: str | None
+    meta: dict
+    read: bool
+    created_at: datetime
+
+
+class NotificationsOut(BaseModel):
+    items: list[NotificationOut]
+    unread_count: int
+
+
+class NotificationsReadIn(BaseModel):
+    profile_id: str
+    ids: list[int] | None = None  # omitted/null = all; [] = none
+
+
+class NotificationsReadOut(BaseModel):
+    updated: int
+    unread_count: int
+
+
+class ActivityItem(BaseModel):
+    type: Literal["run", "report", "notification"]
+    id: str
+    title: str
+    status: str
+    official: bool
+    updated_at: datetime
+    link: str | None
+
+
+class MonitorOut(BaseModel):
+    discovered: int = 0
+    stored: int = 0
+    profiles: int = 0
+    schemes_checked: int = 0
+    pib_checked: int = 0
+    notifications: int = 0
+    errors: int = 0
+    timed_out: bool = False

@@ -12,7 +12,7 @@ from ..agents import explainer, intake, matcher
 from ..db import get_db
 from ..models import Profile
 from ..schemas import (
-    ExplainIn, ExplainOut, MatchIn, MatchResult, ProfileData, ProfileExtractIn, ProfileExtractOut,
+    CompareIn, ExplainIn, ExplainOut, MatchIn, MatchResult, ProfileData, ProfileExtractIn, ProfileExtractOut,
     ProfileOut, SensitiveData,
 )
 from ..services import crypto
@@ -104,11 +104,10 @@ async def stream_match_schemes(body: MatchIn, db: AsyncSession = Depends(get_db)
 
 @router.post("/explain", response_model=ExplainOut)
 async def explain(body: ExplainIn, db: AsyncSession = Depends(get_db)):
-    src = body.source
-    if (src.type == "scheme" and not src.slug) or (src.type == "url" and not src.url) or (
-        src.type == "document" and not src.document_id
-    ):
-        raise HTTPException(422, f"source.{ {'scheme': 'slug', 'url': 'url', 'document': 'document_id'}[src.type] } is required")
+    for src in [body.source, *([body.compare_to] if body.compare_to else [])]:
+        field = {"scheme": "slug", "url": "url", "document": "document_id"}[src.type]
+        if not getattr(src, field):
+            raise HTTPException(422, f"source.{field} is required")
     profile = None
     if body.profile_id:
         profile = ProfileData(**(await load_profile(db, body.profile_id)).data)
@@ -121,3 +120,9 @@ async def explain(body: ExplainIn, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         log.exception("explain failed")
         raise HTTPException(502, f"AI service error, please retry ({type(e).__name__})")
+
+
+@router.post("/explain/compare", response_model=ExplainOut)
+async def compare(body: CompareIn, db: AsyncSession = Depends(get_db)):
+    return await explain(ExplainIn(source=body.old, compare_to=body.new, profile_id=body.profile_id,
+                                   language=body.language, with_audio=body.with_audio), db)

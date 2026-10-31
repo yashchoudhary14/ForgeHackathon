@@ -200,3 +200,26 @@ class Notification(Base):
     meta: Mapped[dict] = mapped_column(JSON, default=dict)
     read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    dedup_key: Mapped[str | None] = mapped_column(String(64), unique=True)
+
+
+class MonitorItem(Base):
+    """Durable discoveries, separate from the refreshable scheme cache."""
+
+    __tablename__ = "monitor_items"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(30))
+    source: Mapped[str] = mapped_column(Text)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MonitorCheck(Base):
+    """Completed profile/item checks, including irrelevant items, survive restarts."""
+
+    __tablename__ = "monitor_checks"
+    profile_id: Mapped[str] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True)
+    item_id: Mapped[str] = mapped_column(ForeignKey("monitor_items.id", ondelete="CASCADE"), primary_key=True)
+    completed: Mapped[bool] = mapped_column(Boolean, default=True)
+    retry_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
