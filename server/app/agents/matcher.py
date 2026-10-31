@@ -29,6 +29,10 @@ Then give a verdict:
 - unknown: text too vague to judge
 confidence 0..1. missing_info: short questions for unknown criteria. documents_needed: from the documents text.
 Do not invent criteria that are not in the text.
+Eligibility may have alternative routes (different states, delivery locations or benefit tiers).
+Do not require every route at once. Evaluate the applicable route; if the route is
+unknown, ask which route applies and use likely when a possible route remains.
+Restrictions in a different state's route do not disqualify this citizen.
 Special conditions (disability, widow, orphan, minority, BPL card, ex-serviceman, rank holder, single girl child...):
 if the profile does not mention them, treat them as NOT applying (met=false), the citizen can correct us later.
 Course level matters: a B.Sc/B.A/B.Com student is undergraduate, not postgraduate.
@@ -51,6 +55,7 @@ An undergraduate is not postgraduate; post-matric DOES include undergraduates.
 SC students do not fit schemes restricted to OBC/EBC/ST alone, but fit combined SC/ST schemes.
 Do not drop for ordinary unknowns such as documents, marks, institution approval or another scholarship.
 Do not drop broad schemes merely because one example or optional beneficiary group differs.
+Alternative eligibility routes are not cumulative: keep if any route may apply.
 When unsure, keep. Return drop, reason and an exact short quote from the official text proving
 the target restriction. If keeping, return empty reason and quote. Never invent requirements."""
 
