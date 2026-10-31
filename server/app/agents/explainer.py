@@ -78,7 +78,7 @@ async def explain(body: ExplainIn, profile: ProfileData | None) -> ExplainOut:
     value = await llm.cached("explainer", [
         body.source.model_dump(mode="json"), body.language,
         profile.model_dump(exclude_none=True) if profile else None, title, text[:MAX_CHARS], source_url, SYSTEM,
-    ], lambda: llm.generate_json(prompt, _Explained, system=SYSTEM, temperature=0.2, model="lite"))
+    ], lambda: llm.generate_json(prompt, _Explained, system=SYSTEM, temperature=0.2, model="strong"))
     out = _Explained.model_validate(value)
 
     citations = [
