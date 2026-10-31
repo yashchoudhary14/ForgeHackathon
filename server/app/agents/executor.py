@@ -15,7 +15,7 @@ from typing import Any, Literal, TypedDict
 
 from google.genai import types
 from langgraph.graph import END, StateGraph
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..config import get_settings
 from ..db import SessionLocal
@@ -33,7 +33,15 @@ SUBMIT_RE = re.compile(r"\b(final\s*submit|submit|confirm|apply now|register|pay
 
 SYSTEM = """You are an agent operating a real Indian government web portal in a browser, on behalf of a citizen
 who is watching live. You see the page as a list of interactive elements (id, tag, label, ...) plus a screenshot.
-Pick exactly ONE next action.
+Return an actions list containing 1 to 8 actions, in execution order, for fields visible in this observation.
+Batch independent type/select/check actions to fill as many known fields as possible in ONE call.
+Fill stable text/date fields first; put choices likely to reveal cascading fields last.
+Never mix navigation/dropdown-opening clicks, scroll, wait, ask_human, request_approval, done or fail
+with other actions: these must be singleton lists. Navigation/Next/Check Eligibility stays single-action.
+Only data-entry clicks on already visible radio/checkbox/option controls may join a field batch.
+Do not plan actions for fields or options that are not in this observation. Use select directly on a
+combobox rather than opening it in a separate click when you already know the required option label.
+The executor checks every action, stops at the first error or structural page change, and re-observes.
 
 Actions:
 - click(element_id)
@@ -95,12 +103,53 @@ class Decision(BaseModel):
     reference_no: str | None = None
 
 
+class ActionPlan(BaseModel):
+    actions: list[Decision] = Field(min_length=1, max_length=8)
+
+
+FIELD_ACTIONS = frozenset({"type", "select", "check"})
+
+
+def execution_prefix(actions: list[Decision], elements: list[dict] | None = None) -> list[Decision]:
+    """Enforce singleton navigation/control actions even if a model mixes a plan."""
+    by_id = {el["id"]: el for el in elements or []}
+    def field_action(action):
+        el = by_id.get(action.element_id, {})
+        return action.action in FIELD_ACTIONS or (action.action == "click" and
+            (el.get("role") in ("radio", "checkbox", "option") or
+             (el.get("tag") == "label" and "checked" in el)))
+    if not field_action(actions[0]):
+        return actions[:1]
+    result = []
+    for action in actions:
+        if not field_action(action):
+            break
+        result.append(action)
+    return result
+
+
+def page_changed(before: dict, after: dict) -> bool:
+    """Field values may change within a batch; navigation, steps and new controls may not."""
+    def structure(snap):
+        keys = ("id", "tag", "role", "label", "field_label", "name", "formcontrolname", "placeholder", "disabled")
+        return (snap.get("url"), snap.get("navigation_id"), snap.get("title"),
+                tuple(snap.get("headings", [])), tuple(snap.get("steps", [])),
+                tuple(tuple(el.get(key) for key in keys) +
+                      (el.get("text") if el.get("tag") == "button" or el.get("role") == "tab" else None,)
+                      for el in snap["elements"]
+                      if el.get("tag") in ("input", "textarea", "select", "button") or
+                      el.get("role") in ("combobox", "checkbox", "radio", "tab", "dialog")))
+    return structure(before) != structure(after) or bool(set(after.get("errors", [])) - set(before.get("errors", [])))
+
+
 class State(TypedDict, total=False):
     step: int
     fails: int
     snap: dict
     shot: bytes
     decision: Decision
+    remaining: list[Decision]
+    stale: bool
     history: list[dict]
     digest: str
     outcome: str  # next | human | approval | done | failed
@@ -121,7 +170,8 @@ def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
             d = d.model_copy(update={"value_from": alias})
     label = el.get("field_label") or el.get("label") or el.get("name") or el.get("placeholder") or "this field"
     birth = bool(re.search(r"date\s*of\s*birth|\bdob\b|birth\s*date", label, re.I))
-    data_entry = d.action in ("type", "select", "check") or el.get("role") in ("option", "radio", "checkbox")
+    data_entry = (d.action in ("type", "select", "check") or el.get("role") in ("option", "radio", "checkbox")
+                  or (el.get("tag") == "label" and "checked" in el))
     if birth and not known.get("dob"):
         key = "dob"
     elif data_entry and (not d.value_from or known.get(d.value_from) in (None, "")):
@@ -150,6 +200,7 @@ class RunSession:
         self.browser = Browser(self._on_frame)
         self.task: asyncio.Task | None = None
         self._last_frame_sent = 0.0
+        self.llm_calls = 0
 
     # ---------- pub/sub ----------
     async def emit(self, msg: dict):
@@ -190,7 +241,7 @@ class RunSession:
     def resolve(self, d: Decision) -> str:
         if d.value_from:
             key = d.value_from.strip()
-            if key == "goal":
+            if key == "goal" and key not in self.answers:
                 if d.action != "select" or not d.value or not re.search(r"(?<!\w)" + re.escape(d.value) + r"(?!\w)", self.goal, re.I):
                     raise ValueError("Workflow choice must be explicitly named in the goal")
                 return d.value
@@ -279,7 +330,7 @@ def build_graph(rs: RunSession):
 
     async def observe(st: State) -> State:
         snap = await rs.browser.snapshot()
-        shot = await rs.browser.screenshot(quality=55)
+        shot = await rs.browser.decision_screenshot()
         dig = _digest(snap)
         hist = list(st.get("history", []))
         # "ok" from playwright only means the click didn't throw - tell the model when the page didn't react
@@ -305,13 +356,18 @@ def build_graph(rs: RunSession):
             f"OBSERVATION:\n{json.dumps(obs, ensure_ascii=False)}",
             types.Part.from_bytes(data=st["shot"], mime_type="image/jpeg"),
         ]
-        d = await llm.generate_json(prompt, Decision, system=SYSTEM, temperature=0.1, model=get_settings().agent_model)
-        return {"decision": d}
+        rs.llm_calls += 1
+        plan = await llm.generate_json(prompt, ActionPlan, system=SYSTEM, temperature=0.1, model=get_settings().agent_model)
+        actions = execution_prefix(plan.actions, snap["elements"])
+        return {"decision": actions[0], "remaining": actions[1:]}
 
     async def guard(st: State) -> State:
         """deterministic safety rails on top of whatever the model decided"""
         d = st["decision"]
-        snap = st["snap"]
+        snap = await rs.browser.snapshot()
+        missing_target = d.element_id is not None and not any(e["id"] == d.element_id for e in snap["elements"])
+        if page_changed(st["snap"], snap) or missing_target:
+            return {"snap": snap, "stale": True, "remaining": []}
         el = next((e for e in snap["elements"] if e["id"] == d.element_id), None) if d.element_id else None
         if d.action == "click" and el:
             label = str(el.get("text") or el.get("value") or el.get("title") or el.get("label") or "")
@@ -329,22 +385,27 @@ def build_graph(rs: RunSession):
         if workflow and d.action == "select" and d.value and re.search(r"(?<!\w)" + re.escape(d.value) + r"(?!\w)", rs.goal, re.I):
             known["goal"] = rs.goal
         d = require_source(d, el, known)
-        return {"decision": d}
+        return {"decision": d, "snap": snap, "stale": False}
 
     async def act(st: State) -> State:
         d: Decision = st["decision"]
         b = rs.browser
+        if st.get("stale"):
+            hist = list(st.get("history", []))
+            hist.append({"step": st.get("step", 0), "action": "batch stopped",
+                         "result": "The page changed before execution; plan discarded"})
+            return {"history": hist, "outcome": "next", "remaining": [], "stale": False}
         step = st.get("step", 0) + 1
         st = {**st, "step": step}
         hist = list(st.get("history", []))
-        # ids are reassigned every snapshot, so history refers to elements by their visible name
+        # History uses visible names; node ids stay stable while the document lives.
         target = _el_name(st["snap"], d.element_id)
         val = f" = {d.value_from or d.value}" if d.action in ("type", "select", "check") and (d.value_from or d.value) else ""
         desc = f"{d.action} '{target}'{val}" if target else f"{d.action}{val}"
 
         if d.action in ("ask_human", "request_approval", "done", "fail"):
             outcome = {"ask_human": "human", "request_approval": "approval", "done": "done", "fail": "failed"}[d.action]
-            return {"step": step, "outcome": outcome}
+            return {"step": step, "outcome": outcome, "remaining": []}
 
         try:
             if d.action == "click":
@@ -364,7 +425,17 @@ def build_graph(rs: RunSession):
                 raise RuntimeError("left government site")
             hist.append({"step": step, "action": desc, "result": "ok"})
             await record(st, d, "ok", "ok")
-            return {"step": step, "history": hist, "fails": 0, "outcome": "next"}
+            after = await b.snapshot()
+            remaining = st.get("remaining", [])
+            changed = page_changed(st["snap"], after)
+            if remaining and changed:
+                hist.append({"step": step, "action": "batch stopped", "result": "Page structure changed; remaining actions discarded"})
+            if remaining and not changed:
+                return {"step": step, "history": hist, "fails": 0, "outcome": "batch",
+                        "snap": after, "digest": _digest(st["snap"]),
+                        "decision": remaining[0], "remaining": remaining[1:]}
+            return {"step": step, "history": hist, "fails": 0, "outcome": "next",
+                    "snap": after, "digest": _digest(st["snap"]), "remaining": []}
         except Exception as e:
             err = str(e).split("\n")[0][:200]
             hist.append({"step": step, "action": desc, "result": f"ERROR: {err}"})
@@ -374,8 +445,8 @@ def build_graph(rs: RunSession):
                 # stuck: hand over to the human rather than flail
                 d2 = Decision(thought="I'm stuck on this step, can you help?", action="ask_human", kind="missing_field",
                               message=f"I couldn't do this: {err}. Please do this step in the live view, then press Continue.")
-                return {"step": step, "history": hist, "fails": 0, "decision": d2, "outcome": "human"}
-            return {"step": step, "history": hist, "fails": fails, "outcome": "next"}
+                return {"step": step, "history": hist, "fails": 0, "decision": d2, "outcome": "human", "remaining": []}
+            return {"step": step, "history": hist, "fails": fails, "outcome": "next", "remaining": []}
 
     async def human(st: State) -> State:
         d: Decision = st["decision"]
@@ -388,7 +459,8 @@ def build_graph(rs: RunSession):
         if msg["type"] == "human_input" and msg.get("value"):
             val = str(msg["value"])
             el = next((e for e in st["snap"]["elements"] if e["id"] == d.element_id), {})
-            answer_key = d.value_from or el.get("formcontrolname") or el.get("name") or f"human_answer_{st['step']}"
+            source_key = d.value_from if d.value_from != "goal" else None
+            answer_key = source_key or el.get("formcontrolname") or el.get("name") or f"human_answer_{st['step']}"
             if kind == "missing_field":
                 rs.answers[answer_key] = val
             if d.element_id and el.get("tag") in ("input", "textarea") and not el.get("readonly"):
@@ -424,11 +496,12 @@ def build_graph(rs: RunSession):
             "url": rs.browser.page.url,
             "title": st["snap"].get("title"),
             "screenshot": shot,
+            "planning_calls": rs.llm_calls,
         }
         return {"receipt": receipt, "outcome": "done"}
 
     def after_act(st: State) -> str:
-        if st.get("step", 0) >= MAX_STEPS and st["outcome"] == "next":
+        if st.get("step", 0) >= MAX_STEPS and st["outcome"] in ("next", "batch"):
             return "out_of_steps"
         return st["outcome"]
 
@@ -441,7 +514,7 @@ def build_graph(rs: RunSession):
     g.add_edge("decide", "guard")
     g.add_edge("guard", "act")
     g.add_conditional_edges("act", after_act, {
-        "next": "observe", "human": "human", "approval": "approval", "done": "finish",
+        "next": "observe", "batch": "guard", "human": "human", "approval": "approval", "done": "finish",
         "failed": END, "out_of_steps": END,
     })
     g.add_edge("human", "observe")

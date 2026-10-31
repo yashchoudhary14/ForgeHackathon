@@ -29,7 +29,7 @@ class Console:
             return
         if t == "step":
             s = m["step"]
-            print(f"#{s['idx']:>2} [{s['status']}] {s['thought']}\n     {s['action']} -> {s.get('result')}", flush=True)
+            print(f"#{s['idx']:>2} [call {self.rs.llm_calls}, {s['status']}] {s['thought']}\n     {s['action']} -> {s.get('result')}", flush=True)
         elif t == "needs_human":
             asyncio.create_task(self.ask(m))
         else:
@@ -69,6 +69,7 @@ async def main(url: str, goal: str, about: str):
     async with SessionLocal() as db:
         r = await db.get(AgentRun, run.id)
         print("\nFINAL:", r.status, r.receipt or r.error)
+        print("Planning LLM calls:", rs.llm_calls)
 
 
 if __name__ == "__main__":

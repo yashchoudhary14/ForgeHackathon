@@ -64,7 +64,8 @@ SNAPSHOT_JS = r"""
     const td = el.closest('td'); if (td && td.previousElementSibling) return td.previousElementSibling.innerText.trim();
     return '';
   };
-  let n = 0; const out = [];
+  const registry = window.__adhikaarAgentIds ||= { ids: new WeakMap(), next: 1 };
+  const out = [];
   document.querySelectorAll('[data-agent-id]').forEach(e => e.removeAttribute('data-agent-id'));
   // react/angular portals attach click handlers to plain divs - catch those via cursor:pointer
   const cands = new Set(document.querySelectorAll(sel));
@@ -81,7 +82,9 @@ SNAPSHOT_JS = r"""
       const target = document.getElementById(el.htmlFor);
       if (target && vis(target)) continue;
     }
-    const id = ++n; el.setAttribute('data-agent-id', id);
+    let id = registry.ids.get(el);
+    if (!id) { id = registry.next++; registry.ids.set(el, id); }
+    el.setAttribute('data-agent-id', id);
     const d = { id, tag: el.tagName.toLowerCase() };
     const t = el.getAttribute('type'); if (t) d.type = t;
     const role = el.getAttribute('role'); if (role) d.role = role;
@@ -126,14 +129,16 @@ SNAPSHOT_JS = r"""
     for (const a of ['min', 'max', 'pattern']) { const v = el.getAttribute(a); if (v) d[a] = v; }
     if (el.getAttribute('aria-invalid') === 'true') d.invalid = true;
     out.push(d);
-    if (n >= 150) break;
+    if (out.length >= 150) break;
   }
   const errs = [...document.querySelectorAll('mat-error, [role=alert], .error, .errors, .invalid-feedback, .text-danger, .field-validation-error, .alert-danger, .help-block.error')]
     .filter(vis).map(e => e.innerText.trim()).filter(Boolean).slice(0, 8);
   const heads = [...document.querySelectorAll('h1,h2,h3,legend')].filter(vis).map(e => e.innerText.trim()).filter(Boolean).slice(0, 8);
   const captcha = !!document.querySelector('iframe[src*="recaptcha"], iframe[src*="hcaptcha"], img[src*="captcha" i], img[id*="captcha" i], input[name*="captcha" i], input[id*="captcha" i], input[formcontrolname*="captcha" i], input[placeholder*="captcha" i]');
   const body = document.body ? document.body.innerText.replace(/\s+/g, ' ').slice(0, 2500) : '';
-  return { elements: out, errors: errs, headings: heads, captcha, text: body };
+  const steps = [...document.querySelectorAll('[aria-current="step"], [role="tab"][aria-selected="true"]')]
+    .filter(vis).map(e => e.innerText.trim());
+  return { elements: out, errors: errs, headings: heads, steps, captcha, text: body };
 }
 """
 
@@ -156,6 +161,8 @@ class Browser:
         self.page: Page | None = None
         self._cdp = None
         self.last_frame: bytes | None = None
+        self._adopt_lock = asyncio.Lock()
+        self.navigation_id = 0
 
     async def start(self):
         self._pw = await async_playwright().start()
@@ -180,6 +187,12 @@ class Browser:
 
     async def _adopt(self, page: Page):
         """portals love opening forms in new tabs - follow the newest tab"""
+        async with self._adopt_lock:
+            if self.page is page and self._cdp is not None:
+                return
+            await self._adopt_page(page)
+
+    async def _adopt_page(self, page: Page):
         if self._cdp:
             try:
                 await self._cdp.send("Page.stopScreencast")
@@ -187,10 +200,16 @@ class Browser:
             except Exception:
                 pass
         self.page = page
+        self.navigation_id += 1
+        page.on("framenavigated", lambda frame: self._navigated(page, frame))
         page.set_default_timeout(15000)
         self._cdp = await self.ctx.new_cdp_session(page)
         self._cdp.on("Page.screencastFrame", lambda ev: asyncio.create_task(self._frame(ev)))
         await self._cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 55, "maxWidth": 1280, "maxHeight": 800, "everyNthFrame": 2})
+
+    def _navigated(self, page, frame):
+        if self.page is page and frame == page.main_frame:
+            self.navigation_id += 1
 
     async def _frame(self, ev):
         try:
@@ -239,7 +258,20 @@ class Browser:
             snap = again
         snap["url"] = self.page.url
         snap["title"] = await self.page.title()
+        snap["navigation_id"] = self.navigation_id
         return snap
+
+    async def decision_screenshot(self) -> bytes:
+        """Scale the entire visible viewport, preserving the user's browser geometry."""
+        metrics = await self._cdp.send("Page.getLayoutMetrics")
+        viewport = metrics.get("cssVisualViewport") or metrics["visualViewport"]
+        response = await self._cdp.send("Page.captureScreenshot", {
+            "format": "jpeg", "quality": 40, "captureBeyondViewport": False,
+            "clip": {"x": viewport["pageX"], "y": viewport["pageY"],
+                     "width": viewport["clientWidth"], "height": viewport["clientHeight"],
+                     "scale": min(1, 1024 / viewport["clientWidth"])},
+        })
+        return base64.b64decode(response["data"])
 
     async def screenshot(self, path: str | None = None, quality: int = 60) -> bytes:
         return await self.page.screenshot(type="jpeg", quality=quality, path=path)
