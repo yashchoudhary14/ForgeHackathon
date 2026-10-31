@@ -111,3 +111,12 @@ def test_goal_supports_only_explicitly_named_overlay_options():
     assert explicitly_requested_option(d, {"role": "option", "text": "Scholarship"}, "Check scholarship eligibility")
     assert not explicitly_requested_option(d, {"role": "option", "text": "Renewal"}, "Check scholarship eligibility")
     assert not explicitly_requested_option(d, {"role": "button", "text": "Scholarship"}, "Check scholarship eligibility")
+
+
+def test_missing_source_on_named_workflow_option_uses_goal_only_for_workflow_fields():
+    d = Decision(thought="Select requested service", action="click", element_id=1)
+    el = {"role": "option", "text": "Scholarship", "field_label": "Application Type"}
+    result = require_source(d, el, {"goal": "Check scholarship eligibility"})
+    assert result.action == "click" and result.value_from == "goal"
+    el = {"role": "option", "text": "No", "field_label": "Is disabled"}
+    assert require_source(d, el, {"goal": "Parents not alive: No"}).action == "ask_human"

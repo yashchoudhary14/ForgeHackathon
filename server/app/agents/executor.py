@@ -181,6 +181,10 @@ def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
     """A model's default answer is not evidence about a citizen."""
     if not el or d.action not in ("type", "select", "check", "click"):
         return d
+    field = el.get("field_label") or el.get("label") or ""
+    workflow = re.search(r"application|service|benefit|scholarship|language|workflow|scheme|sort|page", field, re.I)
+    if not d.value_from and workflow and explicitly_requested_option(d, el, known.get("goal", "")):
+        d = d.model_copy(update={"value_from": "goal"})
     aliases = {"community": "caste", "hosteler": "is_hosteller", "hosteller": "is_hosteller",
                "single_girl_child": "is_single_child", "college": "institution_name",
                "institute_name": "institution_name", "college_name": "institution_name",
