@@ -23,6 +23,11 @@ class ProfileData(BaseModel):
     is_bpl: bool | None = None
     land_acres: float | None = None
     is_minority: bool | None = None
+    religion: str | None = None
+    course: str | None = None
+    study_year: int | None = None
+    institution_type: str | None = None
+    parent_occupation: str | None = None
 
 
 class SensitiveData(BaseModel):

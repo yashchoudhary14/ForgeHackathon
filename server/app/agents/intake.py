@@ -15,6 +15,8 @@ Rules:
 - caste: general | obc | sc | st | pvtg | dnt. gender: male | female | transgender. residence: urban | rural.
 - Put name, phone, email, dob, address, father_name, bank_ifsc only in `sensitive`.
 - The user may write in Hindi, Hinglish or any Indian language. Output field values in English.
+- Preserve stated religion, course, study_year (first year = 1), institution_type
+  (e.g. government college), and parent_occupation separately from the citizen's occupation.
 """
 
 ASK_SYSTEM = """You are a friendly government-services helper talking to an ordinary citizen.

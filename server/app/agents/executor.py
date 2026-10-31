@@ -269,7 +269,7 @@ def build_graph(rs: RunSession):
             weak_ok = re.search(r"\b(otp|search|check|next|continue|login|sign in|verify)\b", label, re.I)
             if SUBMIT_RE.search(label) and len(label.strip()) < 40 and (strong or not weak_ok):
                 d = d.model_copy(update={"action": "request_approval", "message": d.message or f"Submit the form ('{label.strip()[:40]}')?"})
-        if d.action in ("type", "click") and snap["captcha"] and el and re.search(r"captcha", json.dumps(el), re.I):
+        if d.action in ("type", "click", "select", "check") and snap["captcha"] and el and re.search(r"captcha", json.dumps(el), re.I):
             d = d.model_copy(update={"action": "ask_human", "kind": "captcha", "message": "Please solve the CAPTCHA, then press Continue."})
         if d.action == "type" and el and el.get("type") == "password":
             d = d.model_copy(update={"action": "ask_human", "kind": "login", "message": "Please enter your password yourself, then press Continue."})

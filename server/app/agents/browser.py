@@ -78,7 +78,7 @@ SNAPSHOT_JS = r"""
     if (/\b(selected|active|checked)\b/.test(el.className?.toString?.() || '') && d.checked === undefined) d.selected = true;
     if (txt && !['input', 'select', 'textarea'].includes(d.tag)) d.text = txt;
     const lab = labelOf(el).replace(/\s+/g, ' ').slice(0, 80); if (lab) d.label = lab;
-    for (const a of ['name', 'placeholder', 'title']) { const v = el.getAttribute(a); if (v) d[a] = v.slice(0, 60); }
+    for (const a of ['name', 'placeholder', 'title', 'formcontrolname']) { const v = el.getAttribute(a); if (v) d[a] = v.slice(0, 60); }
     if (d.tag === 'input' || d.tag === 'textarea') {
       if (['checkbox', 'radio'].includes(t)) d.checked = el.checked;
       else if (t !== 'password' && el.value) d.value = el.value.slice(0, 40);
@@ -102,7 +102,7 @@ SNAPSHOT_JS = r"""
   const errs = [...document.querySelectorAll('mat-error, [role=alert], .error, .errors, .invalid-feedback, .text-danger, .field-validation-error, .alert-danger, .help-block.error')]
     .filter(vis).map(e => e.innerText.trim()).filter(Boolean).slice(0, 8);
   const heads = [...document.querySelectorAll('h1,h2,h3,legend')].filter(vis).map(e => e.innerText.trim()).filter(Boolean).slice(0, 8);
-  const captcha = !!document.querySelector('iframe[src*="recaptcha"], iframe[src*="hcaptcha"], img[src*="captcha" i], img[id*="captcha" i], input[name*="captcha" i], input[id*="captcha" i]');
+  const captcha = !!document.querySelector('iframe[src*="recaptcha"], iframe[src*="hcaptcha"], img[src*="captcha" i], img[id*="captcha" i], input[name*="captcha" i], input[id*="captcha" i], input[formcontrolname*="captcha" i], input[placeholder*="captcha" i]');
   const body = document.body ? document.body.innerText.replace(/\s+/g, ' ').slice(0, 2500) : '';
   return { elements: out, errors: errs, headings: heads, captcha, text: body };
 }
