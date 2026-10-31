@@ -110,7 +110,7 @@ async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
         async def screen():
             return await llm.generate_json(
                 f"Official scheme text:\n{official}\n\nCitizen profile: {p.model_dump_json(exclude_none=True)}",
-                _Triage, system=TRIAGE_SYSTEM, model="strong",
+                _Triage, system=TRIAGE_SYSTEM, model="lite",  # quick screen, judge does the real work
             )
 
         result = _Triage.model_validate(await llm.cached("matcher.triage", [
@@ -158,12 +158,18 @@ def profile_filters(p: ProfileData) -> dict:
     return {k: v for k, v in f.items() if v is not None}
 
 
+# scheme titles spell categories out, "sc" alone finds the wrong things
+CASTE_NAMES = {"sc": "scheduled caste", "st": "scheduled tribe", "obc": "other backward class",
+               "pvtg": "particularly vulnerable tribal group", "dnt": "denotified tribe"}
+
+
 def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
     kws = [extra] if extra else []
     if p.is_student:
         # Specific queries precede generic pages full of unrelated courses.
-        if p.caste:
-            kws.extend([f"post matric scholarship {p.caste}", f"scholarship {p.caste}"])
+        caste = CASTE_NAMES.get(p.caste or "")
+        if caste:
+            kws.extend([f"post matric scholarship {caste}", f"scholarship {caste}"])
         if p.state:
             kws.extend([f"{p.state} post matric scholarship", f"{p.state} scholarship"])
         kws.append("scholarship")
@@ -191,6 +197,10 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
     queries = [(kw, filters) for kw in keywords_for(p, keyword)]
     recall_filters = {"state": p.state} if p.state else {}
     queries.extend((kw, recall_filters) for kw in keywords_for(p, keyword) if kw and "scholarship" in kw)
+    # central schemes (e.g. post matric for SC) carry no state tag, run the category queries unfiltered too
+    caste = CASTE_NAMES.get(p.caste or "")
+    if caste:
+        queries.extend((kw, {}) for kw in keywords_for(p, keyword) if caste in kw)
     pages = await asyncio.gather(*(search(kw, f) for kw, f in queries))
     # Interleave pages so one generic page cannot crowd out state/category hits.
     for i in range(max((len(page) for page in pages), default=0)):
@@ -274,7 +284,7 @@ async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang
     from ..services import myscheme
 
     cands = await candidates(p, keyword, limit)
-    sem = asyncio.Semaphore(12)  # paid vertex quota, 4 was for the free tier
+    sem = asyncio.Semaphore(24)  # paid vertex quota, 4 was for the free tier
 
     async def one(s: SchemeSummary) -> MatchResult | None:
         async with sem:

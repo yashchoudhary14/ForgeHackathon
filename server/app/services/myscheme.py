@@ -144,7 +144,8 @@ async def get_scheme(slug: str, lang: str = "en") -> SchemeDetail:
     now = datetime.now(timezone.utc)
     async with db.SessionLocal() as session:
         cached = await session.get(models.Scheme, (slug, lang))
-        if cached and cached.fetched_at.replace(tzinfo=timezone.utc) > now - timedelta(hours=24):
+        # rows written by older code may lack the parsed detail, refetch those
+        if cached and "detail" in (cached.data or {}) and cached.fetched_at.replace(tzinfo=timezone.utc) > now - timedelta(hours=24):
             return SchemeDetail.model_validate(cached.data["detail"])
     data = await _get("schemes", slug=slug, lang=lang)
     if not data.get("_id"):
@@ -174,7 +175,7 @@ async def semantic_search(query: str, k: int) -> list[SchemeSummary]:
             models.Scheme.embedding.is_not(None)).order_by(distance).limit(k * 2))).all()
     results, seen = [], set()
     for row in rows:
-        if row.slug not in seen:
+        if row.slug not in seen and "detail" in (row.data or {}):
             results.append(SchemeSummary.model_validate(row.data["detail"]))
             seen.add(row.slug)
         if len(results) == k:

@@ -22,7 +22,7 @@ async def test_category_and_state_recall_survives_missing_facets_and_crowding(mo
     async def search(kw, filters, offset, size):
         items = [SchemeSummary(slug=f"generic-{i}", name="Generic") for i in range(size)]
         if filters == {"state": "Bihar"}:
-            if kw == "post matric scholarship sc":
+            if kw == "post matric scholarship scheduled caste":
                 items = [central]
             elif kw == "Bihar post matric scholarship":
                 items = [state]
