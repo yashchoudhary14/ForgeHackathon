@@ -171,6 +171,7 @@ class Browser:
         self.last_frame: bytes | None = None
         self._adopt_lock = asyncio.Lock()
         self.navigation_id = 0
+        self.network_errors: dict[str, int] = {}
 
     async def start(self):
         self._pw = await async_playwright().start()
@@ -208,8 +209,10 @@ class Browser:
             except Exception:
                 pass
         self.page = page
+        self.network_errors.clear()
         self.navigation_id += 1
         page.on("framenavigated", lambda frame: self._navigated(page, frame))
+        page.on("response", self._response)
         page.set_default_timeout(15000)
         self._cdp = await self.ctx.new_cdp_session(page)
         self._cdp.on("Page.screencastFrame", lambda ev: asyncio.create_task(self._frame(ev)))
@@ -218,6 +221,18 @@ class Browser:
     def _navigated(self, page, frame):
         if self.page is page and frame == page.main_frame:
             self.navigation_id += 1
+            self.network_errors.clear()
+
+    def _response(self, response):
+        request = response.request
+        if not allowed(response.url) or request.resource_type not in ("xhr", "fetch") or re.search(r"captcha|otp|password", response.url, re.I):
+            return
+        # Only method/path/status are exposed; response bodies and query values stay private.
+        key = f"{request.method} {urlparse(response.url).path}"
+        if response.status >= 400:
+            self.network_errors[key] = response.status
+        else:
+            self.network_errors.pop(key, None)
 
     async def _frame(self, ev):
         try:
@@ -228,12 +243,18 @@ class Browser:
         await self.on_frame(ev["data"])
 
     async def goto(self, url: str):
-        await self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
-        await self.settle()
-        try:
-            await self.page.wait_for_load_state("networkidle", timeout=1500)
-        except PlaywrightTimeout:
-            pass  # bounded bootstrap grace period; polling pages need not become idle
+        for attempt in range(3):
+            await self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            await self.settle()
+            try:
+                await self.page.wait_for_load_state("networkidle", timeout=5000)
+            except PlaywrightTimeout:
+                pass  # polling pages need not become idle
+            if attempt == 2 or not any(status in (502, 503, 504) for status in self.network_errors.values()):
+                break
+            # Recover only during initial page loading, before any citizen data is entered.
+            # Do not replay POST requests or refresh a partially completed form.
+            await asyncio.sleep(0.5 * (attempt + 1))
 
     async def settle(self):
         # Analytics and polling need not finish before a form can be used.
@@ -267,6 +288,7 @@ class Browser:
         snap["url"] = self.page.url
         snap["title"] = await self.page.title()
         snap["navigation_id"] = self.navigation_id
+        snap["network_errors"] = [f"HTTP {status}: {path}" for path, status in self.network_errors.items()]
         return snap
 
     async def decision_screenshot(self) -> bytes:

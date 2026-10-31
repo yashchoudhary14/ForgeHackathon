@@ -1,6 +1,7 @@
 import pytest
+from types import SimpleNamespace
 
-from app.agents.browser import option_index
+from app.agents.browser import Browser, option_index
 from app.agents.executor import Decision, RunSession, require_source, explicitly_requested_option
 
 
@@ -8,6 +9,22 @@ def test_option_match_does_not_confuse_male_and_female():
     assert option_index(["Female", "Male", "Transgender"], "male") == 1
     with pytest.raises(ValueError):
         option_index(["Male"], "Female")
+
+
+def test_portal_errors_expose_status_and_path_only_and_clear_on_recovery():
+    browser = Browser(None)
+    request = SimpleNamespace(resource_type="xhr", method="POST")
+    response = SimpleNamespace(request=request, status=503,
+                               url="https://scholarships.gov.in/api/states?token=private")
+    browser._response(response)
+    assert browser.network_errors == {"POST /api/states": 503}
+    response.status = 200
+    browser._response(response)
+    assert not browser.network_errors
+    for url in ("https://scholarships.gov.in/api/imageCaptcha", "https://example.com/analytics"):
+        response.url, response.status = url, 503
+        browser._response(response)
+    assert not browser.network_errors
 
 
 def test_negated_option_with_internal_space_matches_exactly():

@@ -67,8 +67,12 @@ Rules:
 - Elements show their state (checked / selected / value). If an option is already checked or a field already
   has the right value, do NOT click/type it again — move to the next field or click Next.
 - Trust the history: "NOTHING CHANGED" means your last action had no effect; do something different.
-- For an ARIA combobox, click it to inspect its overlay options, then select the exact option text.
-  `select` handles both native selects and custom overlay dropdowns. Never type into a closed dropdown.
+- network_errors reports actual failed portal requests, not missing citizen information. If a lookup
+  dialog fails, close and reopen it once to retry loading its data. Never repeatedly wait or scroll
+  through a stuck loading overlay. If recovery fails, ask_human with the exact portal error.
+- For an ARIA combobox, use select directly when the required label is known (including Yes/No,
+  state, gender and caste). The local helper opens the overlay and validates the label. Only click
+  to inspect options when their labels are unknown. Never type into a closed dropdown.
 - Cascading fields may appear after each choice. Use the new observation, never reuse earlier ids.
 - Do not interact with disabled controls. Complete enabled prerequisite fields first.
 - Use citizen keys from the supplied profile, not portal control names. Social community uses caste;
@@ -148,6 +152,7 @@ def page_changed(before: dict, after: dict) -> bool:
 
 
 class State(TypedDict, total=False):
+    stagnant: int
     step: int
     fails: int
     snap: dict
@@ -369,13 +374,20 @@ def build_graph(rs: RunSession):
                 hist.append({"step": hist[-1]["step"], "action": "note",
                              "result": "You are repeating an action that has no effect. It is probably already done "
                                        "(check checked/selected/value). Move on (e.g. click Next) or try a different element."})
-        return {"snap": snap, "shot": shot, "digest": dig, "history": hist}
+        return {"snap": snap, "shot": shot, "digest": dig, "history": hist,
+                "stagnant": st.get("stagnant", 0) + 1 if st.get("digest") == dig else 0}
 
     async def decide(st: State) -> State:
         snap = st["snap"]
+        if st.get("stagnant", 0) >= 3:
+            errors = "; ".join(snap.get("network_errors", []))
+            message = "The portal has not changed after three attempts. " + (errors or "Please check the live browser before continuing.")
+            return {"decision": Decision(thought="The portal is not responding; stopping repeated actions.",
+                    action="ask_human", kind="missing_field", message=message), "remaining": []}
         obs = {
             "url": snap["url"], "title": snap["title"], "headings": snap["headings"],
             "validation_errors": snap["errors"], "captcha_detected": snap["captcha"],
+            "network_errors": snap.get("network_errors", []),
             "elements": snap["elements"], "page_text": snap["text"][:1500],
         }
         prompt = [
@@ -500,7 +512,7 @@ def build_graph(rs: RunSession):
             hist.append({"step": st["step"], "action": f"ask_human({kind})", "result": "human finished it in the live view"})
         await rs.browser.settle()
         await rs.set_status("running")
-        return {"history": hist}
+        return {"history": hist, "stagnant": 0, "digest": ""}
 
     async def approval(st: State) -> State:
         d: Decision = st["decision"]
