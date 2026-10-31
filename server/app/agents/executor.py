@@ -77,6 +77,8 @@ Rules:
   A workflow choice explicitly requested in the GOAL can use value_from="goal" and its exact option label.
 - Human answers are available in CITIZEN under their recorded keys. Use those keys; never ask the same
   question again after an answer is recorded. Personal answers remain hidden as <set>.
+- <set> means the fact IS KNOWN locally, not missing. Never ask for it again: use value_from with
+  exactly that key. For example dob:<set> must be entered using type(value_from="dob").
 - For date inputs use the displayed date format. Never invent a date of birth from age; ask for it.
 - When DOB is supplied as <set>, use type(value_from="dob") on its input, even if readonly.
   The local helper operates supported calendars without exposing the DOB to you.
