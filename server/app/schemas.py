@@ -35,6 +35,10 @@ class ProfileData(BaseModel):
     institution_name: str | None = None
     institution_state: str | None = None
     institution_district: str | None = None
+    study_mode: str | None = None
+    previous_class_percentage: float | None = Field(default=None, ge=0, le=100)
+    previous_board: str | None = None
+    previous_passing_year: int | None = None
 
 
 class SensitiveData(BaseModel):

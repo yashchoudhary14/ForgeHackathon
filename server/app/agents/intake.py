@@ -22,6 +22,8 @@ Rules:
   citizen's home state. Never infer an institution's location from the citizen's residence.
   Explicitly not disabled means disability_percent=0; absence of disability information means null.
 - Preserve the exact stated degree in course (e.g. B.Sc, not only undergraduate) and study_year.
+- Preserve supplied study_mode, previous_class_percentage, previous_board and previous_passing_year
+  for education forms. Keep these previous academic results separate from the current course/year.
 """
 
 ASK_SYSTEM = """You are a friendly government-services helper talking to an ordinary citizen.
