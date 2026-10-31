@@ -239,12 +239,14 @@ async def generate_json(
     system: str | None = None,
     temperature: float = 0.1,
     model: str | None = None,
+    thinking_level: str | None = None,
 ) -> T:
     cfg = types.GenerateContentConfig(
         system_instruction=system,
         temperature=temperature,
         response_mime_type="application/json",
         response_schema=schema,
+        thinking_config=types.ThinkingConfig(thinking_level=thinking_level) if thinking_level else None,
     )
     resp = await _generate(prompt, cfg, model)
     if resp.parsed is not None:

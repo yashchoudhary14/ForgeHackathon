@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from app.agents.matcher import occupational_target_mismatch, target_text
+from app.agents.matcher import occupational_target_mismatch, educational_target_mismatch, target_text, qualified_restriction
 from app.schemas import ProfileData, SchemeDetail
 
 
@@ -14,6 +14,14 @@ def test_pragati_course_requirement_is_in_description_not_eligibility():
     assert "technical degree" not in scheme.eligibility_md.lower()
     assert "technical degree" in target_text(scheme).lower()
     assert "AICTE" in target_text(scheme)
+
+
+def test_technical_title_excludes_general_courses_without_excluding_specialisations():
+    scheme = recorded("psgs-deg")
+    assert educational_target_mismatch(ProfileData(course="B.Sc"), scheme)
+    for course in ("B.Tech", "B.Sc Nursing", "B.Sc Agriculture", None):
+        assert not educational_target_mismatch(ProfileData(course=course), scheme)
+    assert not educational_target_mismatch(ProfileData(course="B.Sc"), recorded("pmsfss"))
 
 
 def test_course_does_not_get_discarded_at_profile_boundary():
@@ -34,3 +42,17 @@ def test_farmer_credit_needs_farming_evidence_but_student_can_also_farm():
     student.land_acres = 2
     assert not occupational_target_mismatch(student, recorded("kcc"))
     assert not occupational_target_mismatch(student, recorded("pmsscstb"))
+
+
+def test_vendor_credit_recommendations_need_a_separate_farming_role_for_kcc():
+    vendor = ProfileData(occupation="street vendor", is_student=False)
+    assert occupational_target_mismatch(vendor, recorded("kcc"))
+    vendor.occupation = "street vendor and tenant farmer"
+    assert not occupational_target_mismatch(vendor, recorded("kcc"))
+
+
+def test_class11_restriction_cannot_be_separated_from_its_matriculation_exception():
+    source = recorded("yasasvi-obc").eligibility_md
+    quote = "Students studying in the XI Class of the Higher Secondary School courses or the XII class of the Multipurpose High School will not be eligible for it being a continuous school course."
+    assert qualified_restriction(quote, source)
+    assert not qualified_restriction("Farmers", recorded("kcc").eligibility_md)

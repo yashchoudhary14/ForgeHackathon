@@ -1,6 +1,7 @@
 """profile -> candidate schemes (live myscheme) -> per-criterion eligibility with verified citations"""
 import asyncio
 from collections.abc import AsyncIterator
+from contextlib import aclosing
 import logging
 import re
 from typing import Literal
@@ -11,10 +12,11 @@ from ..schemas import Citation, MatchResult, ProfileData, Reason, SchemeDetail, 
 from ..services import llm
 
 log = logging.getLogger(__name__)
+MATCH_SECONDS = 55.0
 
 JUDGE_SYSTEM = """You decide whether a citizen qualifies for an Indian government scheme.
 You get the scheme's OFFICIAL eligibility and exclusion text and the citizen's profile.
-For every distinct criterion in the official text produce one reason:
+For every distinct criterion applicable to the citizen's eligibility route produce one reason:
 - claim: the criterion in plain words
 - met: true / false / null (null = profile doesn't say, we need to ask)
 - quote: copy the exact words from the official text that state this criterion (verbatim, max 30 words). No paraphrase.
@@ -30,6 +32,12 @@ Then give a verdict:
 - unknown: text too vague to judge
 confidence 0..1. missing_info: short questions for unknown criteria. documents_needed: from the documents text.
 Do not invent criteria that are not in the text.
+Respect the official scheme jurisdiction, including state restrictions omitted from the eligibility prose.
+Scope criteria to the applicable beneficiary/state/course branch. Alternative routes and lists of
+qualifying groups are OR, not AND: satisfying one route is enough. Do not fail an applicant for an
+inapplicable branch (for example high-performing-state rules for a low-performing-state resident).
+Read exceptions with their rule; an exception can restore eligibility. Future renewal/payment
+conditions are not proof of a present failure. Missing ordinary facts remain unknown.
 Special conditions (disability, widow, orphan, minority, BPL card, ex-serviceman, rank holder, single girl child...):
 if the profile does not mention them, treat them as NOT applying (met=false), the citizen can correct us later.
 Course level matters: a B.Sc/B.A/B.Com student is undergraduate, not postgraduate.
@@ -52,6 +60,8 @@ An undergraduate is not postgraduate; post-matric DOES include undergraduates.
 SC students do not fit schemes restricted to OBC/EBC/ST alone, but fit combined SC/ST schemes.
 Do not drop for ordinary unknowns such as documents, marks, institution approval or another scholarship.
 Do not drop broad schemes merely because one example or optional beneficiary group differs.
+Read exceptions and alternative routes together with restrictions. A quoted restriction is not
+grounds to drop if its exception applies, or if an alternative route remains possible.
 When unsure, keep. Return drop, reason and an exact short quote from the official text proving
 the target restriction. If keeping, return empty reason and quote. Never invent requirements."""
 
@@ -79,7 +89,8 @@ class _Triage(BaseModel):
 
 
 def target_text(scheme: SchemeDetail) -> str:
-    return f"{scheme.name}\n{scheme.brief or ''}\n{scheme.details_md}"
+    jurisdiction = f"Scheme jurisdiction: {scheme.state}\n" if scheme.state else ""
+    return f"{scheme.name}\n{jurisdiction}{scheme.brief or ''}\n{scheme.details_md}"
 
 
 def occupational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
@@ -89,7 +100,7 @@ def occupational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
     mistake farmer-family scholarships or mixed student/farmer groups for own-role credit.
     """
     occupation = _norm(p.occupation or "")
-    if not (p.is_student or occupation == "student"):
+    if not (p.is_student or occupation == "student" or re.search(r"street vendor|hawker", occupation)):
         return False
     if (p.land_acres or 0) > 0 or re.search(r"farm|agricultur|cultivat|fish|livestock|animal husbandry", occupation):
         return False
@@ -101,10 +112,34 @@ def occupational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
     return bool(lines) and all(re.search(r"\b(farmers?|cultivators?|tenant farmers?|share croppers?|sharecroppers?|oral lessees)\b", line) for line in lines)
 
 
+def educational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
+    """An explicitly technical degree/diploma title excludes a plain general degree.
+
+    Specialised B.Sc courses and unspecified courses still go to source-based screening.
+    """
+    general = {"b sc", "bsc", "b a", "ba", "b com", "bcom",
+               "bachelor of science", "bachelor of arts", "bachelor of commerce"}
+    return _norm(p.course or "") in general and bool(re.search(
+        r"\btechnical (degree|diploma)\b", _norm(scheme.name)))
+
+
+def qualified_restriction(quote: str, official: str) -> bool:
+    """A restriction with an exception needs the full judge, not a cheap hard drop."""
+    q = _norm(quote)
+    if not q:
+        return False
+    paragraphs = re.split(r"\n\s*\n|\n\s*(?:[-*]|\d+[.)])\s+", official)
+    return any(q in _norm(paragraph) and re.search(
+        r"\b(however|unless|except|exception|provided that)\b", _norm(paragraph)) for paragraph in paragraphs)
+
+
 async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
     """True means keep. Unsupported drops and unavailable triage fail open."""
     if occupational_target_mismatch(p, scheme):
         log.info("triage dropped %s: farmer-only target without a stated farming role", scheme.slug)
+        return False
+    if educational_target_mismatch(p, scheme):
+        log.info("triage dropped %s: technical-course target excludes a general degree", scheme.slug)
         return False
     official = f"{target_text(scheme)}\n{scheme.eligibility_md}\n{scheme.exclusions_md}"
     try:
@@ -118,7 +153,8 @@ async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
             p.model_dump(exclude_none=True), scheme.model_dump(mode="json"), TRIAGE_SYSTEM,
         ], screen))
         # A drop needs a real source span, not a model's paraphrase.
-        if result.drop and result.reason and _norm(result.quote) and _norm(result.quote) in _norm(official):
+        if (result.drop and result.reason and _norm(result.quote) and _norm(result.quote) in _norm(official)
+                and not qualified_restriction(result.quote, official)):
             log.info("triage dropped %s: %s", scheme.slug, result.reason)
             return False
     except Exception as e:
@@ -171,6 +207,11 @@ def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
         caste = CASTE_NAMES.get(p.caste or "")
         if caste:
             kws.extend([f"post matric scholarship {caste}", f"scholarship {caste}"])
+            # Official titles mix full category names and acronyms. Keep both,
+            # always with the education intent rather than searching "SC" alone.
+            kws.append(f"scholarship {p.caste}")
+        if re.search(r"class\s*(11|12)\b", f"{p.course or ''} {p.education_level or ''}", re.I):
+            kws.append("school education scholarship")
         if p.state:
             kws.extend([f"{p.state} post matric scholarship", f"{p.state} scholarship"])
         kws.append("scholarship")
@@ -178,7 +219,81 @@ def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
         kws.append(p.occupation)
     if p.land_acres:
         kws.append("farmer")
+    occupation = _norm(p.occupation or "")
+    if p.land_acres or re.search(r"farm|cultivat|agricultur", occupation):
+        kws.extend(["kisan", "agriculture", "crop insurance"])
+    if _norm(p.marital_status or "") in {"widow", "widowed"}:
+        kws.extend(["widow pension", "single women pension"])
+    if p.age is not None and p.age >= 60:
+        kws.append("old age pension")
+    if p.disability_percent:
+        kws.extend(["disability", "skill development disabilities", "self employment disabled"])
+    if re.search(r"unemploy|job seek", occupation):
+        kws.extend(["employment", "skill development"])
+    if p.is_pregnant or re.search(r"pregnan", occupation):
+        kws.extend(["maternity", "pregnant women", "janani"])
+    if re.search(r"street vendor|hawker", occupation):
+        kws.extend(["street vendor", "unorganised worker", "micro enterprise loan"])
     return list(dict.fromkeys(kws)) or [""]
+
+
+def relevance(p: ProfileData, scheme: SchemeSummary) -> int:
+    """Rank beneficiary fit before the bounded shortlist; never whitelist scheme slugs."""
+    title = _norm(scheme.name)
+    context = _norm(f"{scheme.brief or ''} {' '.join(scheme.tags)}")
+    state = _norm(scheme.state or "")
+    own_state = _norm(p.state or "")
+    score = 0
+    if own_state and state and state not in {"all", "all india"}:
+        score += 12 if f" {own_state} " in f" {state} " else -60
+
+    def topic(pattern, weight):
+        nonlocal score
+        if re.search(pattern, title):
+            score += weight
+        elif re.search(pattern, context):
+            score += weight // 2
+
+    category_patterns = {
+        "sc": r"\bscheduled castes?\b|\bsc\b",
+        "st": r"\bscheduled tribes?\b|\bst\b",
+        "obc": r"\bother backward|\bobc\b|\bbackward class|\bpichda varg\b",
+        "pvtg": r"particularly vulnerable tribal|\bpvtg\b",
+        "dnt": r"denotified|de notified|\bdnt\b",
+    }
+    categories = {key for key, pattern in category_patterns.items() if re.search(pattern, title)}
+    if p.caste and categories:
+        score += 20 if p.caste in categories else -24
+    if p.is_student:
+        topic(r"scholarship|chhatravritti|chhaatravrtti", 16)
+        education = _norm(f"{p.course or ''} {p.education_level or ''}")
+        if re.search(r"\bug\b|undergrad|b sc|b a\b|b com|b tech|class 1[12]", education):
+            topic(r"post matric|post metric|postmatric", 16)
+            if re.search(r"pre matric|post graduate|post doctoral|fellowship", title):
+                score -= 24
+        if re.search(r"class 1[12]\b", education):
+            topic(r"school education|higher secondary|senior secondary|class (xi|xii|11|12)\b", 16)
+            if re.search(r"\bcollege|\bgraduate|doctoral|\bph d\b", title):
+                score -= 20
+    occupation = _norm(p.occupation or "")
+    if p.land_acres or re.search(r"farm|cultivat|agricultur", occupation):
+        topic(r"farmer|kisan|agricultur|crop", 24)
+    if _norm(p.marital_status or "") in {"widow", "widowed"}:
+        topic(r"widow|vidhva|ekal nari|single wom", 28)
+    if p.age is not None and p.age >= 60:
+        topic(r"old age|elderly|senior citizen|vrdhavastha|vridh", 24)
+    if p.disability_percent:
+        topic(r"disabil|disabled|divyang|differently abled", 28)
+        if re.search(r"unemploy|job seek", occupation):
+            topic(r"employment|skill|kaushal|vocational", 20)
+    if p.is_pregnant or re.search(r"pregnan", occupation):
+        topic(r"matern|pregnan|matru|janani|lactat", 32)
+    if re.search(r"street vendor|hawker", occupation):
+        topic(r"street vendor|hawker", 32)
+        topic(r"unorgani[sz]ed|micro enterprise|self employment|business|entrepreneur", 16)
+    if p.gender == "male" and re.search(r"\bwomen\b|\bgirl|\bmahila\b", title):
+        score -= 24
+    return score
 
 
 async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[SchemeSummary]:
@@ -188,7 +303,7 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
     seen: dict[str, SchemeSummary] = {}
     async def search(kw: str, search_filters: dict):
         try:
-            return (await myscheme.search(kw, filters=search_filters, offset=0, size=max(12, limit))).items
+            return (await myscheme.search(kw, filters=search_filters, offset=0, size=max(24, limit))).items
         except Exception as e:
             log.warning("myscheme search failed for %r: %s", kw, e)
             return []
@@ -197,11 +312,12 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
     # state-only pass recovers these; official eligibility is checked later.
     queries = [(kw, filters) for kw in keywords_for(p, keyword)]
     recall_filters = {"state": p.state} if p.state else {}
-    queries.extend((kw, recall_filters) for kw in keywords_for(p, keyword) if kw and "scholarship" in kw)
+    queries.extend((kw, recall_filters) for kw in keywords_for(p, keyword) if kw)
     # central schemes (e.g. post matric for SC) carry no state tag, run the category queries unfiltered too
     caste = CASTE_NAMES.get(p.caste or "")
     if caste:
         queries.extend((kw, {}) for kw in keywords_for(p, keyword) if caste in kw)
+    queries = list({(kw, tuple(sorted(f.items()))): (kw, f) for kw, f in queries}.values())
     pages = await asyncio.gather(*(search(kw, f) for kw, f in queries))
     # Interleave pages so one generic page cannot crowd out state/category hits.
     for i in range(max((len(page) for page in pages), default=0)):
@@ -212,14 +328,16 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
             seen.setdefault(s.slug, s)
     # semantic pass over cached schemes catches ones keyword search misses
     try:
-        query = f"{p.occupation or ''} {p.education_level or ''} {p.state or ''} {keyword or ''}".strip()
+        query = " ".join(filter(None, [p.occupation, p.course, p.education_level,
+                         CASTE_NAMES.get(p.caste or ""), p.state, *keywords_for(p, keyword)]))
         if query:
-            for s in await myscheme.semantic_search(query, k=limit):
+            semantic = await asyncio.wait_for(myscheme.semantic_search(query, k=max(16, limit * 2)), timeout=4)
+            for s in semantic:
                 if not p.state or not s.state or s.state == p.state or s.state == "All":
                     seen.setdefault(s.slug, s)
     except Exception as e:
         log.info("semantic search skipped: %s", e)
-    return list(seen.values())[: max(32, limit * 4)]
+    return sorted(seen.values(), key=lambda s: -relevance(p, s))[: max(32, limit * 4)]
 
 
 async def judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
@@ -238,7 +356,7 @@ async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
         f"DOCUMENTS:\n{scheme.documents_md[:1500]}\n\n"
         f"Citizen profile: {p.model_dump_json(exclude_none=True)}"
     )
-    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM, model="strong")
+    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM, model="strong", thinking_level="LOW")
 
     reasons: list[Reason] = []
     dropped = 0
@@ -281,52 +399,107 @@ async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
 ORDER = {"eligible": 0, "likely": 1, "unknown": 2, "not_eligible": 3}
 
 
-async def _match_one(p: ProfileData, s: SchemeSummary, sem: asyncio.Semaphore) -> MatchResult | None:
+async def _load(s: SchemeSummary) -> SchemeDetail | None:
     from ..services import myscheme
 
+    try:
+        # judge on english text, explain later in user lang
+        return await asyncio.wait_for(myscheme.get_scheme(s.slug, lang="en", index=False), timeout=10)
+    except Exception as e:
+        log.warning("loading %s failed: %s", s.slug, e)
+        return None
+
+
+async def _index(details: list[SchemeDetail]) -> None:
+    from ..services import myscheme
+
+    try:
+        await myscheme.index_schemes(details)
+    except Exception as e:
+        # Text/citations remain authoritative if the optional index is unavailable.
+        log.warning("candidate batch indexing skipped: %s", e)
+
+
+async def _judge_one(p: ProfileData, detail: SchemeDetail, sem: asyncio.Semaphore) -> MatchResult | None:
     async with sem:
         try:
-            detail = await myscheme.get_scheme(s.slug, lang="en")  # judge on english text, explain later in user lang
             if not detail.eligibility_md.strip():
                 return None
             if not await triage(p, detail):
                 return None
             return await judge(p, detail)
         except Exception as e:
-            log.warning("judging %s failed: %s", s.slug, e)
+            log.warning("judging %s failed: %s", detail.slug, e)
             return None
 
 
-async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang: str = "en") -> list[MatchResult]:
-    cands = await candidates(p, keyword, limit)
-    sem = asyncio.Semaphore(24)  # paid vertex quota, 4 was for the free tier
+def _rank(p: ProfileData, cands: list[SchemeSummary], results: list[MatchResult]) -> list[MatchResult]:
+    priority = {s.slug: relevance(p, s) for s in cands}
+    positions = {s.slug: i for i, s in enumerate(cands)}
+    return sorted(results, key=lambda r: (ORDER[r.verdict], -priority.get(r.scheme.slug, 0), -r.confidence,
+                                          positions.get(r.scheme.slug, len(cands))))
 
-    results = [r for r in await asyncio.gather(*(_match_one(p, s, sem) for s in cands)) if r]
-    results.sort(key=lambda r: (ORDER[r.verdict], -r.confidence))
-    return results[:limit]
+
+async def _match_events(p: ProfileData, keyword: str | None, limit: int) -> AsyncIterator[dict]:
+    """found -> result/checked as each judgement lands -> done. Judging stops at MATCH_SECONDS
+    and whatever finished by then is kept."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + MATCH_SECONDS
+    cands = await candidates(p, keyword, limit)
+    total = len(cands)
+    yield {"type": "found", "total": total}
+    sem = asyncio.Semaphore(24)  # paid vertex quota, 4 was for the free tier
+    loads = [asyncio.create_task(_load(s)) for s in cands]
+
+    async def one(load):
+        detail = await load
+        return None if detail is None else await _judge_one(p, detail, sem)
+
+    async def index():
+        # one batched embedding call, off the critical path of judging
+        await _index([d for d in await asyncio.gather(*loads) if d])
+
+    indexing = asyncio.create_task(index())
+    tasks = [asyncio.create_task(one(load)) for load in loads]
+    results: list[MatchResult] = []
+    try:
+        checked = 0
+        for future in asyncio.as_completed(tasks, timeout=max(0, deadline - loop.time())):
+            try:
+                result = await future
+            except TimeoutError:
+                log.warning("match time budget reached; returning %s completed judgements", len(results))
+                break
+            checked += 1
+            if result is not None:
+                results.append(result)
+                yield {"type": "result", "result": result}
+            yield {"type": "checked", "checked": checked, "total": total}
+        yield {"type": "done", "results": _rank(p, cands, results)[:limit]}
+    finally:
+        for task in (*tasks, *loads, indexing):
+            task.cancel()
+        await asyncio.gather(*tasks, *loads, indexing, return_exceptions=True)
+
+
+async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang: str = "en") -> list[MatchResult]:
+    async with aclosing(_match_events(p, keyword, limit)) as events:
+        async for event in events:
+            if event["type"] == "done":
+                return event["results"]
+    return []
 
 
 async def match_stream(p: ProfileData, keyword: str | None = None, limit: int = 8, lang: str = "en") -> AsyncIterator[dict]:
     """Yield progress, completion-order results, then the same ranked shortlist as match()."""
-    cands = await candidates(p, keyword, limit)
-    total = len(cands)
-    yield {"type": "progress", "message": f"found {total} schemes", "checked": 0, "total": total}
-    sem = asyncio.Semaphore(24)
-    tasks = [asyncio.create_task(_match_one(p, s, sem)) for s in cands]
-    # Candidate index preserves match()'s stable tie ordering despite completion order.
-    indices = {s.slug: i for i, s in enumerate(cands)}
-    results = []
-    try:
-        for checked, future in enumerate(asyncio.as_completed(tasks), 1):
-            result = await future
-            if result is not None:
-                results.append(result)
-                yield {"type": "result", "result": result.model_dump(mode="json")}
-            yield {"type": "progress", "message": f"checked {checked}/{total}",
-                   "checked": checked, "total": total}
-        results.sort(key=lambda r: (ORDER[r.verdict], -r.confidence, indices[r.scheme.slug]))
-        yield {"type": "done", "results": [r.model_dump(mode="json") for r in results[:limit]]}
-    finally:
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+    async with aclosing(_match_events(p, keyword, limit)) as events:
+        async for event in events:
+            if event["type"] == "found":
+                yield {"type": "progress", "message": f"found {event['total']} schemes", "checked": 0, "total": event["total"]}
+            elif event["type"] == "checked":
+                yield {"type": "progress", "message": f"checked {event['checked']}/{event['total']}",
+                       "checked": event["checked"], "total": event["total"]}
+            elif event["type"] == "result":
+                yield {"type": "result", "result": event["result"].model_dump(mode="json")}
+            else:
+                yield {"type": "done", "results": [r.model_dump(mode="json") for r in event["results"]]}

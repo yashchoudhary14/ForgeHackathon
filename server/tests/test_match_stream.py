@@ -56,7 +56,10 @@ async def test_stream_emits_before_slow_judge_and_matches_legacy_sort_and_limit(
 
 async def test_closing_stream_cancels_remaining_checks(monkeypatch):
     started, cancelled = asyncio.Event(), asyncio.Event()
-    monkeypatch.setattr(matcher, "candidates", AsyncMock(return_value=[scheme("fast"), scheme("slow")]))
+    cands = [scheme("fast"), scheme("slow")]
+    monkeypatch.setattr(matcher, "candidates", AsyncMock(return_value=cands))
+    monkeypatch.setattr(myscheme, "get_scheme", AsyncMock(side_effect=lambda slug, **kw: next(s for s in cands if s.slug == slug)))
+    monkeypatch.setattr(myscheme, "index_schemes", AsyncMock())
 
     async def check(p, s, sem):
         if s.slug == "fast":
@@ -68,7 +71,7 @@ async def test_closing_stream_cancels_remaining_checks(monkeypatch):
         finally:
             cancelled.set()
 
-    monkeypatch.setattr(matcher, "_match_one", check)
+    monkeypatch.setattr(matcher, "_judge_one", check)
     events = matcher.match_stream(ProfileData())
     await anext(events)
     assert (await anext(events))["type"] == "result"

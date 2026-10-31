@@ -5,8 +5,17 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from app.config import Settings
 from app.services.llm_pool import ModelPool, QueueTimeout, cooldown_seconds, retry_delay
 
+
+@pytest.mark.parametrize("backend,explicit,expected", [
+    ("aistudio", None, 12), ("vertex", None, 600), ("vertex", 12, 12), ("vertex", 240, 240),
+])
+def test_backend_rate_defaults_respect_explicit_limits(monkeypatch, backend, explicit, expected):
+    monkeypatch.delenv("GEMINI_RPM", raising=False)
+    kwargs = {"gemini_rpm": explicit} if explicit is not None else {}
+    assert Settings(_env_file=None, gemini_backend=backend, **kwargs).gemini_rpm == expected
 
 def ready_pool(names=None, rpm=1, window=0.04):
     pool = ModelPool(names or ["strong-a", "strong-b"], "embedding", rpm, window)
