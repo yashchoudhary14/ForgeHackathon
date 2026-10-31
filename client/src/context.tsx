@@ -17,7 +17,7 @@ export const languages: Record<Lang, string> = {
 };
 const strings = {
   en: {
-    home: "Find my schemes",
+    home: "Start here",
     schemes: "My schemes",
     explain: "Explain a document",
     ask: "Ask a question",
@@ -37,7 +37,7 @@ const strings = {
     find: "Find my schemes",
   },
   hi: {
-    home: "योजनाएँ खोजें",
+    home: "यहाँ शुरू करें",
     schemes: "मेरी योजनाएँ",
     explain: "दस्तावेज़ समझें",
     ask: "सवाल पूछें",

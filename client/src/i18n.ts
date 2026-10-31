@@ -1,6 +1,109 @@
 import type { Lang } from "./api/types";
 // English is also the fallback for the other supported intake/answer languages.
 const hi: Record<string, string> = {
+  "This application was stopped. You can start again from a scheme page.":
+    "यह आवेदन रोक दिया गया है। योजना के पेज से फिर शुरू कर सकते हैं।",
+  "Preparing your voice message…": "आपका आवाज़ का संदेश तैयार कर रहे हैं…",
+  "This live session has ended. Your saved steps are still available. Start a new application from the scheme page when you’re ready.":
+    "यह लाइव सत्र समाप्त हो गया है। सहेजे हुए चरण अब भी उपलब्ध हैं। तैयार होने पर योजना के पेज से नया आवेदन शुरू करें।",
+  "Selecting a field or button": "खाना या बटन चुन रहे हैं",
+  "Filling in your details": "आपकी जानकारी भर रहे हैं",
+  "Choosing an option": "विकल्प चुन रहे हैं",
+  "Checking the next section": "अगला भाग जाँच रहे हैं",
+  "Opening a portal page": "पोर्टल का पेज खोल रहे हैं",
+  "Waiting for the portal": "पोर्टल का इंतज़ार है",
+  "Waiting for your help": "आपकी मदद का इंतज़ार है",
+  "Waiting for your approval": "आपकी मंज़ूरी का इंतज़ार है",
+  "Finishing the application": "आवेदन पूरा कर रहे हैं",
+  "Working on the portal": "पोर्टल पर काम कर रहे हैं",
+  "Please enter a valid age.": "कृपया सही उम्र भरें।",
+  "Please enter a valid annual income.": "कृपया सही सालाना आय भरें।",
+  "Please enter a valid disability percent.":
+    "कृपया सही दिव्यांगता प्रतिशत भरें।",
+  "Please enter a valid land acres.": "कृपया ज़मीन का सही क्षेत्रफल भरें।",
+  Start: "शुरू करें",
+  Understand: "समझें",
+  Decide: "तय करें",
+  Act: "आवेदन करें",
+  "Explain any scheme or notice in your language.":
+    "किसी भी योजना या सूचना को अपनी भाषा में समझें।",
+  "Find schemes you qualify for, with quotes from official sources.":
+    "अपने लिए पात्र योजनाएँ खोजें, आधिकारिक स्रोतों के उद्धरणों के साथ।",
+  "Watch the agent fill the portal. You approve before submit.":
+    "सहायक को पोर्टल भरते हुए देखें। जमा करने से पहले मंज़ूरी आप दें।",
+  "Have a notice? Understand it first →": "कोई सूचना मिली है? पहले उसे समझें →",
+  "Fill in details instead": "जानकारी खुद भरें",
+  "Understanding your details and building your profile…":
+    "आपकी जानकारी समझकर प्रोफ़ाइल बना रहे हैं…",
+  "Saving your profile securely…": "आपकी जानकारी सुरक्षित रूप से सहेज रहे हैं…",
+  "Loading your saved profile…": "आपकी सहेजी हुई जानकारी ला रहे हैं…",
+  "Opening your page…": "आपका पेज खोल रहे हैं…",
+  "Let’s try that again": "आइए, फिर कोशिश करें",
+  "Try again": "फिर कोशिश करें",
+  "The service is taking a break. Please try again in a moment.":
+    "सेवा अभी उपलब्ध नहीं है। थोड़ी देर बाद फिर कोशिश करें।",
+  "Lots of people are asking for help right now. Please wait a moment and try again.":
+    "अभी बहुत से लोग मदद माँग रहे हैं। थोड़ा रुककर फिर कोशिश करें।",
+  "We couldn’t find that item. Go back to the list or try again.":
+    "यह जानकारी नहीं मिली। सूची पर वापस जाएँ या फिर कोशिश करें।",
+  "Please check the details you entered and try again.":
+    "अपनी भरी हुई जानकारी जाँचें और फिर कोशिश करें।",
+  "Checking your profile against official scheme rules…":
+    "आपकी जानकारी आधिकारिक योजना के नियमों से मिला रहे हैं…",
+  "Searching official government schemes…":
+    "आधिकारिक सरकारी योजनाएँ खोज रहे हैं…",
+  "Loading benefits, eligibility and official application steps…":
+    "लाभ, पात्रता और आधिकारिक आवेदन के चरण ला रहे हैं…",
+  "Reading the official scheme and preparing your explanation…":
+    "आधिकारिक योजना पढ़कर आपके लिए आसान भाषा में समझा रहे हैं…",
+  "Opening the portal and starting your assisted application…":
+    "पोर्टल खोलकर आपका आवेदन शुरू कर रहे हैं…",
+  "Loading your applications and saved receipts…":
+    "आपके आवेदन और सहेजी हुई रसीदें ला रहे हैं…",
+  "Loading your uploaded documents…": "आपके अपलोड किए दस्तावेज़ ला रहे हैं…",
+  "Fetching the latest official notices…": "ताज़ा आधिकारिक सूचनाएँ ला रहे हैं…",
+  "What should the assistant do?": "सहायक को क्या करना चाहिए?",
+  "Restoring your application and connecting to the live browser…":
+    "आपका आवेदन लाकर लाइव ब्राउज़र से जुड़ रहे हैं…",
+  "You stay in control": "नियंत्रण आपके हाथ में",
+  "The agent pauses for CAPTCHA, OTP and your approval before submission.":
+    "सहायक CAPTCHA, OTP और जमा करने से पहले आपकी मंज़ूरी के लिए रुकेगा।",
+  "Restoring your next action…": "आपका अगला काम ला रहे हैं…",
+  "No action needed from you yet": "अभी आपको कुछ करने की ज़रूरत नहीं है",
+  "Reconnecting to retrieve the request. If it does not appear, try again.":
+    "अनुरोध लाने के लिए दोबारा जुड़ रहे हैं। न दिखे तो फिर कोशिश करें।",
+  "Watch the browser and steps below. We’ll show your next action here.":
+    "नीचे ब्राउज़र और चरण देखें। आपका अगला काम यहाँ दिखेगा।",
+  "Final approval": "अंतिम मंज़ूरी",
+  "One-time password (OTP)": "वन टाइम पासवर्ड (OTP)",
+  "You are in control": "नियंत्रण आपके पास है",
+  "Watch live": "लाइव देखें",
+  "Opening the portal. The live browser will appear here…":
+    "पोर्टल खोल रहे हैं। लाइव ब्राउज़र यहाँ दिखेगा…",
+  "This application has ended. Check the steps and receipt below.":
+    "यह आवेदन समाप्त हो गया है। नीचे चरण और रसीद देखें।",
+  "The answer was interrupted or timed out. You can retry.":
+    "जवाब बीच में रुक गया या समय समाप्त हो गया। फिर कोशिश करें।",
+  "Could not read a live update. Reconnect to restore the application view.":
+    "लाइव अपडेट नहीं पढ़ पाए। आवेदन देखने के लिए दोबारा जुड़ें।",
+  "The live connection is unavailable. Wait for reconnection before continuing.":
+    "लाइव संपर्क उपलब्ध नहीं है। आगे बढ़ने से पहले दोबारा जुड़ने का इंतज़ार करें।",
+  "Voice recording is unavailable in this browser. Please type your message.":
+    "इस ब्राउज़र में आवाज़ रिकॉर्ड नहीं हो सकती। अपना संदेश लिखें।",
+  "Microphone permission was denied. Allow microphone access in your browser or type below.":
+    "माइक्रोफ़ोन की अनुमति नहीं मिली। ब्राउज़र में अनुमति दें या नीचे लिखें।",
+  "Could not access the microphone. Please type below.":
+    "माइक्रोफ़ोन नहीं खुल पाया। नीचे लिखें।",
+  "More information needed:": "और जानकारी चाहिए:",
+  "Match confidence ·": "मिलान का भरोसा ·",
+  "schemes found": "योजनाएँ मिलीं",
+  pages: "पृष्ठ",
+  Step: "चरण",
+  Reload: "फिर खोलें",
+  "Something went wrong": "कुछ गड़बड़ हो गई",
+  "Please reload this page to continue.": "आगे बढ़ने के लिए पेज फिर खोलें।",
+  "Page not found": "पेज नहीं मिला",
+  "Go home": "होम पर जाएँ",
   "Contact and application details": "संपर्क और आवेदन की जानकारी",
   "full name": "पूरा नाम",
   phone: "फ़ोन",
