@@ -79,6 +79,24 @@ async def test_special_groups_get_relaxed_and_national_recall(monkeypatch, profi
     assert any(c.args[0] == query and c.kwargs["filters"] == {} for c in search.await_args_list)
 
 
+def test_noisy_state_metadata_does_not_bury_specific_category_hit():
+    central = SchemeSummary(slug="pmssc", name="Post Matric Scholarship For Scheduled Caste", state="Punjab")
+    generic = SchemeSummary(slug="generic", name="Scholarship", state="All")
+    assert matcher.candidate_priority(BIHAR_STUDENT, central) > matcher.candidate_priority(BIHAR_STUDENT, generic)
+
+
+async def test_relevant_likely_result_precedes_generic_high_confidence(monkeypatch):
+    profile = ProfileData(state="Uttar Pradesh", land_acres=2, occupation="farmer")
+    schemes = [detail("generic", "General insurance", "All citizens"),
+               detail("pmfby", "Pradhan Mantri Fasal Bima Yojna", "Farmers")]
+    monkeypatch.setattr(matcher, "candidates", AsyncMock(return_value=schemes))
+    monkeypatch.setattr(myscheme, "get_scheme", AsyncMock(side_effect=lambda slug, **kw: next(s for s in schemes if s.slug == slug)))
+    monkeypatch.setattr(matcher, "triage", AsyncMock(return_value=True))
+    monkeypatch.setattr(matcher, "judge", AsyncMock(side_effect=lambda p, s: MatchResult(
+        scheme=s, verdict="likely", confidence=0.99 if s.slug == "generic" else 0.8, reasons=[])))
+    assert (await matcher.match(profile, limit=1))[0].scheme.slug == "pmfby"
+
+
 def detail(slug, name, eligibility):
     return SchemeDetail(id=slug, slug=slug, name=name, eligibility_md=eligibility,
                         source_url=f"https://www.myscheme.gov.in/schemes/{slug}")
