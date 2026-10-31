@@ -1,6 +1,9 @@
 import type { Lang } from "./api/types";
 // English is also the fallback for the other supported intake/answer languages.
 const hi: Record<string, string> = {
+  "The receipt image is unavailable. Your reference and official link are still shown above.":
+    "रसीद की तस्वीर उपलब्ध नहीं है। आपका संदर्भ और आधिकारिक लिंक ऊपर दिए गए हैं।",
+  "Retry receipt image": "रसीद की तस्वीर फिर लाएँ",
   "This application was stopped. You can start again from a scheme page.":
     "यह आवेदन रोक दिया गया है। योजना के पेज से फिर शुरू कर सकते हैं।",
   "Preparing your voice message…": "आपका आवाज़ का संदेश तैयार कर रहे हैं…",
