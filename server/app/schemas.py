@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -281,3 +282,81 @@ class TalkReply(BaseModel):
     text: str = Field(min_length=1, max_length=1200)
     quick_replies: list[str] = Field(default_factory=list, max_length=4)
     application_offer_slug: str | None = Field(default=None, description="Only when text asks consent to APPLY to this one scheme; otherwise null")
+# ---------- civic ----------
+
+ReportCategory = Literal["water", "roads", "electricity", "sanitation", "streetlight", "drainage", "safety", "other"]
+ReportStatus = Literal["open", "filed", "in_progress", "resolved", "closed"]
+
+
+class CivicTriage(BaseModel):
+    model_config = {"str_strip_whitespace": True}
+    category: ReportCategory
+    title: str = Field(min_length=1, max_length=200)
+    title_local: str = Field(min_length=1, max_length=300)
+    description: str = Field(min_length=1, max_length=6000)
+    severity: Literal["low", "medium", "high", "urgent"]
+    severity_reason: str = Field(min_length=1, max_length=500)
+    department: str = Field(min_length=1, max_length=200)
+    since_when: str = Field(default="Not specified by the reporter", max_length=1000)
+    people_affected: str = Field(default="Not specified by the reporter", max_length=1000)
+
+
+class ComplaintDraft(BaseModel):
+    model_config = {"str_strip_whitespace": True}
+    subject: str = Field(min_length=1, max_length=200)
+    english: str = Field(min_length=1, max_length=8000)
+    local: str = Field(min_length=1, max_length=8000)
+    language: str
+
+
+class ReportEventOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: int
+    source: str
+    kind: str
+    text: str
+    meta: dict = Field(default_factory=dict)
+    created_at: datetime
+
+
+class ReportOut(CivicTriage):
+    id: str
+    profile_id: str | None
+    language: str
+    lat: float
+    lng: float
+    address: str | None
+    media: list[dict] = Field(default_factory=list)
+    status: ReportStatus
+    official_ref: str | None
+    official_status: str | None
+    supporters: int
+    created_at: datetime
+    updated_at: datetime
+    events: list[ReportEventOut] = Field(default_factory=list)
+    distance_m: float | None = None
+    similarity: float | None = None
+    duplicate_score: float | None = None
+    source_url: str | None = None
+    complaint_draft: ComplaintDraft | None = None
+
+
+class TriageOut(CivicTriage):
+    language: str
+    address: str | None
+    geocoding_attribution: str = "© OpenStreetMap contributors (ODbL)"
+    duplicates: list[ReportOut] = Field(default_factory=list)
+
+
+class ReportVoteIn(BaseModel):
+    profile_id: str
+    kind: Literal["support", "still_broken", "fixed", "follow"]
+
+
+class ReportActorIn(BaseModel):
+    profile_id: str
+
+
+class CivicRunOut(BaseModel):
+    run_id: str
+    draft: ComplaintDraft | None = None
