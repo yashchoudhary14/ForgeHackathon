@@ -4,6 +4,15 @@ The backend runs in project `forgehackathon`, region `asia-south1`, service
 `adhikaar-api`. Cloud Run and Vertex AI use project credits. Neon and Vercel
 remain on their free plans. Hugging Face is no longer the deployment target.
 
+Live URLs:
+
+- Frontend: https://adhikaar-jade.vercel.app
+- API: https://adhikaar-api-813554369403.asia-south1.run.app
+- API docs: https://adhikaar-api-813554369403.asia-south1.run.app/docs
+
+Runtime identity: `forgehackathon-backend@forgehackathon.iam.gserviceaccount.com`.
+All Google Cloud resources and secrets are in `forgehackathon`.
+
 ## Cloud prerequisites
 
 Use a signed-in gcloud account with access to `forgehackathon`. The deploy script
@@ -52,13 +61,13 @@ those permissions.
 With the exact Vercel origin as the argument, run from the repository root:
 
 ```bash
-bash server/scripts/deploy_cloudrun.sh https://YOUR-APP.vercel.app
+bash server/scripts/deploy_cloudrun.sh https://adhikaar-jade.vercel.app
 ```
 
 On this Windows PC, Git Bash and gcloud are installed. From PowerShell:
 
 ```powershell
-& 'C:/Program Files/Git/bin/bash.exe' server/scripts/deploy_cloudrun.sh https://YOUR-APP.vercel.app
+& 'C:/Program Files/Git/bin/bash.exe' server/scripts/deploy_cloudrun.sh https://adhikaar-jade.vercel.app
 ```
 
 The script detects the Google SDK under `%LOCALAPPDATA%` if it is not on PATH.
@@ -116,7 +125,7 @@ From this checkout's Python environment, run with the real service and frontend
 URLs (the script runs on the PC; it does not need server storage access):
 
 ```powershell
-.venv/Scripts/python server/scripts/smoke_deploy.py --base-url https://YOUR-SERVICE.run.app --origin https://YOUR-APP.vercel.app --agent --hindi-explain
+.venv/Scripts/python -X utf8 server/scripts/smoke_deploy.py --base-url https://adhikaar-api-813554369403.asia-south1.run.app --origin https://adhikaar-jade.vercel.app --agent --hindi-explain
 ```
 
 It checks five no-quota health pings, live scheme search, the frontend CORS
@@ -137,6 +146,30 @@ the probe state; no API key is needed when Cloud Run uses its service identity.
 For local checks, use the same Docker image and local pgvector container as
 before. Inside a local API container, `smoke_deploy.py` also checks writable local
 storage by creating and serving a short WAV file.
+
+## Recorded live checks (31 October 2026)
+
+- Source build `bf0ebb6f-23e9-4fec-8c7f-250aea3f946b` succeeded. Cloud Run
+  revision `adhikaar-api-00002-xqt` serves 100% of traffic with the final CORS
+  origin. Requested resource, scaling, timeout, identity, secret, session-affinity
+  and public-invoker settings were read back and verified.
+- Public health: HTTP 200; five pings consumed zero model calls. Scheme search
+  from the Mumbai backend returned HTTP 200 and 440 farmer-related results.
+- The CORS revision logged `startup probe restored from database`; all seven
+  generation models were initialized at the configured 60 RPM.
+- Hindi PM-KISAN explanation: native-script summary, three verified citations,
+  and 1,203,328 bytes of served WAV audio.
+- Headless myScheme run `5045bc251ae34443a12f53c63f697db0`: **done**, seven
+  live frames received over WSS, title `Find Scheme`, heading `Help us find the
+  best schemes for you`, and a served receipt screenshot.
+- Local regressions: 78 backend tests pass on Windows and in the built Linux
+  image; 17 client tests and the production client build pass.
+- Vercel production deployment `5bmDrgMKtWX54An2m3Lh3tC4EqhD` is **Ready**
+  from branch `deploy`, commit `a1530c7`, with root `client` and the correct
+  Cloud Run URL. Production branch tracking is `deploy`.
+- Anonymous `/schemes` returns HTTP 200 through the SPA rewrite. The deployed
+  JavaScript contains the Cloud Run base and credentialed requests for affinity.
+  A real browser search on the production frontend rendered 440 scheme results.
 
 ## References
 
