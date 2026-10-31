@@ -115,13 +115,20 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
 
 
 async def judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
+    result = await llm.cached("matcher.judge", [
+        scheme.slug, p.model_dump(exclude_none=True), scheme.model_dump(mode="json"), JUDGE_SYSTEM,
+    ], lambda: _judge(p, scheme))
+    return MatchResult.model_validate(result)
+
+
+async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
     official = f"ELIGIBILITY:\n{scheme.eligibility_md}\n\nEXCLUSIONS:\n{scheme.exclusions_md or 'none listed'}"
     prompt = (
         f"Scheme: {scheme.name} ({scheme.ministry or scheme.state or ''})\n\n{official}\n\n"
         f"DOCUMENTS:\n{scheme.documents_md[:1500]}\n\n"
         f"Citizen profile: {p.model_dump_json(exclude_none=True)}"
     )
-    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM)
+    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM, model="strong")
 
     reasons: list[Reason] = []
     dropped = 0

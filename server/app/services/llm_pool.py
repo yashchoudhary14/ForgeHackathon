@@ -18,6 +18,7 @@ class QueueTimeout(TimeoutError):
 @dataclass
 class ModelState:
     name: str
+    rpm: int = 12
     kind: str = "generation"
     enabled: bool = False
     requests: deque = field(default_factory=deque)
@@ -78,9 +79,12 @@ def cooldown_seconds(error: Exception) -> float:
 
 
 class ModelPool:
-    def __init__(self, names: list[str], embedding_model: str, rpm: int = 12, window: float = 60):
-        self.states = {name: ModelState(name) for name in names}
-        self.states[embedding_model] = ModelState(embedding_model, kind="embedding", enabled=True, status="ready")
+    def __init__(self, names: list[str], embedding_model: str, rpm: int = 12, window: float = 60,
+                 limits: dict[str, int] | None = None):
+        limits = limits or {}
+        self.states = {name: ModelState(name, rpm=limits.get(name, rpm)) for name in names}
+        self.states[embedding_model] = ModelState(embedding_model, rpm=limits.get(embedding_model, rpm),
+                                                   kind="embedding", enabled=True, status="ready")
         self.rpm, self.window = rpm, window
         self.condition = asyncio.Condition()
         self.probe_lock = asyncio.Lock()
@@ -142,7 +146,7 @@ class ModelPool:
                     for name in names:
                         self._prune(self.states[name], now)
                     ready = [self.states[name] for name in names
-                             if len(self.states[name].requests) < self.rpm and self.states[name].cooldown_until <= now]
+                             if len(self.states[name].requests) < self.states[name].rpm and self.states[name].cooldown_until <= now]
                     # FIFO between requests sharing a pool; embeddings don't block text calls.
                     earlier = self.waiters[:self.waiters.index(ticket)]
                     has_priority = not any(ticket[1] & previous[1] for previous in earlier)
@@ -166,7 +170,7 @@ class ModelPool:
                     if remaining <= 0:
                         raise QueueTimeout("Gemini capacity is busy. Please retry shortly.")
                     wake = min(max(self.states[name].cooldown_until,
-                                   self.states[name].requests[0] + self.window if len(self.states[name].requests) >= self.rpm else now)
+                                   self.states[name].requests[0] + self.window if len(self.states[name].requests) >= self.states[name].rpm else now)
                                for name in names)
                     delay = min(remaining, max(0.01, wake - now)) if has_priority else remaining
                     try:
@@ -197,12 +201,12 @@ class ModelPool:
                 "ready": bool(self.names()), "initialized": self.initialized,
                 "scope": "process", "waiting": len(self.waiters), "limited": self.limited,
                 "available_now": sum(state.enabled and state.kind == "generation"
-                                     and state.cooldown_until <= now and len(state.requests) < self.rpm
+                                     and state.cooldown_until <= now and len(state.requests) < state.rpm
                                      for state in self.states.values()),
                 "models": [{
                     "model": state.name, "class": "embedding" if state.kind == "embedding" else (
                         "lite" if "lite" in state.name else "strong"),
-                    "enabled": state.enabled, "used_last_minute": len(state.requests), "rpm_limit": self.rpm,
+                    "enabled": state.enabled, "used_last_minute": len(state.requests), "rpm_limit": state.rpm,
                     "cooldown_seconds": round(max(0, state.cooldown_until - now), 3),
                     "total_requests": state.total, "failures": state.failures,
                     "status": "ready" if state.enabled and state.cooldown_until <= now else state.status,

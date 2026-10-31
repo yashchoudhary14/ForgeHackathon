@@ -41,7 +41,8 @@ def pool() -> ModelPool:
     global _pool
     if _pool is None:
         settings = get_settings()
-        _pool = ModelPool(settings.model_pool, settings.gemini_embed_model, settings.gemini_rpm)
+        _pool = ModelPool(settings.model_pool, settings.gemini_embed_model, settings.gemini_rpm,
+                          limits=settings.gemini_model_rpm)
     return _pool
 
 
@@ -114,6 +115,9 @@ async def _run_call(factory, model=None, *, kind="generation", log_success=True)
                 if log_success:
                     _log_call(name, started, waited, "ok")
                 return value, name, bool(waited), started
+            except asyncio.CancelledError:
+                _log_call(name, started, waited, "cancelled")
+                raise
             except Exception as error:
                 last = error
                 _log_call(name, started, waited, "timeout" if isinstance(error, TimeoutError) else str(status_code(error) or "error"))

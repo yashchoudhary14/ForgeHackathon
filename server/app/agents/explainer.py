@@ -75,7 +75,11 @@ async def explain(body: ExplainIn, profile: ProfileData | None) -> ExplainOut:
         f"Citizen profile: {profile.model_dump_json(exclude_none=True) if profile else 'not given'}\n\n"
         f"SOURCE ({title}):\n\"\"\"\n{text[:MAX_CHARS]}\n\"\"\""
     )
-    out = await llm.generate_json(prompt, _Explained, system=SYSTEM, temperature=0.2)
+    value = await llm.cached("explainer", [
+        body.source.model_dump(mode="json"), body.language,
+        profile.model_dump(exclude_none=True) if profile else None, title, text[:MAX_CHARS], source_url, SYSTEM,
+    ], lambda: llm.generate_json(prompt, _Explained, system=SYSTEM, temperature=0.2, model="lite"))
+    out = _Explained.model_validate(value)
 
     citations = [
         Citation(source_url=source_url, title=title, quote=e.quote, section=e.supports)

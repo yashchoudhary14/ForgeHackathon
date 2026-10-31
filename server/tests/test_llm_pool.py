@@ -114,3 +114,18 @@ async def test_legacy_model_argument_still_balances_load_within_class():
     pool = ready_pool(["strong-a", "strong-b", "lite-a"], rpm=12)
     assert (await pool.acquire("strong-a"))[0] == "strong-a"
     assert (await pool.acquire("strong-a"))[0] == "strong-b"
+
+
+async def test_per_model_rpm_overrides_have_independent_limits():
+    pool = ModelPool(["small", "large"], "embedding", limits={"small": 1, "large": 2})
+    for state in pool.states.values():
+        state.enabled = True
+    assert (await pool.acquire("small"))[0] == "small"
+    assert (await pool.acquire())[0] == "large"
+    assert (await pool.acquire())[0] == "large"
+    with pytest.raises(QueueTimeout):
+        await pool.acquire(timeout=0.01)
+    health = await pool.snapshot()
+    assert {row["model"]: row["rpm_limit"] for row in health["models"]} == {
+        "small": 1, "large": 2, "embedding": 12,
+    }

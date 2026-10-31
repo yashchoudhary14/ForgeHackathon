@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,6 +18,7 @@ class Settings(BaseSettings):
         "gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-3.1-flash-lite"
     )
     gemini_rpm: int = Field(default=12, ge=1)
+    gemini_model_rpm: dict[str, Annotated[int, Field(ge=1)]] = Field(default_factory=dict)
     gemini_queue_timeout: float = Field(default=45, gt=0)
     gemini_call_timeout: float = Field(default=25, gt=0)
     gemini_probe_timeout: float = Field(default=10, gt=0)
