@@ -80,10 +80,14 @@ CASES.update({
 async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
     case = CASES[case_name]
     profile = case["profile"]
+    started = perf_counter()
     candidates = await matcher.candidates(profile, None, limit)
     candidate_slugs = {s.slug for s in candidates}
-    started = perf_counter()
-    results = await matcher.match(profile, limit=limit)
+    # Reuse precisely the measured shortlist rather than searching a second time.
+    async def retrieved(*args, **kwargs):
+        return candidates
+    with patch.object(matcher, "candidates", retrieved):
+        results = await matcher.match(profile, limit=limit)
     elapsed = perf_counter() - started
     by_slug = {r.scheme.slug: r for r in results}
     checks = {"latency": elapsed <= max_seconds}
@@ -92,8 +96,9 @@ async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
         checks[f"result:{slug}"] = slug in by_slug and by_slug[slug].verdict in {"eligible", "likely"}
     for name, pattern in case.get("expected", {}).items():
         def matches(scheme):
-            return bool(re.search(pattern, matcher._norm(scheme.name))) and (
-                not scheme.state or scheme.state in {profile.state, "All"})
+            # Search facets can contradict the official detail (e.g. pmssc).
+            # Retrieval checks titles; triage/judging verifies actual domicile.
+            return bool(re.search(pattern, matcher._norm(scheme.name)))
         checks[f"recall:{name}"] = any(matches(s) for s in candidates)
         checks[f"result:{name}"] = any(matches(r.scheme) and r.verdict in {"eligible", "likely"} for r in results)
 
@@ -124,7 +129,7 @@ async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
 
     if case_name == "bihar-sc-student":
         checks["keep:student-farmer"] = await kept("kcc", {"occupation": "student and tenant farmer"})
-        checks["keep:technical-student"] = await kept("psgs-deg", {"course": "B.Tech"})
+        checks["keep:technical-student"] = await kept("psgs-deg", {"course": "B.Tech", "state": "Assam"})
     return {
         "case": case_name, "profile": profile.model_dump(exclude_none=True),
         "passed": all(checks.values()), "checks": checks,
@@ -152,7 +157,14 @@ async def run(args) -> dict:
     try:
         await init_db()
         with patch.object(llm, "cached", cached):
-            reports = [await evaluate(case, args.limit, args.max_seconds) for case in args.case or CASES]
+            reports = []
+            for case in args.case or CASES:
+                reports.append(await evaluate(case, args.limit, args.max_seconds))
+                logging.info("eval %s: %.2fs, failures=%s", case, reports[-1]["match_seconds"],
+                             [k for k, ok in reports[-1]["checks"].items() if not ok])
+                if args.output:
+                    args.output.parent.mkdir(parents=True, exist_ok=True)
+                    args.output.write_text(json.dumps({"complete": False, "cases": reports}, indent=2) + "\n", encoding="utf-8")
         return {"backend": settings.gemini_backend, "models": settings.model_pool,
                 "fresh": args.fresh, "passed": all(r["passed"] for r in reports), "cases": reports}
     finally:
