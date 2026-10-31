@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 JUDGE_SYSTEM = """You decide whether a citizen qualifies for an Indian government scheme.
 You get the scheme's OFFICIAL eligibility and exclusion text and the citizen's profile.
-For every distinct criterion in the official text produce one reason:
+For every distinct criterion applicable to the citizen's eligibility route produce one reason:
 - claim: the criterion in plain words
 - met: true / false / null (null = profile doesn't say, we need to ask)
 - quote: copy the exact words from the official text that state this criterion (verbatim, max 30 words). No paraphrase.
@@ -374,20 +374,33 @@ async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang
     cands = await candidates(p, keyword, limit)
     sem = asyncio.Semaphore(24)  # paid vertex quota, 4 was for the free tier
 
-    async def one(s: SchemeSummary) -> MatchResult | None:
+    async def load(s: SchemeSummary) -> SchemeDetail | None:
+        try:
+            return await myscheme.get_scheme(s.slug, lang="en", index=False)
+        except Exception as e:
+            log.warning("loading %s failed: %s", s.slug, e)
+            return None
+
+    details = [d for d in await asyncio.gather(*(load(s) for s in cands)) if d]
+    try:
+        await myscheme.index_schemes(details)
+    except Exception as e:
+        # Text/citations remain authoritative if the optional vector index is unavailable.
+        log.warning("candidate batch indexing skipped: %s", e)
+
+    async def one(detail: SchemeDetail) -> MatchResult | None:
         async with sem:
             try:
-                detail = await myscheme.get_scheme(s.slug, lang="en")  # judge on english text, explain later in user lang
                 if not detail.eligibility_md.strip():
                     return None
                 if not await triage(p, detail):
                     return None
                 return await judge(p, detail)
             except Exception as e:
-                log.warning("judging %s failed: %s", s.slug, e)
+                log.warning("judging %s failed: %s", detail.slug, e)
                 return None
 
-    results = [r for r in await asyncio.gather(*(one(s) for s in cands)) if r]
+    results = [r for r in await asyncio.gather(*(one(d) for d in details)) if r]
     priority = {s.slug: relevance(p, s) for s in cands}
     results.sort(key=lambda r: (ORDER[r.verdict], -priority.get(r.scheme.slug, 0), -r.confidence))
     return results[:limit]

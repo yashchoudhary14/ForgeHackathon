@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from .. import db, models
@@ -148,15 +148,31 @@ def _cached_detail(data: dict, lang: str) -> SchemeDetail:
     return detail
 
 
-async def get_scheme(slug: str, lang: str = "en") -> SchemeDetail:
+async def index_schemes(details: list[SchemeDetail], lang: str = "en") -> None:
+    """Index a source batch in one embedding request rather than serial RPCs."""
+    details = list({detail.slug: detail for detail in details}.values())
+    if not details:
+        return
+    vectors = await llm.embed([f"{d.name}\n{d.brief or ''}\n{d.eligibility_md}" for d in details])
+    async with db.SessionLocal() as session:
+        for detail, vector in zip(details, vectors, strict=True):
+            await session.execute(update(models.Scheme).where(
+                models.Scheme.slug == detail.slug, models.Scheme.lang == lang).values(embedding=vector))
+        await session.commit()
+
+
+async def get_scheme(slug: str, lang: str = "en", *, index: bool = True) -> SchemeDetail:
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", slug) or lang not in ("en", "hi"):
         raise ValueError("Invalid slug or unsupported scheme language (use en or hi)")
     now = datetime.now(timezone.utc)
     async with db.SessionLocal() as session:
         cached = await session.get(models.Scheme, (slug, lang))
         # rows written by older code may lack the parsed detail, refetch those
-        if cached and "detail" in (cached.data or {}) and cached.fetched_at.replace(tzinfo=timezone.utc) > now - timedelta(hours=24):
-            return _cached_detail(cached.data, lang)
+    if cached and "detail" in (cached.data or {}) and cached.fetched_at.replace(tzinfo=timezone.utc) > now - timedelta(hours=24):
+        detail = _cached_detail(cached.data, lang)
+        if index and cached.embedding is None:
+            await index_schemes([detail], lang)
+        return detail
     data = await _get("schemes", slug=slug, lang=lang)
     if not data.get("_id"):
         raise LookupError("Scheme not found")
@@ -164,13 +180,14 @@ async def get_scheme(slug: str, lang: str = "en") -> SchemeDetail:
         _get(f"schemes/{quote(data['_id'], safe='')}/documents", lang=lang),
         _get(f"schemes/{quote(data['_id'], safe='')}/faqs", lang=lang))
     detail = parse_detail(slug, lang, data, documents, faqs)
-    embedding = (await llm.embed([f"{detail.name}\n{detail.brief or ''}\n{detail.eligibility_md}"]))[0]
+    embedding = (await llm.embed([f"{detail.name}\n{detail.brief or ''}\n{detail.eligibility_md}"]))[0] if index else None
     values = dict(slug=slug, lang=lang, scheme_id=detail.id, name=detail.name,
                   data={"raw": data, "documents": documents, "faqs": faqs,
                         "detail": detail.model_dump()}, embedding=embedding, fetched_at=now)
     async with db.SessionLocal() as session:
+        changed = values if index else {key: value for key, value in values.items() if key != "embedding"}
         await session.execute(insert(models.Scheme).values(**values).on_conflict_do_update(
-            index_elements=[models.Scheme.slug, models.Scheme.lang], set_=values))
+            index_elements=[models.Scheme.slug, models.Scheme.lang], set_=changed))
         await session.commit()
     return detail
 

@@ -114,6 +114,7 @@ async def test_match_drops_mismatches_before_judging_and_allows_twelve_judges(mo
                 detail("psgs-deg", "Pragati Technical Degree", "Technical degree students")]
     monkeypatch.setattr(matcher, "candidates", AsyncMock(return_value=schemes))
     monkeypatch.setattr(myscheme, "get_scheme", AsyncMock(side_effect=lambda slug, **kw: next(s for s in schemes if s.slug == slug)))
+    monkeypatch.setattr(myscheme, "index_schemes", AsyncMock())
     monkeypatch.setattr(matcher, "triage", AsyncMock(side_effect=lambda p, s: s.slug not in {"kcc", "psgs-deg"}))
     active = peak = 0
     all_started = asyncio.Event()
@@ -132,6 +133,7 @@ async def test_match_drops_mismatches_before_judging_and_allows_twelve_judges(mo
     monkeypatch.setattr(matcher, "judge", judge_mock)
     results = await matcher.match(BIHAR_STUDENT)
     assert peak == 12 and judge_mock.await_count == 12
+    assert myscheme.index_schemes.await_count == 1
     assert not {"kcc", "psgs-deg"} & {r.scheme.slug for r in results}
 
 
