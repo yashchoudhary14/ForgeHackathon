@@ -54,6 +54,7 @@ export const en = {
   doItMyself: "I'll do it on the screen",
   swipeSubmit: "Swipe to submit",
   swipeUpload: "Swipe to attach",
+  audioFailed: "Audio could not be played.",
   attachDoc: "This document will be attached",
   alertsTitle: "Alerts",
   alertsEmpty: "No alerts yet.",

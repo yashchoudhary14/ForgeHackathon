@@ -8,7 +8,7 @@ import { BottomNav, PillNav } from "./nav";
 import { EmptyState } from "./ui";
 import { tt } from "./ui-strings";
 import ModeChoice from "./ModeChoice";
-import Intake from "./pages/Intake";
+import Home from "./pages/Home";
 
 const Schemes = lazy(() => import("./pages/Schemes"));
 const Scheme = lazy(() => import("./pages/Scheme"));
@@ -16,6 +16,7 @@ const Explain = lazy(() => import("./pages/Explain"));
 const Ask = lazy(() => import("./pages/Ask"));
 const Run = lazy(() => import("./pages/Run"));
 const Runs = lazy(() => import("./pages/Runs"));
+const Talk = lazy(() => import("./pages/Talk"));
 
 export function useUnread(profileId: string) {
   const [unread, setUnread] = useState(0);
@@ -65,7 +66,7 @@ function Layout() {
           </footer>
         )}
       </main>
-      <BottomNav unread={unread} />
+      {!bare && <BottomNav unread={unread} />}
       <span hidden>{lang}</span>
     </>
   );
@@ -88,7 +89,8 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/welcome" element={<ModeChoice />} />
       <Route element={<Layout />}>
-        <Route path="/" element={<Intake />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/talk" element={<Talk />} />
         <Route path="/schemes" element={<Schemes />} />
         <Route path="/schemes/:slug" element={<Scheme />} />
         <Route path="/explain" element={<Explain />} />

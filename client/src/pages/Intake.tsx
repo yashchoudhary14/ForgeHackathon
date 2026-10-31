@@ -165,78 +165,7 @@ export default function Intake() {
   }
   return (
     <>
-      <section className="hero">
-        <span className="eyebrow">
-          <Text value={"ADHIKAAR · अधिकार"} />
-        </span>
-        <h1>{t.intro}</h1>
-        <p>{t.subtitle}</p>
-        <div className="actions hero-actions">
-          <button
-            className="start-button"
-            onClick={() => {
-              document.getElementById("intake-text")?.focus();
-              document
-                .getElementById("get-started")
-                ?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }}
-          >
-            <Text value="Start" />
-            <ArrowRight size={22} />
-          </button>
-          <Link to="/explain">
-            <Text value="Have a notice? Understand it first →" />
-          </Link>
-        </div>
-        <div className="trust">
-          <ShieldCheck size={18} />
-          <Text
-            value={"Official sources. Clear reasons. You stay in control."}
-          />
-        </div>
-      </section>
-      <ol
-        className="story-steps"
-        aria-label={lang === "hi" ? "यह कैसे काम करता है" : "How it works"}
-      >
-        {[
-          [
-            "01",
-            "Understand",
-            "Explain any scheme or notice in your language.",
-            BookOpen,
-          ],
-          [
-            "02",
-            "Decide",
-            "Find schemes you qualify for, with quotes from official sources.",
-            ListChecks,
-          ],
-          [
-            "03",
-            "Act",
-            "Watch the agent fill the portal. You approve before submit.",
-            MousePointer2,
-          ],
-        ].map(([number, title, description, Icon]) => {
-          const StepIcon = Icon as typeof BookOpen;
-          return (
-            <li key={number as string}>
-              <div className="story-number">
-                <span>{number as string}</span>
-                <StepIcon size={22} />
-              </div>
-              <h2>
-                <Text value={title as string} />
-              </h2>
-              <p>
-                <Text value={description as string} />
-              </p>
-            </li>
-          );
-        })}
-      </ol>
-      <div className="intake-grid" id="get-started">
+      <div className="intake-grid">
         <section className="panel">
           <span className="step-label">
             <Text value={"01 / ABOUT YOU"} />
