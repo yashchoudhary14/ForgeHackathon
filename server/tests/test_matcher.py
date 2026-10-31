@@ -175,6 +175,7 @@ async def test_judge_can_verify_course_restriction_in_description(monkeypatch):
     assert judged.verdict == "not_eligible"
     assert judged.reasons[0].citation.section == "details"
     assert scheme.details_md in generate.await_args.args[0]
+    assert generate.await_args.kwargs["model"] == matcher.get_settings().gemini_judge_model
 
 
 @pytest.mark.parametrize("quote,source,found", [

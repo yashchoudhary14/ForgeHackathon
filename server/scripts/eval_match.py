@@ -126,6 +126,7 @@ async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
     original_candidates = matcher.candidates
     original_triage, original_judge = matcher.triage, matcher.judge
     screened, judged = {}, {}
+    judge_timings = {}
 
     async def observed_candidates(*args, **kwargs):
         nonlocal candidates, candidate_seconds
@@ -140,9 +141,18 @@ async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
         return keep
 
     async def observed_judge(p, scheme):
-        result = await original_judge(p, scheme)
-        judged[scheme.slug] = result.model_dump(mode="json")
-        return result
+        started = time.monotonic()
+        status = "cancelled"
+        try:
+            result = await original_judge(p, scheme)
+            judged[scheme.slug] = result.model_dump(mode="json")
+            status = "ok"
+            return result
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            judge_timings[scheme.slug] = {"seconds": round(time.monotonic() - started, 3), "status": status}
 
     started = time.monotonic()
     with (patch.object(matcher, "candidates", observed_candidates),
@@ -199,7 +209,7 @@ async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
         "expected": [{"slug": slug, "reason": reason, "source": f"https://www.myscheme.gov.in/schemes/{slug}"}
                      for slug, reason in case["expected"].items()],
         "notes": case.get("notes"),
-        "triage_kept": screened, "judgements": judged,
+        "triage_kept": screened, "judgements": judged, "judge_timings": judge_timings,
         "candidates": [{"slug": s.slug, "name": s.name, "state": s.state} for s in candidates],
         "results": [r.model_dump(mode="json") for r in results],
     }
@@ -209,6 +219,7 @@ async def run(args) -> dict:
     settings = get_settings()
     if args.model:
         # Keep lightweight screening models when pinning the detailed judge.
+        settings.gemini_judge_model = args.model
         settings.gemini_model_pool = ",".join(dict.fromkeys([args.model, *(m for m in settings.model_pool if "lite" in m)]))
     if args.rpm:
         settings.gemini_rpm = args.rpm

@@ -9,6 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from ..config import get_settings
 from ..schemas import Citation, MatchResult, ProfileData, Reason, SchemeDetail, SchemeSummary
 from ..services import llm
 
@@ -39,6 +40,10 @@ qualifying groups are OR, not AND: satisfying one route is enough. Do not fail a
 inapplicable branch (for example high-performing-state rules for a low-performing-state resident).
 Read exceptions with their rule; an exception can restore eligibility. Future renewal/payment
 conditions are not proof of a present failure. Missing ordinary facts remain unknown.
+For school-course restrictions, check whether the applicant passed a matriculation-equivalent
+Class 10 before entering the current course. Class XI alone does not prove a continuous-course
+exclusion applies. If board equivalence or the course transition is unknown, mark it null,
+and quote the exception as well as the restriction. Do not turn uncertainty into a failure.
 Special conditions (disability, widow, orphan, minority, BPL card, ex-serviceman, rank holder, single girl child...):
 if the profile does not mention them, treat them as NOT applying (met=false), the citizen can correct us later.
 Course level matters: a B.Sc/B.A/B.Com student is undergraduate, not postgraduate.
@@ -357,6 +362,7 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
 async def judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
     result = await llm.cached("matcher.judge", [
         scheme.slug, p.model_dump(exclude_none=True), scheme.model_dump(mode="json"), JUDGE_SYSTEM,
+        get_settings().gemini_judge_model,
     ], lambda: _judge(p, scheme))
     return MatchResult.model_validate(result)
 
@@ -370,7 +376,8 @@ async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
         f"DOCUMENTS:\n{scheme.documents_md[:1500]}\n\n"
         f"Citizen profile: {p.model_dump_json(exclude_none=True)}"
     )
-    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM, model="strong", thinking_level="LOW")
+    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM,
+                                model=get_settings().gemini_judge_model, thinking_level="LOW")
 
     reasons: list[Reason] = []
     dropped = 0

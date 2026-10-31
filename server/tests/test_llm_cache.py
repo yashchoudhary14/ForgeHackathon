@@ -74,7 +74,7 @@ async def test_empty_answers_hit_cache_but_errors_are_not_cached(cache_db):
     assert cache_db.get(LLMCache, llm_cache.cache_key("broken", [])) is None
 
 
-async def test_judge_cache_separates_profiles_and_updated_sources(cache_db, monkeypatch):
+async def test_judge_cache_separates_profiles_sources_and_models(cache_db, monkeypatch):
     judgement = matcher._Judgement(
         verdict="eligible", confidence=0.9,
         reasons=[matcher._Reason(claim="Student", met=True, quote="The applicant must be a student.", section="eligibility")],
@@ -91,6 +91,10 @@ async def test_judge_cache_separates_profiles_and_updated_sources(cache_db, monk
     await matcher.judge(profile.model_copy(update={"state": "Bihar"}), scheme)
     await matcher.judge(profile, scheme.model_copy(update={"eligibility_md": scheme.eligibility_md + " New criterion."}))
     assert generate.await_count == 3
+    monkeypatch.setattr(matcher.get_settings(), "gemini_judge_model", "another-judge")
+    await matcher.judge(profile, scheme)
+    assert generate.await_count == 4
+    assert generate.await_args.kwargs["model"] == "another-judge"
 
 
 async def test_explainer_cache_uses_source_language_and_profile(cache_db, monkeypatch):
