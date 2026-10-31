@@ -66,7 +66,7 @@ def pool() -> ModelPool:
     if _pool is None:
         settings = get_settings()
         _pool = ModelPool(settings.model_pool, settings.gemini_embed_model, settings.gemini_rpm,
-                          limits=settings.gemini_model_rpm)
+                          limits=settings.gemini_model_rpm, best_first=settings.gemini_backend == "vertex")
     return _pool
 
 

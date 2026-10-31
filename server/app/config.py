@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     gemini_probe_timeout: float = Field(default=10, gt=0)
     llm_cache_ttl_hours: float = Field(default=24, gt=0)
     # browser loop makes ~30 calls per run, latency matters more than depth there
-    agent_model: str = "gemini-3.6-flash"
+    agent_model: str = "gemini-3.8-flash"
     gemini_embed_model: str = "gemini-embedding-001"
     embed_dim: int = 768
 
