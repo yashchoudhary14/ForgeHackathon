@@ -16,7 +16,7 @@ from .markdown import field_markdown
 
 BASE = "https://www.myscheme.gov.in"
 _client: httpx.AsyncClient | None = None
-_limit = asyncio.Semaphore(4)
+_limit = asyncio.Semaphore(12)  # a cold match fetches ~32 schemes x 3 calls; 4 starved the load timeout on cloud run
 CASTES = {
     "general": "General", "obc": "Other Backward Class (OBC)",
     "sc": "Scheduled Caste (SC)", "st": "Scheduled Tribe (ST)",

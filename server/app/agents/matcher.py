@@ -404,7 +404,7 @@ async def _load(s: SchemeSummary) -> SchemeDetail | None:
 
     try:
         # judge on english text, explain later in user lang
-        return await asyncio.wait_for(myscheme.get_scheme(s.slug, lang="en", index=False), timeout=10)
+        return await asyncio.wait_for(myscheme.get_scheme(s.slug, lang="en", index=False), timeout=20)
     except Exception as e:
         log.warning("loading %s failed: %s", s.slug, e)
         return None
