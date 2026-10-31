@@ -29,6 +29,10 @@ MAX_STEPS = 45
 MAX_FAILS = 3
 HUMAN_TIMEOUT = 15 * 60
 
+
+class Aborted(Exception):
+    """user pressed abort while we were waiting on them. not CancelledError, langgraph turns that into a node failure"""
+
 SUBMIT_RE = re.compile(r"\b(final\s*submit|submit|confirm|apply now|register|pay|proceed to pay|save\s*&\s*submit|send)\b", re.I)
 
 SYSTEM = """You are an agent operating a real Indian government web portal in a browser, on behalf of a citizen
@@ -309,7 +313,7 @@ class RunSession:
                     raise TimeoutError("Human response timed out after 15 minutes") from exc
                 t = msg.get("type")
                 if t == "abort":
-                    raise asyncio.CancelledError("aborted by user")
+                    raise Aborted("aborted by user")
                 if t == "click":
                     await self.browser.human_click(float(msg["x"]), float(msg["y"]))
                 elif t == "type":
@@ -595,7 +599,7 @@ async def run(rs: RunSession):
             msg = d.message if d and d.action == "fail" else "Stopped: step limit reached"
             await rs.set_status("failed", error=msg)
             await rs.emit({"type": "error", "message": msg})
-    except asyncio.CancelledError as e:
+    except (Aborted, asyncio.CancelledError) as e:
         await rs.set_status("aborted", error=str(e) or "aborted")
         await rs.emit({"type": "error", "message": "Run aborted"})
     except Exception as e:
