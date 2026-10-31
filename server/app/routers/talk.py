@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from starlette.datastructures import UploadFile
 
-from ..agents.talk import TalkTools, requested_language, respond, safe_text
+from ..agents.talk import TalkTools, detect_text_language, requested_language, respond, safe_text
 from ..db import SessionLocal
 from ..models import ChatMessage, Profile
 from ..schemas import ProfileData, TalkIn
@@ -46,6 +46,13 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
     if not text.strip():
         yield {"type": "error", "message": "I could not hear any words. Please try again."}
         return
+    sensitive = crypto.decrypt_json(profile.sensitive)
+    message = safe_text(text, sensitive)
+    if audio is None and not body.lang and language == "en":
+        prior_turn = (await db.execute(select(ChatMessage.id).where(
+            ChatMessage.session_id == session_id, ChatMessage.role == "user").limit(1))).first()
+        if not prior_turn:
+            language = await detect_text_language(message)
     language = requested_language(text) or language
     if audio is not None:
         db.add(ChatMessage(session_id=session_id, role="transcript", content=language))
@@ -53,8 +60,6 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
     await db.commit()
     yield {"type": "transcript", "text": text, "lang": language}
 
-    sensitive = crypto.decrypt_json(profile.sensitive)
-    message = safe_text(text, sensitive)
     rows = (await db.execute(select(ChatMessage).where(
         ChatMessage.session_id == session_id, ChatMessage.role.in_(["user", "assistant"]))
         .order_by(ChatMessage.id.desc()).limit(10))).scalars().all()

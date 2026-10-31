@@ -68,6 +68,7 @@ def model_response(*calls, reply=None):
 
 
 def mock_brain(monkeypatch):
+    monkeypatch.setattr(route, "detect_text_language", AsyncMock(return_value="en"))
     async def respond(message, language, history, tools):
         assert "Private Citizen" not in message
         yield {"type": "delta", "text": "आप किस योजना के बारे में जानना चाहते हैं?"}
@@ -75,6 +76,35 @@ def mock_brain(monkeypatch):
 
     monkeypatch.setattr(route, "respond", respond)
     monkeypatch.setattr(route.sarvam, "tts_to_file", AsyncMock(return_value="/files/audio/test.wav"))
+
+
+async def test_first_hindi_text_detects_language_and_followup_keeps_it(db, monkeypatch):
+    mock_brain(monkeypatch)
+    detect = AsyncMock(return_value="hi")
+    monkeypatch.setattr(route, "detect_text_language", detect)
+    first = [e async for e in route.conversation(TalkIn(profile_id="farmer",
+        text="मैं बिहार की 19 साल की SC छात्रा हूँ, B.Sc पहले साल"), None, "", db)]
+    assert first[0]["lang"] == first[-1]["lang"] == "hi"
+    assert (await db.get(Profile, "farmer")).language == "hi"
+    followup = [e async for e in route.conversation(TalkIn(profile_id="farmer",
+        text="Please explain the first scheme"), None, "", db)]
+    assert followup[-1]["lang"] == "hi"
+    detect.assert_awaited_once()
+    assert route.sarvam.tts_to_file.await_args.args[-1] == "hi"
+
+
+async def test_first_text_detection_redacts_private_data_and_respects_explicit_lang(db, monkeypatch):
+    mock_brain(monkeypatch)
+    detect = AsyncMock(return_value="hi")
+    monkeypatch.setattr(route, "detect_text_language", detect)
+    _ = [e async for e in route.conversation(TalkIn(profile_id="farmer",
+        text="Private Citizen, मैं छात्रा हूँ"), None, "", db)]
+    assert "Private Citizen" not in detect.await_args.args[0]
+    detect.reset_mock()
+    result = [e async for e in route.conversation(TalkIn(profile_id="farmer",
+        text="hello", lang="en"), None, "", db)]
+    assert result[-1]["lang"] == "en"
+    detect.assert_not_awaited()
 
 
 def events(response):
