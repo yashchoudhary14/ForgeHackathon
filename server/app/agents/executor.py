@@ -213,6 +213,10 @@ def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
         message=f"Please provide {label}; it is not in the supplied profile. You can also fill it in the browser.")
 
 
+class RunAborted(Exception):
+    """User-requested stop, propagated through graph nodes without cancellation wrapping."""
+
+
 class RunSession:
     """live state of one run: websocket subscribers + inbox for human messages"""
 
@@ -309,7 +313,7 @@ class RunSession:
                     raise TimeoutError("Human response timed out after 15 minutes") from exc
                 t = msg.get("type")
                 if t == "abort":
-                    raise asyncio.CancelledError("aborted by user")
+                    raise RunAborted("Run aborted by user")
                 if t == "click":
                     await self.browser.human_click(float(msg["x"]), float(msg["y"]))
                 elif t == "type":
@@ -595,7 +599,7 @@ async def run(rs: RunSession):
             msg = d.message if d and d.action == "fail" else "Stopped: step limit reached"
             await rs.set_status("failed", error=msg)
             await rs.emit({"type": "error", "message": msg})
-    except asyncio.CancelledError as e:
+    except (RunAborted, asyncio.CancelledError) as e:
         await rs.set_status("aborted", error=str(e) or "aborted")
         await rs.emit({"type": "error", "message": "Run aborted"})
     except Exception as e:
