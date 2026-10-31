@@ -80,8 +80,12 @@ def cooldown_seconds(error: Exception) -> float:
 
 class ModelPool:
     def __init__(self, names: list[str], embedding_model: str, rpm: int = 12, window: float = 60,
-                 limits: dict[str, int] | None = None):
+                 limits: dict[str, int] | None = None, best_first: bool = False):
         limits = limits or {}
+        # best_first: pool order is quality order, use the first free one (paid quota).
+        # otherwise spread load across models (free tier counts limits per model).
+        self.best_first = best_first
+        self.order = {name: i for i, name in enumerate(names)}
         self.states = {name: ModelState(name, rpm=limits.get(name, rpm)) for name in names}
         self.states[embedding_model] = ModelState(embedding_model, rpm=limits.get(embedding_model, rpm),
                                                    kind="embedding", enabled=True, status="ready")
@@ -159,9 +163,11 @@ class ModelPool:
                         def rank(state):
                             wants_lite = preference == "lite" or (preference not in {None, "strong"} and "lite" in preference)
                             preferred = ("lite" in state.name) == wants_lite
-                            return (not preferred if preference else False, len(state.requests),
-                                    state.name != preference if preference not in {None, "lite", "strong"} else False,
-                                    state.last_selected)
+                            wrong_class = not preferred if preference else False
+                            wrong_name = state.name != preference if preference not in {None, "lite", "strong"} else False
+                            if self.best_first:
+                                return (wrong_class, wrong_name, self.order.get(state.name, 0), state.last_selected)
+                            return (wrong_class, len(state.requests), wrong_name, state.last_selected)
 
                         state = min(ready, key=rank)
                         state.requests.append(now)

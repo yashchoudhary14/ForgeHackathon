@@ -129,3 +129,12 @@ async def test_per_model_rpm_overrides_have_independent_limits():
     assert {row["model"]: row["rpm_limit"] for row in health["models"]} == {
         "small": 1, "large": 2, "embedding": 12,
     }
+
+
+async def test_best_first_uses_pool_order_and_named_model():
+    pool = ModelPool(["best", "ok", "small-lite"], "embedding", best_first=True)
+    for state in pool.states.values():
+        state.enabled = True
+    assert [(await pool.acquire())[0] for _ in range(3)] == ["best"] * 3
+    assert (await pool.acquire("ok"))[0] == "ok"
+    assert (await pool.acquire("lite"))[0] == "small-lite"

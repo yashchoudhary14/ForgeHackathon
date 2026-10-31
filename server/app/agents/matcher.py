@@ -172,7 +172,7 @@ async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang
     from ..services import myscheme
 
     cands = await candidates(p, keyword, limit)
-    sem = asyncio.Semaphore(4)
+    sem = asyncio.Semaphore(12)  # paid vertex quota, 4 was for the free tier
 
     async def one(s: SchemeSummary) -> MatchResult | None:
         async with sem:
