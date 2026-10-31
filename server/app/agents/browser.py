@@ -193,6 +193,10 @@ class Browser:
     async def goto(self, url: str):
         await self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
         await self.settle()
+        try:
+            await self.page.wait_for_load_state("networkidle", timeout=1500)
+        except PlaywrightTimeout:
+            pass  # bounded bootstrap grace period; polling pages need not become idle
 
     async def settle(self):
         # Analytics and polling need not finish before a form can be used.
@@ -256,7 +260,7 @@ class Browser:
         if await loc.get_attribute("aria-expanded") != "true":
             # Do not toggle a panel that a delayed click already opened.
             await loc.focus()
-            await loc.press("Enter")
+            await loc.press("Space")
         await expect(loc).to_have_attribute("aria-expanded", "true", timeout=2000)
 
     async def fill(self, element_id: int, value: str):
