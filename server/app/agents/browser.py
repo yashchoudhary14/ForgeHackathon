@@ -73,7 +73,10 @@ SNAPSHOT_JS = r"""
     return '';
   };
   const registry = window.__adhikaarAgentIds ||= { ids: new WeakMap(), next: 1 };
-  const dialogs = [...document.querySelectorAll('[role=dialog], [role=alertdialog], [aria-modal=true], mat-dialog-container, .modal')].filter(vis);
+  const dialogs = [...document.querySelectorAll('[role=dialog], [role=alertdialog], [aria-modal=true], mat-dialog-container, .modal')].filter(el => {
+    const r = el.getBoundingClientRect();
+    return vis(el) && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+  });
   const root = dialogs.at(-1) || document;
   const roots = [root, ...document.querySelectorAll('[role=listbox], mat-calendar')].filter(r => r === document || vis(r));
   const out = [];
