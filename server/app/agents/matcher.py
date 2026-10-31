@@ -107,10 +107,24 @@ def occupational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
     return bool(lines) and all(re.search(r"\b(farmers?|cultivators?|tenant farmers?|share croppers?|sharecroppers?|oral lessees)\b", line) for line in lines)
 
 
+def educational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
+    """An explicitly technical degree/diploma title excludes a plain general degree.
+
+    Specialised B.Sc courses and unspecified courses still go to source-based screening.
+    """
+    general = {"b sc", "bsc", "b a", "ba", "b com", "bcom",
+               "bachelor of science", "bachelor of arts", "bachelor of commerce"}
+    return _norm(p.course or "") in general and bool(re.search(
+        r"\btechnical (degree|diploma)\b", _norm(scheme.name)))
+
+
 async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
     """True means keep. Unsupported drops and unavailable triage fail open."""
     if occupational_target_mismatch(p, scheme):
         log.info("triage dropped %s: farmer-only target without a stated farming role", scheme.slug)
+        return False
+    if educational_target_mismatch(p, scheme):
+        log.info("triage dropped %s: technical-course target excludes a general degree", scheme.slug)
         return False
     official = f"{target_text(scheme)}\n{scheme.eligibility_md}\n{scheme.exclusions_md}"
     try:

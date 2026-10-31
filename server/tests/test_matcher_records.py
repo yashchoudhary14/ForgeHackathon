@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from app.agents.matcher import occupational_target_mismatch, target_text
+from app.agents.matcher import occupational_target_mismatch, educational_target_mismatch, target_text
 from app.schemas import ProfileData, SchemeDetail
 
 
@@ -14,6 +14,14 @@ def test_pragati_course_requirement_is_in_description_not_eligibility():
     assert "technical degree" not in scheme.eligibility_md.lower()
     assert "technical degree" in target_text(scheme).lower()
     assert "AICTE" in target_text(scheme)
+
+
+def test_technical_title_excludes_general_courses_without_excluding_specialisations():
+    scheme = recorded("psgs-deg")
+    assert educational_target_mismatch(ProfileData(course="B.Sc"), scheme)
+    for course in ("B.Tech", "B.Sc Nursing", "B.Sc Agriculture", None):
+        assert not educational_target_mismatch(ProfileData(course=course), scheme)
+    assert not educational_target_mismatch(ProfileData(course="B.Sc"), recorded("pmsfss"))
 
 
 def test_course_does_not_get_discarded_at_profile_boundary():
