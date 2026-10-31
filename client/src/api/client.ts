@@ -32,6 +32,7 @@ export async function request<T>(
   );
   try {
     const res = await fetch(BASE + "/api" + path, {
+      credentials: "include",
       ...init,
       headers: {
         ...(!(init.body instanceof FormData) && init.body
@@ -75,6 +76,7 @@ export async function streamChat(
 ) {
   const res = await fetch(BASE + "/api/chat", {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
