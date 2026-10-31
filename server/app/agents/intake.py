@@ -19,6 +19,7 @@ Rules:
   (e.g. government college), and parent_occupation separately from the citizen's occupation.
 - Preserve an explicitly stated is_single_child, is_hosteller and institution_name.
   Explicitly not disabled means disability_percent=0; absence of disability information means null.
+- Preserve the exact stated degree in course (e.g. B.Sc, not only undergraduate) and study_year.
 """
 
 ASK_SYSTEM = """You are a friendly government-services helper talking to an ordinary citizen.

@@ -1,5 +1,10 @@
 Recorded public sources fetched on 2026-10-30. These files are used only by tests.
 
+Matcher regression records fetched on 2026-10-31: `match-kcc.json`,
+`match-psgs-deg.json`, `match-pmsfss.json`, and `match-pmsscstb.json` are parsed
+official detail/documents/FAQ responses from `https://www.myscheme.gov.in/api/apisetu/`
+for the corresponding slugs. Each record retains its original `source_url`.
+
 - `myscheme-pm-kisan.json`: https://www.myscheme.gov.in/api/apisetu/schemes?slug=pm-kisan&lang=en
 - `myscheme-search.json`: https://www.myscheme.gov.in/api/apisetu/search/schemes?lang=en&q=%5B%5D&keyword=scholarship&sort=&from=0&size=2
 - `myscheme-documents.json`: https://www.myscheme.gov.in/api/apisetu/schemes/62a70e86f038bd8499a6aa53/documents?lang=en
