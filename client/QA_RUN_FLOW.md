@@ -34,19 +34,28 @@ Portal receipt: `/files/runs/8611ca77d13242edaf1005dc560b5bf3/019.jpg`.
 - Earlier sessions expired after their 15-minute human-response deadline during
   an interruption. Fresh sessions were used for the verification above.
 
-## NSP: CAPTCHA ready; citizen completion pending
+## NSP: CAPTCHA handoff and completion passed
 
 Run: `bb7c6fa17326463cb6ca4fc917d49a58`.
 
 The captcha endpoint returned HTTP 200 on retry. The live agent completed the
 institution/course flow and paused at **Complete the CAPTCHA**. Verified the image
 renders in the Run page; clicked **Take over** and verified **I'm done, continue**
-becomes enabled. The citizen was asked to enter the CAPTCHA in the live view and
-continue. CAPTCHA text was not transcribed or entered by the agent.
+becomes enabled. The citizen entered the CAPTCHA through the live-view typing
+controls and continued in the Run page. CAPTCHA text was not transcribed or
+entered by the agent.
 
 Local handoff evidence: `server/storage/nsp-ui-captcha-handoff.png`.
-Continuation and eligibility-submit approval still require verification after
-the citizen completes the challenge. This is not an end-to-end NSP pass yet.
+The first CAPTCHA attempt was rejected by NSP. The live timeline then showed
+the invalid-captcha alert being dismissed, a fresh CAPTCHA checkpoint, and another
+approval checkpoint. The citizen completed the retry and UI continuation; the run
+reached **done** with the portal's **No schemes found based on your given criteria**
+result. Verified receipt reference **0**, summary, official URL, and loaded screenshot.
+The zero-match outcome was observed on the portal, not inferred from an empty or
+loading page. No scholarship application was submitted.
+
+Local result evidence: `server/storage/nsp-ui-receipt.png`.
+Portal receipt: `/files/runs/bb7c6fa17326463cb6ca4fc917d49a58/039.jpg`.
 
 ## Checks
 
