@@ -28,8 +28,10 @@ Chat uses POST fetch streaming and a chunk-safe SSE parser. Runs render JPEG fra
 
 ## Integration verification
 
-The backend in this checkout currently contains placeholder domain routers. Until the real endpoints run, the UI displays error/retry states; successful matching, transcription, explanations, chat, and browser-agent execution cannot be verified end to end.
+The demo-polish verification record is in [QA.md](QA.md). Run the real API and database before checking the client; the interface never substitutes scheme, eligibility, explanation or run fixtures when a service fails.
 
-When the backend is ready, check a real profile through follow-up extraction, editing and reload; scheme matching with citations; scheme and uploaded-document audio; chat token/tool/citation events; and all human gates on a run. Disconnect/reconnect a run, confirm coordinates on both phone and desktop, and check that the final receipt appears on `/runs`.
+The home page introduces Understand → Decide → Act. English and हिंदी buttons stay available in the shared header, alongside the eleven-language selector. Loading states explain the operation in progress without inventing a scheme count. API/provider exceptions are replaced by friendly recovery guidance and retry controls.
+
+For further integration checks, exercise microphone transcription, all human gates on a run, takeover coordinates on phone and desktop, and final submission only with explicit approval. A live session lost after an API restart displays recovery guidance while preserving saved steps.
 
 The SSE tests use protocol-only text to check arbitrary chunk boundaries, CRLF, Unicode, multiline data, final flushing, and error propagation. They do not feed static product content into the application.

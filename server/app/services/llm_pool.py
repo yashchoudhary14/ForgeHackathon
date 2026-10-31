@@ -97,11 +97,16 @@ class ModelPool:
         self.waiters: list[tuple[object, set[str]]] = []
         self.limited = 0
 
-    async def probe(self, client, timeout: float):
+    async def probe(self, client, timeout: float, *, load=None, save=None):
         async with self.probe_lock:
-            # re-probe if boot happened during a network blip, otherwise we'd be dead till restart
-            if self.initialized and (self.names() or time.monotonic() - self.probed_at < 60):
+            # Failed probes also consume daily quota. Never repeat them within an hour.
+            if self.initialized and (self.names() or time.monotonic() - self.probed_at < 3600):
                 return
+            if load is not None:
+                saved = await load()
+                if saved and self.restore_probe(saved):
+                    log.info("llm startup probe restored from database")
+                    return
 
             async def one(state):
                 started = time.monotonic()
@@ -126,6 +131,35 @@ class ModelPool:
             await asyncio.gather(*(one(state) for state in self.states.values() if state.kind == "generation"))
             self.initialized = True
             self.probed_at = time.monotonic()
+            if save is not None:
+                await save(self.export_probe())
+
+    def export_probe(self) -> dict:
+        now, wall = time.monotonic(), time.time()
+        return {"probed_at": wall, "models": {
+            state.name: {
+                "enabled": state.enabled, "status": state.status,
+                "cooldown_until": wall + max(0, state.cooldown_until - now),
+                "requests": [wall + request - now for request in state.requests],
+                "total": state.total, "failures": state.failures,
+            } for state in self.states.values() if state.kind == "generation"
+        }}
+
+    def restore_probe(self, saved: dict) -> bool:
+        age = time.time() - saved["probed_at"]
+        if not 0 <= age < 3600:
+            return False
+        now, wall = time.monotonic(), time.time()
+        for name, value in saved["models"].items():
+            state = self.states[name]
+            state.enabled, state.status = value["enabled"], value["status"]
+            state.cooldown_until = now + max(0, value["cooldown_until"] - wall)
+            state.requests = deque(now + request - wall for request in value["requests"]
+                                   if request > wall - self.window)
+            state.total, state.failures = value["total"], value["failures"]
+        self.initialized = True
+        self.probed_at = now - age
+        return True
 
     def names(self, kind: str = "generation") -> list[str]:
         return [state.name for state in self.states.values() if state.enabled and state.kind == kind]

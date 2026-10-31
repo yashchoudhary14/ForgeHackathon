@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
-from .db import init_db
+from .db import engine, init_db
 from .services import llm
 from .routers import agent, assist, chat, documents, profile, schemes, voice
 
@@ -21,14 +21,18 @@ logging.getLogger("google_genai").setLevel(logging.WARNING)
 async def lifespan(app: FastAPI):
     Path(settings.storage_dir).mkdir(parents=True, exist_ok=True)
     await init_db()
-    await llm.initialize_pool()
-    yield
+    if settings.gemini_backend == "vertex" or settings.gemini_api_key:
+        await llm.initialize_pool()
+    try:
+        yield
+    finally:
+        await engine.dispose()
 
 
 app = FastAPI(title="Adhikaar API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.client_origin.split(",")],
+    allow_origins=[o.strip() for o in settings.client_origin.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

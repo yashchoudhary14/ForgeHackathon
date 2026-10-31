@@ -44,7 +44,7 @@ export default function Runs() {
         </button>
       </div>
       {busy ? (
-        <Loading />
+        <Loading message="Loading your applications and saved receipts…" />
       ) : error ? (
         <ErrorBox error={error} retry={load} />
       ) : runs.length ? (
@@ -62,7 +62,7 @@ export default function Runs() {
                 </span>
               </div>
               <p className="muted">{run.portal_url}</p>
-              {run.error && <p className="error">{run.error}</p>}
+              {run.error && <ErrorBox error={run.error} retry={load} />}
               {run.receipt && <ReceiptView receipt={run.receipt} />}
               <Link to={"/runs/" + encodeURIComponent(run.id)}>
                 <Text value={"Open application →"} />

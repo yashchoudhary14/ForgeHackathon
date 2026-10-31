@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import { assetUrl, request, safeUrl } from "./api/client";
 import type { Citation, ExplainOut, SttOut } from "./api/types";
 import { useApp } from "./context";
+import { friendlyError } from "./api/errors";
 export function ErrorBox({
   error,
   retry,
@@ -16,8 +17,11 @@ export function ErrorBox({
   const { t } = useApp();
   return (
     <div className="error" role="alert">
+      <strong>
+        <Text value="Let’s try that again" />
+      </strong>
       <p>
-        <Text value={error} />
+        <Text value={friendlyError(error)} />
       </p>
       {retry && (
         <button className="secondary" onClick={() => retry()}>
@@ -42,6 +46,7 @@ export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
 }
 export function Markdown({ text }: { text: string }) {
+  const { lang } = useApp();
   return (
     <div className="prose">
       <ReactMarkdown
@@ -53,7 +58,10 @@ export function Markdown({ text }: { text: string }) {
           ),
         }}
       >
-        {text || "No information has been published for this section."}
+        {text.replace(/<br\s*\/?>/gi, "\n\n") ||
+          (lang === "hi"
+            ? "इस भाग की जानकारी अभी उपलब्ध नहीं है।"
+            : "No information has been published for this section.")}
       </ReactMarkdown>
     </div>
   );
@@ -229,7 +237,13 @@ export function MicButton({
         aria-pressed={recording}
       >
         {recording ? <Square /> : <Mic />}
-        {busy ? t.loading : recording ? t.stop : t.mic}
+        {busy ? (
+          <Text value="Preparing your voice message…" />
+        ) : recording ? (
+          t.stop
+        ) : (
+          t.mic
+        )}
       </button>
       {recording && (
         <p role="status">
@@ -238,7 +252,7 @@ export function MicButton({
           />
         </p>
       )}
-      {error && <ErrorBox error={error} />}
+      {error && <ErrorBox error={error} retry={() => void start()} />}
     </div>
   );
 }

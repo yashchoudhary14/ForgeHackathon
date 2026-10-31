@@ -1,7 +1,13 @@
 import { Text } from "../context";
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  ShieldCheck,
+  BookOpen,
+  ListChecks,
+  MousePointer2,
+} from "lucide-react";
 import { useApp } from "../context";
 import { post, request } from "../api/client";
 import type {
@@ -56,6 +62,7 @@ export default function Intake() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false);
+  const [operation, setOperation] = useState("");
   const retryAction = useRef<() => void>(() => {});
   async function load(signal?: AbortSignal) {
     if (!profileId || profile?.id === profileId) return;
@@ -83,6 +90,7 @@ export default function Intake() {
     if (!value.trim()) return;
     retryAction.current = () => void extract(value);
     setBusy(true);
+    setOperation("Understanding your details and building your profile…");
     setError("");
     try {
       const out = await post<ProfileExtractOut>("/profile/extract", {
@@ -120,6 +128,7 @@ export default function Intake() {
       }
     }
     setBusy(true);
+    setOperation("Saving your profile securely…");
     setError("");
     try {
       const body = {
@@ -162,6 +171,23 @@ export default function Intake() {
         </span>
         <h1>{t.intro}</h1>
         <p>{t.subtitle}</p>
+        <div className="actions hero-actions">
+          <button
+            className="start-button"
+            onClick={() => {
+              document.getElementById("intake-text")?.focus();
+              document
+                .getElementById("get-started")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          >
+            <Text value="Start" />
+            <ArrowRight size={22} />
+          </button>
+          <Link to="/explain">
+            <Text value="Have a notice? Understand it first →" />
+          </Link>
+        </div>
         <div className="trust">
           <ShieldCheck size={18} />
           <Text
@@ -169,7 +195,48 @@ export default function Intake() {
           />
         </div>
       </section>
-      <div className="intake-grid">
+      <ol
+        className="story-steps"
+        aria-label={lang === "hi" ? "यह कैसे काम करता है" : "How it works"}
+      >
+        {[
+          [
+            "01",
+            "Understand",
+            "Explain any scheme or notice in your language.",
+            BookOpen,
+          ],
+          [
+            "02",
+            "Decide",
+            "Find schemes you qualify for, with quotes from official sources.",
+            ListChecks,
+          ],
+          [
+            "03",
+            "Act",
+            "Watch the agent fill the portal. You approve before submit.",
+            MousePointer2,
+          ],
+        ].map(([number, title, description, Icon]) => {
+          const StepIcon = Icon as typeof BookOpen;
+          return (
+            <li key={number as string}>
+              <div className="story-number">
+                <span>{number as string}</span>
+                <StepIcon size={22} />
+              </div>
+              <h2>
+                <Text value={title as string} />
+              </h2>
+              <p>
+                <Text value={description as string} />
+              </p>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="intake-grid" id="get-started">
         <section className="panel">
           <span className="step-label">
             <Text value={"01 / ABOUT YOU"} />
@@ -183,6 +250,15 @@ export default function Intake() {
             }}
             disabled={busy || loading}
           />
+          {!profile && (
+            <button
+              className="secondary"
+              disabled={busy || loading}
+              onClick={() => void save()}
+            >
+              <Text value="Fill in details instead" />
+            </button>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -204,7 +280,7 @@ export default function Intake() {
               disabled={busy}
             />
             <button disabled={busy || !text.trim()}>
-              {busy ? t.loading : t.send}
+              {busy ? <Text value={operation} /> : t.send}
               <ArrowRight size={18} />
             </button>
           </form>
@@ -236,6 +312,7 @@ export default function Intake() {
           {error && (
             <ErrorBox error={error} retry={() => retryAction.current()} />
           )}
+          {busy && <Loading message={operation} />}
         </section>
         <section className="panel">
           <span className="step-label">
@@ -254,7 +331,7 @@ export default function Intake() {
             />
           </p>
           {loading ? (
-            <Loading />
+            <Loading message="Loading your saved profile…" />
           ) : profile ? (
             <div className="fields">
               {fields.map((key) => (
@@ -355,7 +432,10 @@ export default function Intake() {
                 {t.save}
               </button>
             )}
-            <button disabled={busy || loading} onClick={() => void save(true)}>
+            <button
+              disabled={busy || loading || !profile}
+              onClick={() => void save(true)}
+            >
               {t.find}
               <ArrowRight size={18} />
             </button>

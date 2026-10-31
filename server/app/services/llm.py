@@ -1,5 +1,6 @@
 """thin wrapper over gemini so the rest of the code doesnt care about the sdk"""
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -72,7 +73,23 @@ def pool() -> ModelPool:
 
 async def initialize_pool() -> ModelPool:
     scheduler = pool()
-    await scheduler.probe(client, get_settings().gemini_probe_timeout)
+    settings = get_settings()
+    # AI Studio and Vertex projects/locations have separate availability/quotas.
+    # Hash credentials so neither keys nor credential JSON are stored in cache keys.
+    credential = (settings.vertex_api_key or settings.gcp_credentials
+                  if settings.gemini_backend == "vertex" else settings.gemini_api_key)
+    fingerprint = hashlib.sha256(credential.encode()).hexdigest()
+    key = cache_key("model_probe_v2", [settings.gemini_backend, settings.gcp_project,
+                                     settings.gcp_location, fingerprint, settings.model_pool,
+                                     settings.gemini_rpm, settings.gemini_model_rpm])
+
+    async def load():
+        return await llm_cache.read(key, ttl_hours=1)
+
+    async def save(value):
+        await llm_cache.write(key, value)
+
+    await scheduler.probe(client, settings.gemini_probe_timeout, load=load, save=save)
     return scheduler
 
 

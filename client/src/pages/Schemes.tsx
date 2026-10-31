@@ -7,7 +7,7 @@ import type { MatchResult, SearchOut } from "../api/types";
 import { useApp } from "../context";
 import { Citations, Empty, ErrorBox, Loading } from "../components";
 export default function Schemes() {
-  const { profileId, t } = useApp();
+  const { profileId, t, lang } = useApp();
   const [matches, setMatches] = useState<MatchResult[]>([]),
     [results, setResults] = useState<SearchOut | null>(null),
     [keyword, setKeyword] = useState(""),
@@ -49,7 +49,7 @@ export default function Schemes() {
             new URLSearchParams({
               keyword,
               state,
-              from: String(from),
+              offset: String(from),
               size: "10",
             }),
         ),
@@ -96,14 +96,18 @@ export default function Schemes() {
               id="search"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Search by need or scheme name"
+              placeholder={
+                lang === "hi"
+                  ? "ज़रूरत या योजना का नाम"
+                  : "Search by need or scheme name"
+              }
             />
             <label>
               <Text value={"State"} />
               <input
                 value={state}
                 onChange={(e) => setState(e.target.value)}
-                placeholder="Any state"
+                placeholder={lang === "hi" ? "कोई भी राज्य" : "Any state"}
               />
             </label>
             <button disabled={busy}>
@@ -128,8 +132,8 @@ export default function Schemes() {
         <Loading
           message={
             mode === "match"
-              ? "Checking schemes against official rules…"
-              : undefined
+              ? "Checking your profile against official scheme rules…"
+              : "Searching official government schemes…"
           }
         />
       ) : mode === "match" ? (
@@ -180,7 +184,7 @@ export default function Schemes() {
                     max={1}
                   />
                 </label>
-                <details>
+                <details open>
                   <summary>
                     <Text value={"Why this matches you"} />
                   </summary>

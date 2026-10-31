@@ -1,8 +1,14 @@
 import type { ChatEvent, ChatIn } from "./types";
 import { createSseParser } from "./sse";
-export const BASE = (
-  import.meta.env.VITE_API_URL || "http://localhost:8000"
-).replace(/\/$/, "");
+import { responseError } from "./errors";
+export const BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000")
+  .trim()
+  .replace(/\/+$/, "");
+export function websocketUrl(path: string): string {
+  const url = new URL(BASE + "/api" + path);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.href;
+}
 export const assetUrl = (url: string) => safeUrl(url);
 export function safeUrl(url?: string | null): string | undefined {
   if (!url) return;
@@ -27,6 +33,7 @@ export async function request<T>(
   );
   try {
     const res = await fetch(BASE + "/api" + path, {
+      credentials: "include",
       ...init,
       headers: {
         ...(!(init.body instanceof FormData) && init.body
@@ -39,12 +46,7 @@ export async function request<T>(
         : controller.signal,
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      throw new Error(
-        typeof body?.detail === "string"
-          ? body.detail
-          : `Request failed (${res.status}). Please try again.`,
-      );
+      throw new Error(responseError(res.status));
     }
     return (await res.json()) as T;
   } catch (e) {
@@ -70,6 +72,7 @@ export async function streamChat(
 ) {
   const res = await fetch(BASE + "/api/chat", {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
@@ -77,8 +80,7 @@ export async function streamChat(
     body: JSON.stringify(input),
     signal,
   });
-  if (!res.ok || !res.body)
-    throw new Error(`Chat unavailable (${res.status}). Please retry.`);
+  if (!res.ok || !res.body) throw new Error(responseError(res.status));
   const reader = res.body.getReader(),
     decoder = new TextDecoder();
   let doneEvent = false;

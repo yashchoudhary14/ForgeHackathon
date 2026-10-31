@@ -80,7 +80,10 @@ export default function Scheme() {
       setBusy("");
     }
   }
-  if (loading) return <Loading />;
+  if (loading)
+    return (
+      <Loading message="Loading benefits, eligibility and official application steps…" />
+    );
   return (
     <>
       {error && <ErrorBox error={error} retry={() => retryAction.current()} />}{" "}
@@ -117,7 +120,12 @@ export default function Scheme() {
               </button>
             </div>
           </div>
-          {busy === "explain" && <Loading message="Explaining…" />}
+          {busy === "explain" && (
+            <Loading message="Reading the official scheme and preparing your explanation…" />
+          )}
+          {busy === "run" && (
+            <Loading message="Opening the portal and starting your assisted application…" />
+          )}
           {apply && (
             <section className="panel">
               <h2>
@@ -178,7 +186,9 @@ export default function Scheme() {
                     onChange={(e) => setPortal(e.target.value)}
                     placeholder="https://…"
                   />
-                  <label htmlFor="application-goal">What should the assistant do?</label>
+                  <label htmlFor="application-goal">
+                    <Text value="What should the assistant do?" />
+                  </label>
                   <textarea
                     id="application-goal"
                     required
