@@ -67,6 +67,11 @@ Rules:
   After the human resumes, preserve their CAPTCHA entry and continue with the requested check.
 - A results list satisfies an eligibility-checking goal; do not apply to a scholarship from that list.
   If the goal requests a count, reference_no must be the observed list count, including zero results.
+- Every action entering citizen data (type/select/check, or clicking an option/radio) MUST name
+  value_from as the supplied citizen field supporting that answer. For select, value may translate
+  that supplied fact into an exact option label. Navigation buttons need no value_from.
+- Missing facts NEVER mean No/False. Ask for single-child, disability, hostel status, DOB, scores,
+  college identity, etc. if not supplied. Never select a date just to dismiss a calendar; use Escape.
 - Keep `thought` to one short sentence a citizen can understand."""
 
 
@@ -92,6 +97,24 @@ class State(TypedDict, total=False):
     outcome: str  # next | human | approval | done | failed
     receipt: dict
     error: str
+
+
+def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
+    """A model's default answer is not evidence about a citizen."""
+    if not el or d.action not in ("type", "select", "check", "click"):
+        return d
+    label = el.get("field_label") or el.get("label") or el.get("name") or el.get("placeholder") or "this field"
+    birth = bool(re.search(r"date\s*of\s*birth|\bdob\b|birth\s*date", label, re.I))
+    data_entry = d.action in ("type", "select", "check") or el.get("role") in ("option", "radio", "checkbox")
+    if birth and not known.get("dob"):
+        key = "dob"
+    elif data_entry and (not d.value_from or known.get(d.value_from) in (None, "")):
+        key = d.value_from or el.get("formcontrolname") or el.get("name")
+    else:
+        return d
+    return Decision(thought="This answer was not supplied by the citizen.", action="ask_human",
+        kind="missing_field", value_from=key, element_id=d.element_id,
+        message=f"Please provide {label}; it is not in the supplied profile. You can also fill it in the browser.")
 
 
 class RunSession:
@@ -152,6 +175,8 @@ class RunSession:
             key = d.value_from.strip()
             for src in (self.sensitive, self.answers, self.profile):
                 if key in src and src[key] not in (None, ""):
+                    if d.action == "select" and d.value and key not in self.sensitive:
+                        return d.value  # e.g. supplied sc -> displayed Scheduled Caste
                     return str(src[key])
             raise KeyError(f"citizen field '{key}' is not known — ask the human")
         return d.value or ""
@@ -273,6 +298,7 @@ def build_graph(rs: RunSession):
             d = d.model_copy(update={"action": "ask_human", "kind": "captcha", "message": "Please solve the CAPTCHA, then press Continue."})
         if d.action == "type" and el and el.get("type") == "password":
             d = d.model_copy(update={"action": "ask_human", "kind": "login", "message": "Please enter your password yourself, then press Continue."})
+        d = require_source(d, el, {**rs.profile, **rs.sensitive, **rs.answers})
         return {"decision": d}
 
     async def act(st: State) -> State:
@@ -330,11 +356,12 @@ def build_graph(rs: RunSession):
         hist = list(st.get("history", []))
         if msg["type"] == "human_input" and msg.get("value"):
             val = str(msg["value"])
-            if d.element_id:
-                await rs.browser.fill(d.element_id, val)  # otp goes straight to the page, never to the llm
             if kind == "missing_field" and d.value_from:
                 rs.answers[d.value_from] = val
-            hist.append({"step": st["step"], "action": f"ask_human({kind})", "result": "human answered and it was entered"})
+            el = next((e for e in st["snap"]["elements"] if e["id"] == d.element_id), {})
+            if d.element_id and el.get("tag") in ("input", "textarea") and not el.get("readonly"):
+                await rs.browser.fill(d.element_id, val)  # OTP never goes to the model
+            hist.append({"step": st["step"], "action": f"ask_human({kind})", "result": "human supplied the answer; use value_from to enter it"})
         else:
             hist.append({"step": st["step"], "action": f"ask_human({kind})", "result": "human finished it in the live view"})
         await rs.browser.settle()

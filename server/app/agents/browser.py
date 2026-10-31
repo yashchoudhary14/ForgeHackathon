@@ -34,14 +34,18 @@ SNAPSHOT_JS = r"""
     const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
     return r.width > 1 && r.height > 1 && s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
   };
-  const labelOf = el => {
-    if (el.id) { const l = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); if (l) return l.innerText.trim(); }
-    const p = el.closest('label'); if (p) return p.innerText.trim();
-    const al = el.getAttribute('aria-label'); if (al) return al;
+  const contextLabel = el => {
     for (let group = el.parentElement; group && !group.matches('form, body'); group = group.parentElement) {
       const captions = group.querySelectorAll(':scope > label');
       if (captions.length === 1) return captions[0].innerText.trim();
     }
+    return '';
+  };
+  const labelOf = el => {
+    if (el.id) { const l = document.querySelector(`label[for="${CSS.escape(el.id)}"]`); if (l) return l.innerText.trim(); }
+    const p = el.closest('label'); if (p) return p.innerText.trim();
+    const al = el.getAttribute('aria-label'); if (al) return al;
+    const context = contextLabel(el); if (context) return context;
     const lb = el.getAttribute('aria-labelledby'); if (lb) { const n = document.getElementById(lb); if (n) return n.innerText.trim(); }
     const field = el.closest('mat-form-field, .form-group, .form-field');
     const caption = field?.querySelector('mat-label, label');
@@ -83,6 +87,14 @@ SNAPSHOT_JS = r"""
     if (/\b(selected|active|checked)\b/.test(el.className?.toString?.() || '') && d.checked === undefined) d.selected = true;
     if (txt && !['input', 'select', 'textarea'].includes(d.tag)) d.text = txt;
     const lab = labelOf(el).replace(/\s+/g, ' ').slice(0, 80); if (lab) d.label = lab;
+    const context = contextLabel(el).replace(/\s+/g, ' ').slice(0, 80);
+    if (context && context !== lab) d.field_label = context;
+    if (role === 'option') {
+      const panel = el.closest('[role=listbox]');
+      const owner = panel?.id && [...document.querySelectorAll('[aria-controls], [aria-owns]')]
+        .find(e => (e.getAttribute('aria-controls') || e.getAttribute('aria-owns') || '').split(/\s+/).includes(panel.id));
+      if (owner) d.field_label = labelOf(owner);
+    }
     for (const a of ['name', 'placeholder', 'title', 'formcontrolname']) { const v = el.getAttribute(a); if (v) d[a] = v.slice(0, 60); }
     if (d.tag === 'input' || d.tag === 'textarea') {
       if (['checkbox', 'radio'].includes(t)) d.checked = el.checked;
