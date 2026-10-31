@@ -97,6 +97,11 @@ export interface MatchResult {
   missing_info: string[];
   documents_needed: string[];
 }
+export type MatchEvent =
+  | { type: "progress"; message: string; checked: number; total: number }
+  | { type: "result"; result: MatchResult }
+  | { type: "done"; results: MatchResult[] }
+  | { type: "error"; message: string };
 export interface ExplainSource {
   type: "scheme" | "document" | "url";
   slug?: string | null;

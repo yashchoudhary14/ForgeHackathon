@@ -5,8 +5,7 @@ import json
 import logging
 import time
 from typing import Any, TypeVar
-from contextlib import AsyncExitStack, suppress
-from weakref import WeakValueDictionary
+from contextlib import suppress
 
 from google import genai
 from google.genai import types
@@ -22,7 +21,7 @@ T = TypeVar("T", bound=BaseModel)
 
 _client: genai.Client | None = None
 _pool: ModelPool | None = None
-_embedding_key_locks = WeakValueDictionary()
+_embedding_inflight: dict[str, asyncio.Future] = {}
 _cooldown: dict[str, float] = {}  # compatibility view of provider cooldowns
 
 
@@ -240,12 +239,14 @@ async def generate_json(
     system: str | None = None,
     temperature: float = 0.1,
     model: str | None = None,
+    thinking_level: str | None = None,
 ) -> T:
     cfg = types.GenerateContentConfig(
         system_instruction=system,
         temperature=temperature,
         response_mime_type="application/json",
         response_schema=schema,
+        thinking_config=types.ThinkingConfig(thinking_level=thinking_level) if thinking_level else None,
     )
     resp = await _generate(prompt, cfg, model)
     if resp.parsed is not None:
@@ -256,18 +257,20 @@ async def generate_json(
 async def embed(texts: list[str], task: str = "RETRIEVAL_DOCUMENT") -> list[list[float]]:
     settings = get_settings()
     keys = [cache_key("embedding", [settings.gemini_embed_model, settings.embed_dim, task, text]) for text in texts]
-    found = {}
-    # Coalesce duplicate texts in a batch, and overlapping concurrent batches.
-    async with AsyncExitStack() as stack:
-        # Independent cold scheme records must not queue behind every other
-        # embedding. Sorted key locks still coalesce overlapping batches.
-        for key in sorted(set(keys)):
-            lock = _embedding_key_locks.setdefault(key, asyncio.Lock())
-            await stack.enter_async_context(lock)
+    found, mine, others = {}, {}, {}
+    # Coalesce duplicate texts in a batch and across concurrent calls, without
+    # holding a global lock over db/network work (that serialised cold scheme fetches).
+    for key, text in zip(keys, texts):
+        if key in mine or key in others:
+            continue
+        if key in _embedding_inflight:
+            others[key] = _embedding_inflight[key]
+        else:
+            mine[key] = text
+            _embedding_inflight[key] = asyncio.get_running_loop().create_future()
+    try:
         missing = {}
-        for key, text in zip(keys, texts):
-            if key in found or key in missing:
-                continue
+        for key, text in mine.items():
             value = await llm_cache.read(key)
             if value is not None:
                 llm_cache.stats["hits"] += 1
@@ -289,6 +292,20 @@ async def embed(texts: list[str], task: str = "RETRIEVAL_DOCUMENT") -> list[list
             for (key, _), vector in zip(batch, vectors):
                 found[key] = vector
                 await llm_cache.write(key, vector)
+        for key in mine:
+            _embedding_inflight[key].set_result(found[key])
+    except BaseException as error:
+        for key in mine:
+            future = _embedding_inflight[key]
+            if not future.done():
+                future.set_exception(error if isinstance(error, Exception) else RuntimeError("embedding cancelled"))
+                future.exception()  # mark retrieved so lone failures don't warn
+        raise
+    finally:
+        for key in mine:
+            _embedding_inflight.pop(key, None)
+    for key, future in others.items():
+        found[key] = await future
     return [found[key] for key in keys]
 
 

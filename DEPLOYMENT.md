@@ -105,7 +105,7 @@ rollout; avoid redeploying while a judge is using a live agent run.
 1. Sign in at [Vercel](https://vercel.com/new), select the Hobby account, click
    **Add New** -> **Project**, and import `yashchoudhary14/ForgeHackathon`.
 2. Select **Vite**, set **Root Directory** to `client`, keep build command
-   `npm run build` and output `dist`, and select source branch `deploy`.
+   `npm run build` and output `dist`, and select source branch `main`.
 3. Add `VITE_API_URL` in **Environment Variables** for Production and Preview.
    Use the Cloud Run URL printed by the script, with no `/api` suffix or trailing
    slash. HTTP requests, WSS agent connections, audio and screenshots use it.
@@ -116,7 +116,7 @@ rollout; avoid redeploying while a judge is using a live agent run.
    `VITE_API_URL`, then **Deployments** -> latest production -> **...** ->
    **Redeploy**. An environment change requires a new frontend build.
 6. In project **Settings** -> **Environments** -> **Production** -> **Branch
-   Tracking**, select `deploy` for Git-based updates (some UIs label this
+   Tracking**, select `main` for Git-based updates (some UIs label this
    **Production Branch** under **Settings** -> **Git**).
 
 ## Live verification
@@ -137,7 +137,7 @@ affinity cookie and must receive live frames. The receipt screenshot must also
 be publicly served. These checks consume real Vertex/Sarvam quota and create a
 demo profile and run in Neon.
 
-`/api/health` never queries Gemini or Postgres. `/api/health/llm` reports local
+`/api/health` reports `gemini_backend` and the first configured pool model, and never queries Gemini or Postgres. `/api/health/llm` reports local
 scheduler/cache state without a provider call. Startup probes and their failed
 results are cached in Neon for less than one hour, scoped by backend, project,
 location, credential fingerprint, and model/RPM configuration. A restart restores
@@ -147,29 +147,32 @@ For local checks, use the same Docker image and local pgvector container as
 before. Inside a local API container, `smoke_deploy.py` also checks writable local
 storage by creating and serving a short WAV file.
 
-## Recorded live checks (31 October 2026)
+## Recorded main rollout (31 October 2026)
 
-- Source build `bf0ebb6f-23e9-4fec-8c7f-250aea3f946b` succeeded. Cloud Run
-  revision `adhikaar-api-00002-xqt` serves 100% of traffic with the final CORS
-  origin. Requested resource, scaling, timeout, identity, secret, session-affinity
-  and public-invoker settings were read back and verified.
-- Public health: HTTP 200; five pings consumed zero model calls. Scheme search
-  from the Mumbai backend returned HTTP 200 and 440 farmer-related results.
-- The CORS revision logged `startup probe restored from database`; all seven
-  generation models were initialized at the configured 60 RPM.
-- Hindi PM-KISAN explanation: native-script summary, three verified citations,
-  and 1,203,328 bytes of served WAV audio.
-- Headless myScheme run `5045bc251ae34443a12f53c63f697db0`: **done**, seven
-  live frames received over WSS, title `Find Scheme`, heading `Help us find the
-  best schemes for you`, and a served receipt screenshot.
-- Local regressions: 78 backend tests pass on Windows and in the built Linux
-  image; 17 client tests and the production client build pass.
-- Vercel production deployment `5bmDrgMKtWX54An2m3Lh3tC4EqhD` is **Ready**
-  from branch `deploy`, commit `a1530c7`, with root `client` and the correct
-  Cloud Run URL. Production branch tracking is `deploy`.
-- Anonymous `/schemes` returns HTTP 200 through the SPA rewrite. The deployed
-  JavaScript contains the Cloud Run base and credentialed requests for affinity.
-  A real browser search on the production frontend rendered 440 scheme results.
+- Main source commit `d40d93a` includes the agent-nsp merge and abort fix
+  `e5989c5`, plus the health response update. Cloud Run source build
+  `a3407145-0c24-4173-b412-22d7639a96f7` succeeded; revision
+  `adhikaar-api-00003-28k` serves 100% of traffic.
+- Public health returns HTTP 200 with `ok: true`, `gemini_backend: vertex`, and
+  `model: gemini-3.8-flash`. Five health pings consumed zero model calls. Search
+  returned 440 farmer-related schemes and the exact Vercel CORS origin passed.
+- Hindi PM-KISAN explanation returned three verified citations and a served WAV
+  of 1,173,222 bytes. Read-only smoke run `0eec8ba659984beb915c1c8f5ea6b22a`
+  completed with eight WSS frames, one planning call, and a receipt screenshot.
+- Vercel production deployment `EgSwR1fcnqG7igc8AGhd35EyDKg7` is **Ready**
+  from `main` at `d40d93a`. Production branch tracking is `main`; root is
+  `client`, and `VITE_API_URL` points at the Cloud Run API. Anonymous deep links
+  and the compiled API base were checked.
+- Live-site run `7ea9f0bb769a4600b54c9ab459706a44` was started through the
+  production UI on `https://www.myscheme.gov.in/find-scheme` with synthetic demo
+  details. The live browser displayed gender Male and age 25, and showed the
+  approval prompt before the first Next button. The run stayed at
+  `awaiting_approval` for ten seconds with its three steps unchanged. WSS replayed
+  the `confirm_submit` prompt. Clicking **Abort application** in the UI persisted
+  `aborted` (not `failed`), with no receipt or further portal actions. Nothing
+  was submitted and the finder did not advance past its first step.
+- Regression checks: 138 backend tests, 23 client tests, and the production
+  frontend build passed on the PC.
 
 ## References
 

@@ -24,6 +24,7 @@ Rules:
 - Preserve the exact stated degree in course (e.g. B.Sc, not only undergraduate) and study_year.
 - Preserve supplied study_mode, previous_class_percentage, previous_board and previous_passing_year
   for education forms. Keep these previous academic results separate from the current course/year.
+- Preserve an explicitly stated pregnancy as is_pregnant; never infer pregnancy from gender or age.
 """
 
 ASK_SYSTEM = """You are a friendly government-services helper talking to an ordinary citizen.

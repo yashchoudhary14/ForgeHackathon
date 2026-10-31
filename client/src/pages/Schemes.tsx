@@ -1,8 +1,9 @@
 import { Text } from "../context";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
-import { post, request } from "../api/client";
+import { request, streamMatches } from "../api/client";
+import { applyMatchEvent } from "../api/match-state";
 import type { MatchResult, SearchOut } from "../api/types";
 import { useApp } from "../context";
 import { Citations, Empty, ErrorBox, Loading } from "../components";
@@ -16,28 +17,46 @@ export default function Schemes() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [mode, setMode] = useState<"match" | "search">("match");
+  const activeMatch = useRef<AbortController | null>(null);
+  const [progress, setProgress] = useState("");
   async function load() {
-    if (!profileId) return;
+    activeMatch.current?.abort();
+    if (!profileId) {
+      setMatches([]);
+      setProgress("");
+      setBusy(false);
+      return;
+    }
+    const controller = new AbortController();
+    activeMatch.current = controller;
     setBusy(true);
     setError("");
+    setMatches([]);
+    setProgress("Checking your profile against official scheme rules…");
     setMode("match");
     try {
-      setMatches(
-        await post<MatchResult[]>("/schemes/match", {
-          profile_id: profileId,
-          limit: 8,
-        }),
+      await streamMatches(
+        { profile_id: profileId, limit: 8 },
+        (event) => {
+          if (controller.signal.aborted) return;
+          if (event.type === "progress") setProgress(event.message);
+          setMatches((current) => applyMatchEvent(current, event));
+        },
+        controller.signal,
       );
     } catch (e) {
-      setError((e as Error).message);
+      if (!controller.signal.aborted) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      if (!controller.signal.aborted) setBusy(false);
     }
   }
   useEffect(() => {
     void load();
+    return () => activeMatch.current?.abort();
   }, [profileId]);
   async function search(from = 0) {
+    activeMatch.current?.abort();
+    setProgress("");
     setBusy(true);
     setError("");
     setMode("search");
@@ -60,12 +79,6 @@ export default function Schemes() {
       setBusy(false);
     }
   }
-  const verdicts = {
-    eligible: "Eligible",
-    likely: "Likely eligible",
-    not_eligible: "Not eligible",
-    unknown: "Need more information",
-  };
   return (
     <>
       <div className="page-heading">
@@ -128,114 +141,16 @@ export default function Schemes() {
           retry={() => void (mode === "search" ? search(offset) : load())}
         />
       )}{" "}
-      {busy ? (
-        <Loading
-          message={
-            mode === "match"
-              ? "Checking your profile against official scheme rules…"
-              : "Searching official government schemes…"
-          }
-        />
+      {busy && mode === "search" ? (
+        <Loading message="Searching official government schemes…" />
       ) : mode === "match" ? (
-        !profileId ? (
-          <Empty>
-            <p>
-              <Text
-                value={"Tell us about yourself to see schemes matched to you."}
-              />
-            </p>
-            <Link to="/">
-              <Text value={"Create your profile →"} />
-            </Link>
-          </Empty>
-        ) : matches.length === 0 && !error ? (
-          <Empty>
-            <Text
-              value={
-                "No matching schemes were returned. Update your profile or search above."
-              }
-            />
-          </Empty>
-        ) : (
-          <div className="cards">
-            {matches.map((m) => (
-              <article className="panel" key={m.scheme.slug}>
-                <div className="card-top">
-                  <div>
-                    <small>{m.scheme.ministry || m.scheme.state}</small>
-                    <h2>
-                      <Link
-                        to={"/schemes/" + encodeURIComponent(m.scheme.slug)}
-                      >
-                        {m.scheme.name}
-                      </Link>
-                    </h2>
-                  </div>
-                  <span className={"badge " + m.verdict}>
-                    <Text value={verdicts[m.verdict]} />
-                  </span>
-                </div>
-                <p>{m.scheme.brief}</p>
-                <label>
-                  <Text value={"Match confidence ·"} />{" "}
-                  {Math.round(Math.max(0, Math.min(1, m.confidence)) * 100)}%
-                  <progress
-                    value={Math.max(0, Math.min(1, m.confidence))}
-                    max={1}
-                  />
-                </label>
-                <details open>
-                  <summary>
-                    <Text value={"Why this matches you"} />
-                  </summary>
-                  {m.reasons.map((r, i) => (
-                    <div key={i}>
-                      <p>
-                        <span
-                          aria-label={
-                            r.met === true
-                              ? "Met"
-                              : r.met === false
-                                ? "Not met"
-                                : "Unknown"
-                          }
-                        >
-                          {r.met === true ? "✓" : r.met === false ? "✗" : "?"}
-                        </span>{" "}
-                        {r.claim}
-                      </p>
-                      {r.citation && <Citations items={[r.citation]} />}
-                    </div>
-                  ))}
-                </details>
-                {m.documents_needed.length > 0 && (
-                  <>
-                    <h3>
-                      <Text value={"Documents you’ll need"} />
-                    </h3>
-                    <ul>
-                      {m.documents_needed.map((d) => (
-                        <li key={d}>• {d}</li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-                {m.missing_info.length > 0 && (
-                  <p className="muted">
-                    <Text value={"More information needed:"} />
-                    {m.missing_info.join(", ")}.{" "}
-                    <Link to="/">
-                      <Text value={"Update profile"} />
-                    </Link>
-                  </p>
-                )}
-                <Link to={"/schemes/" + encodeURIComponent(m.scheme.slug)}>
-                  <Text value={"See benefits & apply →"} />
-                </Link>
-              </article>
-            ))}
-          </div>
-        )
+        <MatchResults
+          matches={matches}
+          profileId={profileId}
+          busy={busy}
+          error={error}
+          progress={progress}
+        />
       ) : (
         <>
           {results && (
@@ -285,6 +200,136 @@ export default function Schemes() {
             </div>
           )}
         </>
+      )}
+    </>
+  );
+}
+
+function MatchCards({ matches }: { matches: MatchResult[] }) {
+  const verdicts = {
+    eligible: "Eligible",
+    likely: "Likely eligible",
+    not_eligible: "Not eligible",
+    unknown: "Need more information",
+  };
+  return (
+    <div className="cards">
+      {matches.map((m) => (
+        <article className="panel" key={m.scheme.slug}>
+          <div className="card-top">
+            <div>
+              <small>{m.scheme.ministry || m.scheme.state}</small>
+              <h2>
+                <Link to={"/schemes/" + encodeURIComponent(m.scheme.slug)}>
+                  {m.scheme.name}
+                </Link>
+              </h2>
+            </div>
+            <span className={"badge " + m.verdict}>
+              <Text value={verdicts[m.verdict]} />
+            </span>
+          </div>
+          <p>{m.scheme.brief}</p>
+          <label>
+            <Text value={"Match confidence ·"} />{" "}
+            {Math.round(Math.max(0, Math.min(1, m.confidence)) * 100)}%
+            <progress value={Math.max(0, Math.min(1, m.confidence))} max={1} />
+          </label>
+          <details open>
+            <summary>
+              <Text value={"Why this matches you"} />
+            </summary>
+            {m.reasons.map((r, i) => (
+              <div key={i}>
+                <p>
+                  <span
+                    aria-label={
+                      r.met === true
+                        ? "Met"
+                        : r.met === false
+                          ? "Not met"
+                          : "Unknown"
+                    }
+                  >
+                    {r.met === true ? "✓" : r.met === false ? "✗" : "?"}
+                  </span>{" "}
+                  {r.claim}
+                </p>
+                {r.citation && <Citations items={[r.citation]} />}
+              </div>
+            ))}
+          </details>
+          {m.documents_needed.length > 0 && (
+            <>
+              <h3>
+                <Text value={"Documents you’ll need"} />
+              </h3>
+              <ul>
+                {m.documents_needed.map((d) => (
+                  <li key={d}>• {d}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {m.missing_info.length > 0 && (
+            <p className="muted">
+              <Text value={"More information needed:"} />
+              {m.missing_info.join(", ")}.{" "}
+              <Link to="/">
+                <Text value={"Update profile"} />
+              </Link>
+            </p>
+          )}
+          <Link to={"/schemes/" + encodeURIComponent(m.scheme.slug)}>
+            <Text value={"See benefits & apply →"} />
+          </Link>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+export function MatchResults({
+  matches,
+  profileId,
+  busy,
+  error,
+  progress,
+}: {
+  matches: MatchResult[];
+  profileId: string;
+  busy: boolean;
+  error: string;
+  progress: string;
+}) {
+  return (
+    <>
+      {progress && (
+        <p className="muted" role="status" aria-live="polite">
+          {progress}
+        </p>
+      )}
+      {!profileId ? (
+        <Empty>
+          <p>
+            <Text
+              value={"Tell us about yourself to see schemes matched to you."}
+            />
+          </p>
+          <Link to="/">
+            <Text value={"Create your profile →"} />
+          </Link>
+        </Empty>
+      ) : matches.length === 0 && !error && !busy ? (
+        <Empty>
+          <Text
+            value={
+              "No matching schemes were returned. Update your profile or search above."
+            }
+          />
+        </Empty>
+      ) : (
+        <MatchCards matches={matches} />
       )}
     </>
   );
