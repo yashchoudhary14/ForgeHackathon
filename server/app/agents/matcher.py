@@ -24,7 +24,10 @@ Then give a verdict:
 - not_eligible: any criterion clearly failed or an exclusion clearly applies
 - unknown: text too vague to judge
 confidence 0..1. missing_info: short questions for unknown criteria. documents_needed: from the documents text.
-Do not invent criteria that are not in the text."""
+Do not invent criteria that are not in the text.
+Special conditions (disability, widow, orphan, minority, BPL card, ex-serviceman, rank holder, single girl child...):
+if the profile does not mention them, treat them as NOT applying (met=false), the citizen can correct us later.
+Course level matters: a B.Sc/B.A/B.Com student is undergraduate, not postgraduate."""
 
 
 class _Reason(BaseModel):
