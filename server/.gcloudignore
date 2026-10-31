@@ -1,0 +1,15 @@
+.gcloudignore
+.git
+.gitignore
+.env
+.env.*
+secrets/
+*service-account*.json
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+storage/
+tests/
+*.log
