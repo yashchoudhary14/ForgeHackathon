@@ -35,20 +35,42 @@ function App() {
             </small>
           </span>
         </Link>
-        <label className="language">
-          <span>{t.language}</span>
-          <select
-            aria-label={t.language}
-            value={lang}
-            onChange={(e) => setLang(e.target.value as Lang)}
+        <div className="language-controls">
+          <div
+            className="language-toggle"
+            role="group"
+            aria-label="English / हिंदी"
           >
-            {Object.entries(languages).map(([v, n]) => (
-              <option key={v} value={v}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
+            <button
+              className="secondary"
+              aria-pressed={lang === "en"}
+              onClick={() => setLang("en")}
+            >
+              English
+            </button>
+            <button
+              className="secondary"
+              aria-pressed={lang === "hi"}
+              onClick={() => setLang("hi")}
+            >
+              हिंदी
+            </button>
+          </div>
+          <label className="language">
+            <span>{t.language}</span>
+            <select
+              aria-label={t.language}
+              value={lang}
+              onChange={(e) => setLang(e.target.value as Lang)}
+            >
+              {Object.entries(languages).map(([v, n]) => (
+                <option key={v} value={v}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </header>
       <div className="shell">
         <nav aria-label="Main navigation">
@@ -73,7 +95,7 @@ function App() {
           })}
         </nav>
         <main>
-          <Suspense fallback={<Loading />}>
+          <Suspense fallback={<Loading message="Opening your page…" />}>
             <Routes>
               <Route path="/" element={<Intake />} />
               <Route path="/schemes" element={<Schemes />} />

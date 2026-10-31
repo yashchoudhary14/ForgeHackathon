@@ -20,6 +20,7 @@ export default function Explain() {
     [error, setError] = useState(""),
     [feedError, setFeedError] = useState(""),
     [docsError, setDocsError] = useState(""),
+    [docsLoading, setDocsLoading] = useState(true),
     [feedLoading, setFeedLoading] = useState(true);
   const retryAction = useRef<() => void>(() => {});
   async function getFeed(signal?: AbortSignal) {
@@ -34,11 +35,14 @@ export default function Explain() {
     }
   }
   async function getDocuments(signal?: AbortSignal) {
+    setDocsLoading(true);
     setDocsError("");
     try {
       setDocuments(await request<DocumentOut[]>("/documents", { signal }));
     } catch (e) {
       if (!signal?.aborted) setDocsError((e as Error).message);
+    } finally {
+      if (!signal?.aborted) setDocsLoading(false);
     }
   }
   useEffect(() => {
@@ -178,7 +182,9 @@ export default function Explain() {
         <h2>
           <Text value={"Your uploaded documents"} />
         </h2>
-        {docsError ? (
+        {docsLoading ? (
+          <Loading message="Loading your uploaded documents…" />
+        ) : docsError ? (
           <ErrorBox error={docsError} retry={getDocuments} />
         ) : documents.length ? (
           documents.map((d) => (
@@ -212,7 +218,7 @@ export default function Explain() {
         {feedError ? (
           <ErrorBox error={feedError} retry={getFeed} />
         ) : feedLoading ? (
-          <Loading />
+          <Loading message="Fetching the latest official notices…" />
         ) : feed.length ? (
           feed.map((f, i) => (
             <div className="list-row" key={f.url + i}>

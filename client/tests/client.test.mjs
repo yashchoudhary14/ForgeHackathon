@@ -13,7 +13,9 @@ after(() => server.close());
 const { request, assetUrl, BASE, websocketUrl } =
   await server.ssrLoadModule("/src/api/client.ts");
 const { ReceiptView } = await server.ssrLoadModule("/src/ReceiptView.tsx");
-const { Loading } = await server.ssrLoadModule("/src/components.tsx");
+const { Loading, ErrorBox } = await server.ssrLoadModule("/src/components.tsx");
+const { friendlyError, responseError } =
+  await server.ssrLoadModule("/src/api/errors.ts");
 
 test("agent websocket uses the configured backend base", () => {
   const expected = new URL(BASE + "/api/agent/runs/demo/ws");
@@ -130,4 +132,48 @@ test("slow-operation progress text is exposed as a live status", () => {
   );
   assert.match(html, /role="status"/);
   assert.match(html, /Checking schemes against official rules…/);
+});
+
+test("failed API responses never show provider or validation internals", async (t) => {
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async () =>
+      new Response(
+        JSON.stringify({
+          detail:
+            "Traceback: provider credential=private-value; database unavailable",
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
+      ),
+  );
+  await assert.rejects(request("/schemes/search"), {
+    message: responseError(502),
+  });
+  for (const raw of [
+    "TypeError: Failed to fetch",
+    "Internal Server Error",
+    "Traceback: credential=private-value",
+  ])
+    assert.equal(friendlyError(raw), responseError(500));
+});
+
+test("errors provide friendly recovery and a retry control", () => {
+  const html = renderToStaticMarkup(
+    createElement(ErrorBox, {
+      error: "raw database exception",
+      retry: () => {},
+    }),
+  );
+  assert.match(html, /role="alert"/);
+  assert.match(html, /Let’s try that again/);
+  assert.match(html, /Try again/);
+  assert.doesNotMatch(html, /raw database exception/);
+  assert.match(responseError(429), /wait a moment/);
+  assert.match(responseError(404), /list/);
+  assert.match(responseError(422), /check the details/);
+  assert.match(
+    friendlyError("Node 'approval' raised asyncio.CancelledError"),
+    /application was stopped/,
+  );
 });

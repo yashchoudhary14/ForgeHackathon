@@ -134,7 +134,9 @@ export default function Ask() {
                 text={
                   m.text ||
                   (busy && m.role === "assistant"
-                    ? "Thinking…"
+                    ? lang === "hi"
+                      ? "आपका सवाल पढ़ रहे हैं और आधिकारिक स्रोत जाँच रहे हैं…"
+                      : "Reading your question and checking official sources…"
                     : "No answer received.")
                 }
               />
@@ -164,7 +166,7 @@ export default function Ask() {
           />
           <div className="actions">
             <button disabled={busy || !input.trim()}>
-              {busy ? "Answering…" : t.send}
+              {busy ? <Text value="Answering…" /> : t.send}
             </button>
             {busy && (
               <button
