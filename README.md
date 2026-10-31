@@ -5,8 +5,8 @@ Know your rights, claim them. Forge Gen AI buildathon - Theme 1 (Civic Pulse).
 Run the API from `server/` with `uvicorn app.main:app`. PostgreSQL must have pgvector;
 startup creates the tables, including `llm_cache`.
 
-Judge deployment: see [DEPLOYMENT.md](DEPLOYMENT.md) for the Docker image,
-Neon/Vercel setup, verification commands, and the current HF free-hosting blocker.
+Judge deployment: see [DEPLOYMENT.md](DEPLOYMENT.md) for Google Cloud Run
+(Vertex AI and credits), Neon, Vercel, and live verification commands.
 
 ### Gemini free-tier demo
 

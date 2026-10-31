@@ -1,15 +1,9 @@
----
-title: Adhikaar API
-emoji: 🇮🇳
-colorFrom: orange
-colorTo: green
-sdk: docker
-app_port: 7860
----
+# Adhikaar API
 
-Adhikaar's FastAPI backend. Upload the **contents** of `server/` as the Space
-repository root, excluding `.env`, storage, and local caches. Set secrets and
-variables before starting; see `DEPLOYMENT.md` in the source repository.
+Python 3.12 FastAPI backend with headless Chromium. Deploy from the repository
+root using `bash server/scripts/deploy_cloudrun.sh https://YOUR-APP.vercel.app`.
+See the root `DEPLOYMENT.md` for Cloud Run, Neon, Secret Manager and Vercel setup.
 
-`/api/health` is a liveness endpoint: no database or Gemini calls. API docs are
-at `/docs`. A single uvicorn worker shares the model limiter and live agent runs.
+The Dockerfile runs as UID 1000 with one uvicorn worker on `$PORT` (default 7860;
+Cloud Run supplies 8080). `/api/health` makes no database or Gemini call. API docs
+are at `/docs`; temporary audio and screenshots are served under `/files`.
