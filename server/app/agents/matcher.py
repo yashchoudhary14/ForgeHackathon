@@ -177,6 +177,11 @@ def keywords_for(p: ProfileData, extra: str | None) -> list[str]:
         caste = CASTE_NAMES.get(p.caste or "")
         if caste:
             kws.extend([f"post matric scholarship {caste}", f"scholarship {caste}"])
+            # Official titles mix full category names and acronyms. Keep both,
+            # always with the education intent rather than searching "SC" alone.
+            kws.append(f"scholarship {p.caste}")
+        if re.search(r"class\s*(11|12)\b", f"{p.course or ''} {p.education_level or ''}", re.I):
+            kws.append("school education scholarship")
         if p.state:
             kws.extend([f"{p.state} post matric scholarship", f"{p.state} scholarship"])
         kws.append("scholarship")
@@ -236,6 +241,10 @@ def relevance(p: ProfileData, scheme: SchemeSummary) -> int:
             topic(r"post matric|post metric|postmatric", 16)
             if re.search(r"pre matric|post graduate|post doctoral|fellowship", title):
                 score -= 24
+        if re.search(r"class 1[12]\b", education):
+            topic(r"school education|higher secondary|senior secondary|class (xi|xii|11|12)\b", 16)
+            if re.search(r"\bcollege|\bgraduate|doctoral|\bph d\b", title):
+                score -= 20
     occupation = _norm(p.occupation or "")
     if p.land_acres or re.search(r"farm|cultivat|agricultur", occupation):
         topic(r"farmer|kisan|agricultur|crop", 24)
@@ -289,9 +298,10 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
             seen.setdefault(s.slug, s)
     # semantic pass over cached schemes catches ones keyword search misses
     try:
-        query = f"{p.occupation or ''} {p.education_level or ''} {p.state or ''} {keyword or ''}".strip()
+        query = " ".join(filter(None, [p.occupation, p.course, p.education_level,
+                         CASTE_NAMES.get(p.caste or ""), p.state, *keywords_for(p, keyword)]))
         if query:
-            for s in await myscheme.semantic_search(query, k=limit):
+            for s in await myscheme.semantic_search(query, k=max(16, limit * 2)):
                 if not p.state or not s.state or s.state == p.state or s.state == "All":
                     seen.setdefault(s.slug, s)
     except Exception as e:

@@ -49,7 +49,7 @@ async def test_recall_keeps_working_when_a_search_fails(monkeypatch):
 
 
 async def test_specific_central_sc_hit_survives_the_shortlist_cap(monkeypatch):
-    central = SchemeSummary(slug="pmssc", name="Post Matric Scholarship For Scheduled Caste", state="All")
+    central = SchemeSummary(slug="pmsfss", name="Post-Matric Scholarship for SC students", state="All")
 
     async def search(kw, filters, offset, size):
         # A relevant record is deep in the unfiltered category pass, behind enough
