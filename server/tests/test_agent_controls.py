@@ -5,6 +5,13 @@ from app.agents.browser import Browser, option_index
 from app.agents.executor import Decision, RunSession, require_source, explicitly_requested_option
 
 
+@pytest.mark.parametrize("target", [None, 0, -1, True, "12"])
+def test_missing_action_target_fails_before_locator_timeout(target):
+    browser = Browser(None)
+    with pytest.raises(ValueError, match="element_id from the current observation"):
+        browser.el(target)
+
+
 def test_option_match_does_not_confuse_male_and_female():
     assert option_index(["Female", "Male", "Transgender"], "male") == 1
     with pytest.raises(ValueError):

@@ -335,6 +335,8 @@ class Browser:
         return await self.page.screenshot(type="jpeg", quality=quality, path=path)
 
     def el(self, element_id: int):
+        if not isinstance(element_id, int) or isinstance(element_id, bool) or element_id < 1:
+            raise ValueError("Choose an element_id from the current observation for this action")
         return self.page.locator(f'[data-agent-id="{element_id}"]').first
 
     async def click(self, element_id: int):

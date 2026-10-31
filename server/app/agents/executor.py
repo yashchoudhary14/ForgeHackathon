@@ -43,6 +43,9 @@ Fill stable text/date fields first; put choices likely to reveal cascading field
 Never mix navigation/dropdown-opening clicks, scroll, wait, ask_human, request_approval, done or fail
 with other actions: these must be singleton lists. Navigation/Next/Check Eligibility stays single-action.
 Only data-entry clicks on already visible radio/checkbox/option controls may join a field batch.
+Every click/type/select/check/request_approval action must include the visible target's element_id.
+value_from identifies the citizen fact, never the portal target. After a human answer,
+choose the matching visible option's element_id as well as its recorded value_from key.
 Do not plan actions for fields or options that are not in this observation. Use select directly on a
 combobox rather than opening it in a separate click when you already know the required option label.
 The executor checks every action, stops at the first error or structural page change, and re-observes.
