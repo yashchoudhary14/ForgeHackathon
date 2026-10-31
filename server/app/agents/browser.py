@@ -263,16 +263,22 @@ class Browser:
             return
         try:
             await loc.scroll_into_view_if_needed(timeout=3000)
-            box = await loc.bounding_box()
+            arrow = loc.locator('.mat-mdc-select-arrow-wrapper, .mat-select-arrow-wrapper').first
+            target = arrow if await arrow.count() else loc
+            box = await target.bounding_box()
             # The arrow side is clear of floating labels that cover the center.
             position = {"x": max(1, box["width"] - 15), "y": box["height"] / 2} if box else None
-            await loc.click(position=position, timeout=1000)
+            await target.click(position=position, timeout=1000)
         except PlaywrightTimeout:
             pass
         if await loc.get_attribute("aria-expanded") != "true":
             # Do not toggle a panel that a delayed click already opened.
             await loc.focus()
-            await loc.press("Space")
+            await loc.press("Alt+ArrowDown")
+            try:
+                await expect(loc).to_have_attribute("aria-expanded", "true", timeout=300)
+            except AssertionError:
+                await loc.press("Space")
         await expect(loc).to_have_attribute("aria-expanded", "true", timeout=2000)
 
     async def fill(self, element_id: int, value: str):
@@ -333,6 +339,8 @@ class Browser:
     async def select(self, element_id: int, value: str):
         loc = self.el(element_id)
         if await loc.evaluate("el => el.tagName !== 'SELECT'"):
+            if await loc.get_attribute("role") != "combobox":
+                raise ValueError("Target is not a select or combobox; use the current observation's field id")
             # ARIA comboboxes (including Angular Material) render options in a portal.
             if await loc.get_attribute("aria-expanded") != "true":
                 await self._open_combobox(loc)
