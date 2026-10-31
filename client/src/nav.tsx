@@ -2,7 +2,31 @@ import { Link, NavLink } from "react-router-dom";
 import { Bell, FileText, MapPin, Mic, ListChecks } from "lucide-react";
 import { tt } from "./ui-strings";
 import { useApp } from "./context";
-import { PillLink, cx } from "./ui";
+import type { ReactNode } from "react";
+import { cx, pillBase, tones } from "./ui";
+import type { PillTone } from "./ui";
+
+export function PillLink({
+  to,
+  tone = "dark",
+  className,
+  children,
+}: {
+  to: string;
+  tone?: PillTone;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      className={cx(pillBase, tones[tone], className)}
+      style={{ color: "inherit" }}
+    >
+      {children}
+    </Link>
+  );
+}
 
 const phoneItems = [
   { to: "/talk", key: "navTalk", Icon: Mic },

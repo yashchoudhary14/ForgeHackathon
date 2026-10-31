@@ -1,5 +1,4 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { tt } from "./ui-strings";
 import { useApp } from "./context";
 
@@ -7,7 +6,7 @@ export const cx = (...parts: (string | false | undefined | null)[]) =>
   parts.filter(Boolean).join(" ");
 
 export type PillTone = "dark" | "saffron" | "act" | "lime" | "light" | "ghost";
-const tones: Record<PillTone, string> = {
+export const tones: Record<PillTone, string> = {
   dark: "bg-ink text-paper",
   saffron: "bg-saffron text-ink",
   act: "bg-act text-white",
@@ -15,7 +14,7 @@ const tones: Record<PillTone, string> = {
   light: "bg-white text-ink shadow-[inset_0_0_0_1px_#d9cfc0]",
   ghost: "bg-transparent text-ink shadow-[inset_0_0_0_1px_#17140f]",
 };
-const pillBase =
+export const pillBase =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold no-underline disabled:cursor-not-allowed disabled:opacity-50";
 
 export function PillButton({
@@ -31,28 +30,6 @@ export function PillButton({
     />
   );
 }
-export function PillLink({
-  to,
-  tone = "dark",
-  className,
-  children,
-}: {
-  to: string;
-  tone?: PillTone;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <Link
-      to={to}
-      className={cx(pillBase, tones[tone], className)}
-      style={{ color: "inherit" }}
-    >
-      {children}
-    </Link>
-  );
-}
-
 export function Card({
   children,
   className,
