@@ -18,6 +18,8 @@ Rules:
 - Preserve stated religion, course, study_year (first year = 1), institution_type
   (e.g. government college), and parent_occupation separately from the citizen's occupation.
 - Preserve an explicitly stated is_single_child, is_hosteller and institution_name.
+- Preserve explicitly supplied institution_state and institution_district separately from the
+  citizen's home state. Never infer an institution's location from the citizen's residence.
   Explicitly not disabled means disability_percent=0; absence of disability information means null.
 - Preserve the exact stated degree in course (e.g. B.Sc, not only undergraduate) and study_year.
 """

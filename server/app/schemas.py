@@ -33,6 +33,8 @@ class ProfileData(BaseModel):
     is_single_child: bool | None = None
     is_hosteller: bool | None = None
     institution_name: str | None = None
+    institution_state: str | None = None
+    institution_district: str | None = None
 
 
 class SensitiveData(BaseModel):
