@@ -56,9 +56,9 @@ def test_citations_drop_fake_quotes_and_unknown_sources():
         source_id="s1", quote="Only resident students may apply.",
     )])
     assert chat.verified_citations(real, sources)[0].quote == "Only resident students may apply."
-    # The shared matcher deliberately accepts fuzzy word overlap; chat must enforce verbatim too.
+    # Reordering official words must not pass either citation verifier.
     fake = "Only students resident may apply."
-    assert chat.matcher.quote_found(fake, sources["s1"].text)
+    assert not chat.matcher.quote_found(fake, sources["s1"].text)
     assert chat.verified_citations(chat.Sentence(text="Fake.", evidence=[
         chat.Evidence(source_id="s1", quote=fake),
     ]), sources) == []

@@ -177,6 +177,29 @@ async def test_judge_can_verify_course_restriction_in_description(monkeypatch):
     assert scheme.details_md in generate.await_args.args[0]
 
 
+@pytest.mark.parametrize("quote,source,found", [
+    ("parents' income", "**parents&#39; income**", True),
+    ("Only students resident may apply", "Only resident students may apply", False),
+    ("The applicant is eligible", "The applicant is not eligible", False),
+    ("men", "women", False),
+    ("", "Official source", False),
+])
+def test_quotes_require_a_contiguous_official_span(quote, source, found):
+    assert matcher.quote_found(quote, source) is found
+
+
+async def test_an_unverified_failure_cannot_decide_the_verdict(monkeypatch):
+    scheme = detail("unseen", "Support", "The applicant must be a student and must not have graduated.")
+    judgement = matcher._Judgement(verdict="not_eligible", confidence=0.9, missing_info=[], documents_needed=[], reasons=[
+        matcher._Reason(claim="Student", met=True, quote="The applicant must be a student", section="eligibility"),
+        matcher._Reason(claim="Graduation required", met=False, quote="The applicant must have graduated", section="eligibility"),
+    ])
+    monkeypatch.setattr(llm, "generate_json", AsyncMock(return_value=judgement))
+    result = await matcher._judge(BIHAR_STUDENT, scheme)
+    assert result.verdict == "likely"
+    assert [reason.claim for reason in result.reasons] == ["Student"]
+
+
 async def test_time_budget_keeps_completed_results_and_cancels_slow_work(monkeypatch):
     schemes = [detail("ready", "Relevant scholarship", "SC students"), detail("slow", "Other scholarship", "SC students")]
     monkeypatch.setattr(matcher, "MATCH_SECONDS", 0.05)

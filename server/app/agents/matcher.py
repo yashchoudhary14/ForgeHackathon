@@ -3,6 +3,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import aclosing
 import logging
+from html import unescape
 import re
 from typing import Literal
 
@@ -182,21 +183,13 @@ async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
 
 
 def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9ऀ-෿]+", " ", s.lower()).strip()
+    return re.sub(r"[^a-z0-9ऀ-෿]+", " ", unescape(s).lower()).strip()
 
 
 def quote_found(quote: str, source: str) -> bool:
-    """llms love to 'fix' quotes. accept exact match after normalising, or 85% of words in order-ish window"""
+    """Require a contiguous source span after markup/punctuation normalization."""
     q, src = _norm(quote), _norm(source)
-    if not q:
-        return False
-    if q in src:
-        return True
-    words = q.split()
-    if len(words) < 4:
-        return False
-    hits = sum(1 for w in words if w in src)
-    return hits / len(words) >= 0.85
+    return bool(q) and f" {q} " in f" {src} "
 
 
 def profile_filters(p: ProfileData) -> dict:
