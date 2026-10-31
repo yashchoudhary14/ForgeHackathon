@@ -1,5 +1,6 @@
 """profile -> candidate schemes (live myscheme) -> per-criterion eligibility with verified citations"""
 import asyncio
+from collections.abc import AsyncIterator
 import logging
 import re
 from typing import Literal
@@ -280,25 +281,52 @@ async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
 ORDER = {"eligible": 0, "likely": 1, "unknown": 2, "not_eligible": 3}
 
 
-async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang: str = "en") -> list[MatchResult]:
+async def _match_one(p: ProfileData, s: SchemeSummary, sem: asyncio.Semaphore) -> MatchResult | None:
     from ..services import myscheme
 
+    async with sem:
+        try:
+            detail = await myscheme.get_scheme(s.slug, lang="en")  # judge on english text, explain later in user lang
+            if not detail.eligibility_md.strip():
+                return None
+            if not await triage(p, detail):
+                return None
+            return await judge(p, detail)
+        except Exception as e:
+            log.warning("judging %s failed: %s", s.slug, e)
+            return None
+
+
+async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang: str = "en") -> list[MatchResult]:
     cands = await candidates(p, keyword, limit)
     sem = asyncio.Semaphore(24)  # paid vertex quota, 4 was for the free tier
 
-    async def one(s: SchemeSummary) -> MatchResult | None:
-        async with sem:
-            try:
-                detail = await myscheme.get_scheme(s.slug, lang="en")  # judge on english text, explain later in user lang
-                if not detail.eligibility_md.strip():
-                    return None
-                if not await triage(p, detail):
-                    return None
-                return await judge(p, detail)
-            except Exception as e:
-                log.warning("judging %s failed: %s", s.slug, e)
-                return None
-
-    results = [r for r in await asyncio.gather(*(one(s) for s in cands)) if r]
+    results = [r for r in await asyncio.gather(*(_match_one(p, s, sem) for s in cands)) if r]
     results.sort(key=lambda r: (ORDER[r.verdict], -r.confidence))
     return results[:limit]
+
+
+async def match_stream(p: ProfileData, keyword: str | None = None, limit: int = 8, lang: str = "en") -> AsyncIterator[dict]:
+    """Yield progress, completion-order results, then the same ranked shortlist as match()."""
+    cands = await candidates(p, keyword, limit)
+    total = len(cands)
+    yield {"type": "progress", "message": f"found {total} schemes", "checked": 0, "total": total}
+    sem = asyncio.Semaphore(24)
+    tasks = [asyncio.create_task(_match_one(p, s, sem)) for s in cands]
+    # Candidate index preserves match()'s stable tie ordering despite completion order.
+    indices = {s.slug: i for i, s in enumerate(cands)}
+    results = []
+    try:
+        for checked, future in enumerate(asyncio.as_completed(tasks), 1):
+            result = await future
+            if result is not None:
+                results.append(result)
+                yield {"type": "result", "result": result.model_dump(mode="json")}
+            yield {"type": "progress", "message": f"checked {checked}/{total}",
+                   "checked": checked, "total": total}
+        results.sort(key=lambda r: (ORDER[r.verdict], -r.confidence, indices[r.scheme.slug]))
+        yield {"type": "done", "results": [r.model_dump(mode="json") for r in results[:limit]]}
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
