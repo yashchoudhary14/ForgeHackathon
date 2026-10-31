@@ -43,7 +43,7 @@ def option_index(texts: list[str], value: str) -> int:
 # tags every visible interactive element with data-agent-id and returns a compact description
 SNAPSHOT_JS = r"""
 () => {
-  const sel = 'a[href], button, input, select, textarea, [role=button], [role=link], [role=checkbox], [role=radio], [role=combobox], [role=tab], [role=option], [role=menuitem], [role=listbox], [onclick], [contenteditable=true], label[for]';
+  const sel = 'a[href], button, input, select, textarea, mat-radio-button, mat-checkbox, [role=button], [role=link], [role=checkbox], [role=radio], [role=combobox], [role=tab], [role=option], [role=menuitem], [role=listbox], [onclick], [contenteditable=true], label[for]';
   const vis = el => {
     const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
     return r.width > 1 && r.height > 1 && s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
@@ -64,7 +64,7 @@ SNAPSHOT_JS = r"""
     const field = el.closest('mat-form-field, .form-group, .form-field');
     const caption = field?.querySelector('mat-label, label');
     if (caption) return caption.innerText.trim();
-    if (el.matches('[role=radio], input[type=radio]')) {
+    if (el.matches('[role=radio], input[type=radio], mat-radio-button')) {
       const row = el.closest('tr, [role=row]');
       if (row) return row.innerText.trim();
     }
@@ -98,7 +98,9 @@ SNAPSHOT_JS = r"""
     el.setAttribute('data-agent-id', id);
     const d = { id, tag: el.tagName.toLowerCase() };
     const t = el.getAttribute('type'); if (t) d.type = t;
-    const role = el.getAttribute('role'); if (role) d.role = role;
+    const role = el.getAttribute('role') || (el.matches('mat-radio-button') ? 'radio' : el.matches('mat-checkbox') ? 'checkbox' : null);
+    if (role) d.role = role;
+    if (el.matches('mat-radio-button, mat-checkbox')) d.checked = !!el.querySelector('input')?.checked;
     const alt = el.tagName === 'IMG' ? el.alt : (el.querySelector('img[alt]')?.alt || '');
     const txt = (el.innerText || el.value || alt || '').trim().replace(/\s+/g, ' ').slice(0, 80);
     for (const [a, k] of [['aria-checked', 'checked'], ['aria-selected', 'selected'], ['aria-pressed', 'pressed'], ['aria-expanded', 'expanded']]) {
@@ -449,7 +451,14 @@ class Browser:
 
     async def check(self, element_id: int, on: bool = True):
         await self.page.bring_to_front()
-        await self.el(element_id).set_checked(on, timeout=5000)
+        loc = self.el(element_id)
+        if await loc.evaluate("e => e.matches('mat-checkbox, mat-radio-button')"):
+            native = loc.locator('input').first
+            if await native.is_checked() != on:
+                await loc.click(timeout=5000)
+            await expect(native).to_be_checked(checked=on)
+        else:
+            await loc.set_checked(on, timeout=5000)
 
     async def upload(self, element_id: int, path: str):
         await self.el(element_id).set_input_files(path)
