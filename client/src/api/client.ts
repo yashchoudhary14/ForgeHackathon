@@ -1,5 +1,6 @@
 import type { ChatEvent, ChatIn } from "./types";
 import { createSseParser } from "./sse";
+import { responseError } from "./errors";
 export const BASE = (
   import.meta.env.VITE_API_URL || "http://localhost:8000"
 ).replace(/\/$/, "");
@@ -39,12 +40,7 @@ export async function request<T>(
         : controller.signal,
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      throw new Error(
-        typeof body?.detail === "string"
-          ? body.detail
-          : `Request failed (${res.status}). Please try again.`,
-      );
+      throw new Error(responseError(res.status));
     }
     return (await res.json()) as T;
   } catch (e) {
@@ -77,8 +73,7 @@ export async function streamChat(
     body: JSON.stringify(input),
     signal,
   });
-  if (!res.ok || !res.body)
-    throw new Error(`Chat unavailable (${res.status}). Please retry.`);
+  if (!res.ok || !res.body) throw new Error(responseError(res.status));
   const reader = res.body.getReader(),
     decoder = new TextDecoder();
   let doneEvent = false;
