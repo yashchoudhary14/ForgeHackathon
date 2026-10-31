@@ -16,7 +16,7 @@ VIEWPORT = {"width": 1280, "height": 800}
 # tags every visible interactive element with data-agent-id and returns a compact description
 SNAPSHOT_JS = r"""
 () => {
-  const sel = 'a[href], button, input, select, textarea, [role=button], [role=link], [role=checkbox], [role=radio], [role=combobox], [role=tab], [onclick], [contenteditable=true], label[for]';
+  const sel = 'a[href], button, input, select, textarea, [role=button], [role=link], [role=checkbox], [role=radio], [role=combobox], [role=tab], [role=option], [role=menuitem], [role=listbox], [onclick], [contenteditable=true], label[for]';
   const vis = el => {
     const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
     return r.width > 1 && r.height > 1 && s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0';
