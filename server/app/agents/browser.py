@@ -114,6 +114,10 @@ SNAPSHOT_JS = r"""
     }
     for (const a of ['name', 'placeholder', 'title', 'formcontrolname']) { const v = el.getAttribute(a); if (v) d[a] = v.slice(0, 60); }
     if (d.tag === 'input' || d.tag === 'textarea') {
+      const searchGroup = el.closest('[role=search], [role=dialog], mat-dialog-container, .modal, form');
+      if (t === 'search' || role === 'searchbox' || searchGroup?.matches('[role=search]') ||
+          [...(searchGroup?.querySelectorAll('button, [role=button]') || [])]
+            .some(b => /^search$/i.test(b.innerText.trim()))) d.search_field = true;
       if (['checkbox', 'radio'].includes(t)) d.checked = el.checked;
       else if (t !== 'password' && el.value) d.value = el.value.slice(0, 40);
       if (t === 'password' && el.value) d.value = '••••';

@@ -73,6 +73,9 @@ Rules:
 - Do not interact with disabled controls. Complete enabled prerequisite fields first.
 - Use citizen keys from the supplied profile, not portal control names. Social community uses caste;
   hostel status uses is_hosteller, and explicit disability_percent=0 means not disabled.
+- On search_field inputs, a type action may supply value as a whole-word fragment of value_from
+  to broaden an empty search (for example a town from an institution name). Ordinary form fields
+  always receive the complete supplied value. Do not keep retrying the same empty search.
 - Translate portal education categories from course/education_level: undergraduate study is post-matric.
   A workflow choice explicitly requested in the GOAL can use value_from="goal" and its exact option label.
 - Human answers are available in CITIZEN under their recorded keys. Use those keys; never ask the same
@@ -246,7 +249,7 @@ class RunSession:
         view.update({k: "<set>" if personal.search(k) else v for k, v in self.answers.items()})
         return view
 
-    def resolve(self, d: Decision) -> str:
+    def resolve(self, d: Decision, *, search_field: bool = False) -> str:
         if d.value_from:
             key = d.value_from.strip()
             if key == "goal" and key not in self.answers:
@@ -255,6 +258,11 @@ class RunSession:
                 return d.value
             for src in (self.sensitive, self.answers, self.profile):
                 if key in src and src[key] not in (None, ""):
+                    if d.action == "type" and search_field and d.value and key not in self.sensitive:
+                        fragment = d.value.strip()
+                        if re.search(r"(?<!\w)" + re.escape(fragment) + r"(?!\w)", str(src[key]), re.I):
+                            return fragment
+                        raise ValueError("Search text must be a whole-word fragment of the supplied source")
                     if d.action == "select" and d.value and key not in self.sensitive:
                         return d.value  # e.g. supplied sc -> displayed Scheduled Caste
                     if d.action == "select" and isinstance(src[key], bool):
@@ -422,7 +430,8 @@ def build_graph(rs: RunSession):
             if d.action == "click":
                 await b.click(d.element_id)
             elif d.action == "type":
-                await b.fill(d.element_id, rs.resolve(d))
+                element = next((e for e in st["snap"]["elements"] if e["id"] == d.element_id), {})
+                await b.fill(d.element_id, rs.resolve(d, search_field=element.get("search_field", False)))
             elif d.action == "select":
                 await b.select(d.element_id, rs.resolve(d))
             elif d.action == "check":

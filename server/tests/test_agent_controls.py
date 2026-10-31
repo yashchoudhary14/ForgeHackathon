@@ -70,6 +70,15 @@ def test_human_answers_visible_except_personal_fields():
     assert rs.citizen_view()["dob"] == "<set>"
 
 
+def test_search_fragments_do_not_truncate_ordinary_fields_or_invent_text():
+    rs = RunSession("unit", "", "https://scholarships.gov.in/", {"institution_name": "IIT Guwahati"}, {})
+    d = Decision(thought="Broaden search", action="type", value="GUWAHATI", value_from="institution_name")
+    assert rs.resolve(d, search_field=True) == "GUWAHATI"
+    assert rs.resolve(d) == "IIT Guwahati"
+    with pytest.raises(ValueError):
+        rs.resolve(d.model_copy(update={"value": "Delhi"}), search_field=True)
+
+
 def test_goal_cannot_supply_unspecified_application_history():
     rs = RunSession("unit", "Check scholarship eligibility", "https://scholarships.gov.in/", {}, {})
     assert rs.resolve(Decision(thought="Workflow choice", action="select", value_from="goal", value="Scholarship")) == "Scholarship"
