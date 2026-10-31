@@ -39,3 +39,15 @@ in [Google AI Studio](https://aistudio.google.com/usage?timeRange=last-28-days&t
 this process cannot account for traffic from other apps sharing the project.
 
 Tests: `python -m pytest tests -m "not live" -q` from `server/`.
+
+Live matcher regression (Bihar SC woman, 19, first-year B.Sc, rural student,
+annual income ₹140,000): from `server/`, run
+`python scripts/eval_match.py --fresh --model gemini-3.8-flash --rpm 600 --output storage/evals/bihar-sc-student.json`.
+Uses the configured backend and paid quota; `--rpm` changes only this run's local
+budget. Checks central and Bihar SC post-matric recall and positive verdicts in
+the final eight results, plus direct KCC/Pragati rejection before judging.
+Contrast checks retain a student who also farms and a technical-degree student.
+The command exits nonzero on any failed check. `--fresh` bypasses matcher answer
+caches; official source and embedding caches still apply. Matcher retrieval
+interleaves category/state searches with relaxed-facet recall; evidence-backed
+target-group triage precedes the existing 12 concurrent eligibility judges.
