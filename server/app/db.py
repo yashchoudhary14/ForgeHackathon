@@ -52,12 +52,22 @@ async def get_db():
         yield session
 
 
+MIGRATIONS = [
+    "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS mode VARCHAR(10) DEFAULT 'manual'",
+    "ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS kind VARCHAR(20) DEFAULT 'application'",
+    "ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS meta JSON DEFAULT '{}'",
+]
+
+
 async def init_db():
     from . import models  # noqa: F401  registers tables
 
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
+        # create_all never alters existing tables; add columns introduced after the first deploy
+        for stmt in MIGRATIONS:
+            await conn.execute(text(stmt))
 
 
 __all__ = ["AsyncSession", "Base", "SessionLocal", "engine", "get_db", "init_db"]
