@@ -280,6 +280,7 @@ class Browser:
         return self.page.locator(f'[data-agent-id="{element_id}"]').first
 
     async def click(self, element_id: int):
+        await self.page.bring_to_front()
         loc = self.el(element_id)
         await loc.scroll_into_view_if_needed(timeout=5000)
         if await loc.get_attribute("role") == "combobox":
@@ -314,6 +315,7 @@ class Browser:
         await expect(loc).to_have_attribute("aria-expanded", "true", timeout=2000)
 
     async def fill(self, element_id: int, value: str):
+        await self.page.bring_to_front()
         loc = self.el(element_id)
         await loc.scroll_into_view_if_needed(timeout=5000)
         if await loc.evaluate("e => !!e.readOnly"):
@@ -369,6 +371,7 @@ class Browser:
             raise ValueError("Calendar did not retain the requested date")
 
     async def select(self, element_id: int, value: str):
+        await self.page.bring_to_front()
         loc = self.el(element_id)
         if await loc.evaluate("el => el.tagName !== 'SELECT'"):
             if await loc.get_attribute("role") == "option":
@@ -407,6 +410,7 @@ class Browser:
         await self.settle()
 
     async def check(self, element_id: int, on: bool = True):
+        await self.page.bring_to_front()
         await self.el(element_id).set_checked(on, timeout=5000)
 
     async def upload(self, element_id: int, path: str):
