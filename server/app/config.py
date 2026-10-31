@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     gemini_backend: str = "aistudio"
     gcp_project: str = ""
     gcp_location: str = "global"
-    # service account key: path to the json file, or the json itself (handy for hosting secrets)
+    # either a vertex api key (console > credentials > api key bound to a service account) ...
+    vertex_api_key: str = ""
+    # ... or a credentials json (service account or gcloud user login): file path or the json itself
+    # empty = default credentials (gcloud auth application-default login, or the cloud run service account)
     gcp_credentials: str = ""
     gemini_model: str = "gemini-3.5-flash"
     gemini_fallback_models: str = "gemini-3.6-flash,gemini-3.5-flash-lite"

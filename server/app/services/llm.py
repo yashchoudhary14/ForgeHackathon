@@ -30,7 +30,9 @@ def client() -> genai.Client:
         s = get_settings()
         # Hidden SDK retries would bypass RPM accounting and provider cooldowns.
         http = types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1))
-        if s.gemini_backend == "vertex":
+        if s.gemini_backend == "vertex" and s.vertex_api_key:
+            _client = genai.Client(vertexai=True, api_key=s.vertex_api_key, http_options=http)
+        elif s.gemini_backend == "vertex":
             creds, project = _gcp_credentials(s.gcp_credentials)
             project = s.gcp_project or project
             if not project:
@@ -50,12 +52,13 @@ def _gcp_credentials(value: str):
         return None, None
     from pathlib import Path
 
-    from google.oauth2 import service_account
+    from google.oauth2 import credentials, service_account
 
     info = json.loads(value) if value.lstrip().startswith("{") else json.loads(Path(value).read_text())
-    creds = service_account.Credentials.from_service_account_info(
-        info, scopes=["https://www.googleapis.com/auth/cloud-platform"])
-    return creds, info.get("project_id")
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+    if info.get("type") == "authorized_user":  # gcloud application-default login file
+        return credentials.Credentials.from_authorized_user_info(info, scopes), info.get("quota_project_id")
+    return service_account.Credentials.from_service_account_info(info, scopes=scopes), info.get("project_id")
 
 
 def pool() -> ModelPool:
