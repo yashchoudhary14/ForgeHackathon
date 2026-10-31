@@ -264,6 +264,11 @@ export default function Run() {
       setAnswer("");
     }
   }
+  function takeOver() {
+    setTakeover(true);
+    canvas.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    canvas.current?.focus({ preventScroll: true });
+  }
   if (loading)
     return (
       <Loading message="Restoring your application and connecting to the live browser…" />
@@ -422,14 +427,7 @@ export default function Run() {
                 <div className="actions">
                   <button
                     disabled={connection !== "Connected"}
-                    onClick={() => {
-                      setTakeover(true);
-                      canvas.current?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                      });
-                      canvas.current?.focus({ preventScroll: true });
-                    }}
+                    onClick={takeOver}
                   >
                     <Text value={"Take over"} />
                   </button>
@@ -442,44 +440,66 @@ export default function Run() {
                   </button>
                 </div>
               ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (
-                      answer.trim() &&
-                      send({ type: "human_input", value: answer })
-                    ) {
-                      setAnswer("");
-                      setHuman(null);
-                    }
-                  }}
-                >
-                  <label htmlFor="human-answer">
-                    <Text
-                      value={
-                        human.kind === "otp"
-                          ? "One-time password (OTP)"
-                          : human.field || "Your answer"
+                <div>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (
+                        answer.trim() &&
+                        send({ type: "human_input", value: answer })
+                      ) {
+                        setAnswer("");
+                        setHuman(null);
                       }
-                    />
-                  </label>
-                  <input
-                    id="human-answer"
-                    type={human.kind === "otp" ? "password" : "text"}
-                    autoComplete={
-                      human.kind === "otp" ? "one-time-code" : "off"
-                    }
-                    inputMode={human.kind === "otp" ? "numeric" : undefined}
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                    required
-                  />
-                  <button
-                    disabled={!answer.trim() || connection !== "Connected"}
+                    }}
                   >
-                    <Text value={"Continue"} />
-                  </button>
-                </form>
+                    <label htmlFor="human-answer">
+                      <Text
+                        value={
+                          human.kind === "otp"
+                            ? "One-time password (OTP)"
+                            : human.field || "Your answer"
+                        }
+                      />
+                    </label>
+                    <input
+                      id="human-answer"
+                      type={human.kind === "otp" ? "password" : "text"}
+                      autoComplete={
+                        human.kind === "otp" ? "one-time-code" : "off"
+                      }
+                      inputMode={human.kind === "otp" ? "numeric" : undefined}
+                      value={answer}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      required
+                    />
+                    <button
+                      disabled={!answer.trim() || connection !== "Connected"}
+                    >
+                      <Text value={"Continue"} />
+                    </button>
+                  </form>
+                  {human.kind === "missing_field" && (
+                    <div className="actions">
+                      <button
+                        className="secondary"
+                        disabled={connection !== "Connected"}
+                        onClick={takeOver}
+                      >
+                        <Text value="Take over" />
+                      </button>
+                      {takeover && (
+                        <button
+                          className="secondary"
+                          disabled={connection !== "Connected"}
+                          onClick={() => humanAction("resume")}
+                        >
+                          <Text value="I’m done, continue" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </section>
           )}
