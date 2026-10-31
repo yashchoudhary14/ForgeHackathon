@@ -29,6 +29,10 @@ MAX_STEPS = 45
 MAX_FAILS = 3
 HUMAN_TIMEOUT = 15 * 60
 
+
+class Aborted(Exception):
+    """user pressed abort while we were waiting on them. not CancelledError, langgraph turns that into a node failure"""
+
 SUBMIT_RE = re.compile(r"\b(final\s*submit|submit|confirm|apply now|register|pay|proceed to pay|save\s*&\s*submit|send)\b", re.I)
 
 SYSTEM = """You are an agent operating a real Indian government web portal in a browser, on behalf of a citizen
@@ -213,7 +217,7 @@ def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
         message=f"Please provide {label}; it is not in the supplied profile. You can also fill it in the browser.")
 
 
-class RunAborted(Exception):
+class RunAborted(Aborted):
     """User-requested stop, propagated through graph nodes without cancellation wrapping."""
 
 
