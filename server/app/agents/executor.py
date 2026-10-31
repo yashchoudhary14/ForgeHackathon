@@ -62,6 +62,9 @@ Rules:
 - For an ARIA combobox, click it to inspect its overlay options, then select the exact option text.
   `select` handles both native selects and custom overlay dropdowns. Never type into a closed dropdown.
 - Cascading fields may appear after each choice. Use the new observation, never reuse earlier ids.
+- Do not interact with disabled controls. Complete enabled prerequisite fields first.
+- Use citizen keys from the supplied profile, not portal control names. Social community uses caste;
+  hostel status uses is_hosteller, and explicit disability_percent=0 means not disabled.
 - For date inputs use the displayed date format. Never invent a date of birth from age; ask for it.
 - When DOB is supplied as <set>, use type(value_from="dob") on its input, even if readonly.
   The local helper operates supported calendars without exposing the DOB to you.
@@ -105,6 +108,13 @@ def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
     """A model's default answer is not evidence about a citizen."""
     if not el or d.action not in ("type", "select", "check", "click"):
         return d
+    aliases = {"community": "caste", "hosteler": "is_hosteller", "hosteller": "is_hosteller",
+               "single_girl_child": "is_single_child", "college": "institution_name",
+               "date_of_birth": "dob", "parent_profession": "parent_occupation"}
+    if d.value_from and known.get(d.value_from) in (None, ""):
+        alias = aliases.get(d.value_from)
+        if alias and known.get(alias) not in (None, ""):
+            d = d.model_copy(update={"value_from": alias})
     label = el.get("field_label") or el.get("label") or el.get("name") or el.get("placeholder") or "this field"
     birth = bool(re.search(r"date\s*of\s*birth|\bdob\b|birth\s*date", label, re.I))
     data_entry = d.action in ("type", "select", "check") or el.get("role") in ("option", "radio", "checkbox")
@@ -179,6 +189,8 @@ class RunSession:
                 if key in src and src[key] not in (None, ""):
                     if d.action == "select" and d.value and key not in self.sensitive:
                         return d.value  # e.g. supplied sc -> displayed Scheduled Caste
+                    if d.action == "select" and isinstance(src[key], bool):
+                        return "Yes" if src[key] else "No"
                     return str(src[key])
             raise KeyError(f"citizen field '{key}' is not known — ask the human")
         return d.value or ""
@@ -329,7 +341,8 @@ def build_graph(rs: RunSession):
             elif d.action == "select":
                 await b.select(d.element_id, rs.resolve(d))
             elif d.action == "check":
-                await b.check(d.element_id, (d.value or "true").lower() != "false")
+                value = rs.resolve(d) if d.value_from else (d.value or "true")
+                await b.check(d.element_id, value.strip().lower() in ("true", "yes", "1"))
             elif d.action == "scroll":
                 await b.scroll((d.value or "down") != "up")
             elif d.action == "wait":

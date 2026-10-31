@@ -26,11 +26,12 @@ def _same_date(value, fmt, expected):
 
 def option_index(texts: list[str], value: str) -> int:
     """Prefer exact labels and reject ambiguous substring matches."""
-    normalize = lambda s: " ".join(s.split()).casefold()
+    normalize = lambda s: re.sub(r"[\W_]+", "", s.casefold())
+    words = lambda s: " " + " ".join(re.findall(r"\w+", s.casefold())) + " "
     want = normalize(value)
     exact = [i for i, text in enumerate(texts) if normalize(text) == want]
     matches = exact or [i for i, text in enumerate(texts)
-        if want and normalize(text) and (want in normalize(text) or normalize(text) in want)]
+        if want and normalize(text) and (words(value) in words(text) or words(text) in words(value))]
     if len(matches) != 1:
         raise ValueError(f"Choose one exact option from {texts}; requested {value!r}")
     return matches[0]
@@ -120,7 +121,7 @@ SNAPSHOT_JS = r"""
       if (list) d.options = [...list.querySelectorAll('[role=option]')].filter(vis).map(o => o.innerText.trim());
     }
     if (el.required || el.getAttribute('aria-required') === 'true') d.required = true;
-    if (el.disabled) d.disabled = true;
+    if (el.disabled || el.getAttribute('aria-disabled') === 'true' || el.closest('fieldset[disabled]')) d.disabled = true;
     if (el.readOnly || el.getAttribute('aria-readonly') === 'true') d.readonly = true;
     for (const a of ['min', 'max', 'pattern']) { const v = el.getAttribute(a); if (v) d[a] = v; }
     if (el.getAttribute('aria-invalid') === 'true') d.invalid = true;
@@ -256,6 +257,8 @@ class Browser:
         await self.settle()
 
     async def _open_combobox(self, loc):
+        if await loc.get_attribute("aria-disabled") == "true":
+            raise ValueError("This control is disabled; complete its enabled prerequisite fields first")
         if await loc.get_attribute("aria-expanded") == "true":
             return
         try:
@@ -341,8 +344,13 @@ class Browser:
                 options = self.page.locator(f'[id={json.dumps(controls.split()[0])}] [role="option"]')
             await options.first.wait_for(state="visible", timeout=5000)
             texts = await options.all_inner_texts()
-            await options.nth(option_index(texts, value)).click(timeout=5000)
+            choice = option_index(texts, value)
+            await options.nth(choice).click(timeout=5000)
             await self.settle()
+            if await loc.count() and await loc.evaluate("e => e.tagName !== 'INPUT'"):
+                selected = await loc.inner_text()
+                if option_index([selected], texts[choice]) != 0:
+                    raise ValueError("The requested selection was not retained")
             return
         try:
             await loc.select_option(label=value, timeout=5000)
