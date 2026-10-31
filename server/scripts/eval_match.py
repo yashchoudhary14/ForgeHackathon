@@ -124,6 +124,8 @@ async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
     candidates = []
     candidate_seconds = 0
     original_candidates = matcher.candidates
+    original_triage, original_judge = matcher.triage, matcher.judge
+    screened, judged = {}, {}
 
     async def observed_candidates(*args, **kwargs):
         nonlocal candidates, candidate_seconds
@@ -132,8 +134,19 @@ async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
         candidate_seconds = time.monotonic() - started
         return candidates
 
+    async def observed_triage(p, scheme):
+        keep = await original_triage(p, scheme)
+        screened[scheme.slug] = keep
+        return keep
+
+    async def observed_judge(p, scheme):
+        result = await original_judge(p, scheme)
+        judged[scheme.slug] = result.model_dump(mode="json")
+        return result
+
     started = time.monotonic()
-    with patch.object(matcher, "candidates", observed_candidates):
+    with (patch.object(matcher, "candidates", observed_candidates),
+          patch.object(matcher, "triage", observed_triage), patch.object(matcher, "judge", observed_judge)):
         results = await matcher.match(profile, limit=limit)
     match_seconds = time.monotonic() - started
     candidate_slugs = {s.slug for s in candidates}
@@ -173,7 +186,9 @@ async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
         checks[f"keep:{name}"] = await kept(slug, updates)
         if name == "punjab-sc-student":
             detail = await myscheme.get_scheme(slug)
-            checks["judge:punjab-sc-student"] = (await matcher.judge(profile.model_copy(update=updates), detail)).verdict in {"eligible", "likely"}
+            control = profile.model_copy(update=updates)
+            checks["recall:punjab-sc-student"] = slug in {s.slug for s in await original_candidates(control, None, limit)}
+            checks["judge:punjab-sc-student"] = (await matcher.judge(control, detail)).verdict in {"eligible", "likely"}
     logging.info("eval %s: %.2fs match, %.2fs recall; failures=%s", case_name, match_seconds,
                  candidate_seconds, [name for name, ok in checks.items() if not ok])
     return {
@@ -184,6 +199,7 @@ async def evaluate(case_name: str, limit: int, max_seconds: float = 60) -> dict:
         "expected": [{"slug": slug, "reason": reason, "source": f"https://www.myscheme.gov.in/schemes/{slug}"}
                      for slug, reason in case["expected"].items()],
         "notes": case.get("notes"),
+        "triage_kept": screened, "judgements": judged,
         "candidates": [{"slug": s.slug, "name": s.name, "state": s.state} for s in candidates],
         "results": [r.model_dump(mode="json") for r in results],
     }

@@ -57,6 +57,8 @@ An undergraduate is not postgraduate; post-matric DOES include undergraduates.
 SC students do not fit schemes restricted to OBC/EBC/ST alone, but fit combined SC/ST schemes.
 Do not drop for ordinary unknowns such as documents, marks, institution approval or another scholarship.
 Do not drop broad schemes merely because one example or optional beneficiary group differs.
+Read exceptions and alternative routes together with restrictions. A quoted restriction is not
+grounds to drop if its exception applies, or if an alternative route remains possible.
 When unsure, keep. Return drop, reason and an exact short quote from the official text proving
 the target restriction. If keeping, return empty reason and quote. Never invent requirements."""
 
@@ -95,7 +97,7 @@ def occupational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
     mistake farmer-family scholarships or mixed student/farmer groups for own-role credit.
     """
     occupation = _norm(p.occupation or "")
-    if not (p.is_student or occupation == "student"):
+    if not (p.is_student or occupation == "student" or re.search(r"street vendor|hawker", occupation)):
         return False
     if (p.land_acres or 0) > 0 or re.search(r"farm|agricultur|cultivat|fish|livestock|animal husbandry", occupation):
         return False
@@ -118,6 +120,16 @@ def educational_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> bool:
         r"\btechnical (degree|diploma)\b", _norm(scheme.name)))
 
 
+def qualified_restriction(quote: str, official: str) -> bool:
+    """A restriction with an exception needs the full judge, not a cheap hard drop."""
+    q = _norm(quote)
+    if not q:
+        return False
+    paragraphs = re.split(r"\n\s*\n|\n\s*(?:[-*]|\d+[.)])\s+", official)
+    return any(q in _norm(paragraph) and re.search(
+        r"\b(however|unless|except|exception|provided that)\b", _norm(paragraph)) for paragraph in paragraphs)
+
+
 async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
     """True means keep. Unsupported drops and unavailable triage fail open."""
     if occupational_target_mismatch(p, scheme):
@@ -138,7 +150,8 @@ async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
             p.model_dump(exclude_none=True), scheme.model_dump(mode="json"), TRIAGE_SYSTEM,
         ], screen))
         # A drop needs a real source span, not a model's paraphrase.
-        if result.drop and result.reason and _norm(result.quote) and _norm(result.quote) in _norm(official):
+        if (result.drop and result.reason and _norm(result.quote) and _norm(result.quote) in _norm(official)
+                and not qualified_restriction(result.quote, official)):
             log.info("triage dropped %s: %s", scheme.slug, result.reason)
             return False
     except Exception as e:
@@ -339,7 +352,7 @@ async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
         f"DOCUMENTS:\n{scheme.documents_md[:1500]}\n\n"
         f"Citizen profile: {p.model_dump_json(exclude_none=True)}"
     )
-    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM, model="strong")
+    j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM, model="strong", thinking_level="LOW")
 
     reasons: list[Reason] = []
     dropped = 0
