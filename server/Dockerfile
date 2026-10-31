@@ -11,7 +11,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install -r requirements.txt \
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-hin \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install -r requirements.txt \
     && playwright install --with-deps chromium \
     && useradd --create-home --uid 1000 user \
     && mkdir -p /tmp/adhikaar \

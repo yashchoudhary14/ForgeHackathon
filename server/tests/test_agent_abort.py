@@ -28,6 +28,7 @@ async def test_abort_while_waiting_is_saved_cleanly(monkeypatch, tmp_path, kind)
     browser.snapshot = AsyncMock(return_value=snap)
     browser.decision_screenshot = AsyncMock(return_value=b"image")
     rs.browser = browser
+    rs.human_event = AsyncMock(return_value={"type": "needs_human", "kind": kind})
     decision = executor.Decision(thought="Human help required", element_id=1,
         action="request_approval" if kind == "confirm_submit" else "ask_human",
         kind=None if kind == "confirm_submit" else kind)
@@ -105,6 +106,7 @@ async def test_abort_at_approval_is_saved_as_aborted(monkeypatch):
     monkeypatch.setattr(executor.llm, "generate_json", AsyncMock(return_value=plan))
     rs = RunSession("run-1", "check eligibility", "https://portal.gov.in", {}, {})
     rs.browser = FakeBrowser()
+    rs.human_event = AsyncMock(return_value={"type": "needs_human", "kind": "confirm_submit"})
     statuses = []
 
     async def set_status(status, **kwargs):

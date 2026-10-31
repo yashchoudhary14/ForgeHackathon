@@ -16,11 +16,14 @@ from typing import Any, Literal, TypedDict
 from google.genai import types
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
+from sqlalchemy import or_, select
 
 from ..config import get_settings
 from ..db import SessionLocal
-from ..models import AgentRun, AgentStep
-from ..services import llm
+from ..models import AgentRun, AgentStep, LockerItem
+from ..schemas import ProfileData
+from ..services import crypto, llm, locker, sarvam
+from ..services.notify import notify
 from .browser import Browser, allowed
 
 log = logging.getLogger(__name__)
@@ -56,10 +59,11 @@ Actions:
      Personal fields are hidden from you as "<set>"; use value_from for them, never invent values.
 - select(element_id, value | value_from)  value must be one of the element's options (pick the closest).
 - check(element_id, value="true"/"false")
+- upload(element_id, doc_type)  attach a matching document from the citizen's locker, after their approval.
 - scroll(value="down"/"up"), wait
-- ask_human(kind, message, element_id?)  kind: captcha | otp | login | missing_field.
+- ask_human(kind, message, element_id?)  kind: captcha | otp | login | missing_field | payment.
      Use for ANY captcha, OTP, password/login, DigiLocker/Aadhaar consent, or info you do not have.
-     For otp/missing_field give element_id of the input to fill with the human's answer.
+     For captcha/otp/missing_field give element_id of the input to fill with the human's answer.
 - request_approval(element_id, message)  REQUIRED before clicking any button that finally submits/applies/pays.
      message = short summary of what will be submitted.
 - done(message, reference_no)  when the acknowledgement / application number / status page is shown,
@@ -109,14 +113,23 @@ Rules:
   college identity, etc. if not supplied. Never select a date just to dismiss a calendar; use Escape.
 - Keep `thought` to one short sentence a citizen can understand."""
 
+SYSTEM += "\nNever operate payment controls, UPI apps or netbanking. Ask the human with kind=payment."
+
+
+class HumanGuide(BaseModel):
+    title: str = Field(max_length=120)
+    steps: list[str] = Field(min_length=1, max_length=3)
+    lang: str
+
 
 class Decision(BaseModel):
     thought: str
-    action: Literal["click", "type", "select", "check", "scroll", "wait", "ask_human", "request_approval", "done", "fail"]
+    action: Literal["click", "type", "select", "check", "upload", "scroll", "wait", "ask_human", "request_approval", "done", "fail"]
     element_id: int | None = None
     value: str | None = None
     value_from: str | None = None
-    kind: Literal["captcha", "otp", "login", "missing_field"] | None = None
+    kind: Literal["captcha", "otp", "login", "missing_field", "payment"] | None = None
+    doc_type: locker.DocType | None = None
     message: str | None = None
     reference_no: str | None = None
 
@@ -227,13 +240,19 @@ class RunAborted(Aborted):
 class RunSession:
     """live state of one run: websocket subscribers + inbox for human messages"""
 
-    def __init__(self, run_id: str, goal: str, portal_url: str, profile: dict, sensitive: dict):
+    def __init__(self, run_id: str, goal: str, portal_url: str, profile: dict, sensitive: dict,
+                 *, profile_id: str | None = None, language: str = "en"):
         self.id = run_id
         self.goal = goal
         self.portal_url = portal_url
         self.profile = profile
+        self.profile_id = profile_id
+        self.language = language
         self.sensitive = {k: str(v) for k, v in sensitive.items() if v}
         self.answers: dict[str, str] = {}
+        self.private_values: set[str] = set(self.sensitive.values())
+        self.private_values.update(str(v) for k, v in profile.items() if v is not None and
+            re.search(r"name|phone|mobile|email|dob|birth|address|bank|ifsc|aadhaar|account", k, re.I))
         self.inbox: asyncio.Queue = asyncio.Queue()
         self.subs: set = set()
         self.status = "queued"
@@ -243,6 +262,7 @@ class RunSession:
         self._last_frame_sent = 0.0
         self.llm_calls = 0
         self.steps = 0
+        self.uploads: list[dict] = []
         self.human_wait_seconds = 0.0
 
     # ---------- pub/sub ----------
@@ -264,6 +284,7 @@ class RunSession:
         await self.emit({"type": "frame", "jpeg": b64})
 
     async def set_status(self, status: str, **extra):
+        changed = self.status != status
         self.status = status
         async with SessionLocal() as db:
             run = await db.get(AgentRun, self.id)
@@ -271,14 +292,92 @@ class RunSession:
             for k, v in extra.items():
                 setattr(run, k, v)
             await db.commit()
+        if changed and status in {"done", "failed", "needs_human", "awaiting_approval"}:
+            await notify(self.profile_id, "run_status", {
+                "done": "Application completed", "failed": "Application needs attention",
+                "needs_human": "Your help is needed", "awaiting_approval": "Please review your application",
+            }[status], body=extra.get("error", ""), link=f"/runs/{self.id}",
+                meta={"run_id": self.id, "status": status})
         await self.emit({"type": "status", "status": status})
 
+    async def save_answers(self):
+        async with SessionLocal() as db:
+            run = await db.get(AgentRun, self.id)
+            run.meta = {**(run.meta or {}), "answers_encrypted": crypto.encrypt_json(self.answers)}
+            await db.commit()
+
+    async def human_event(self, kind: str, element_id: int | None = None, **details) -> dict:
+        # Only the step category goes to the model: no page pixels, citizen values,
+        # portal text, filenames, or the planner's potentially personal message.
+        try:
+            guide = await llm.generate_json(
+                f"Write guidance in language {self.language} for step {kind}. "
+                "The citizen has never used a website. Use 1-3 very short, simple steps. "
+                "For CAPTCHA explain copying letters exactly, including capitals; never solve it. "
+                "For OTP use the code on their own phone. For login they enter passwords themselves. "
+                "For payment explain opening UPI on their phone or netbanking, checking the amount and "
+                "payee and approving there themselves. Never ask to share a PIN, password or OTP. "
+                "For confirm_submit ask them to review before approving. For confirm_upload ask them "
+                "to check the document shown before allowing attachment. Return lang exactly as requested.",
+                HumanGuide, model="lite", temperature=0,
+                system="Write accessible instructions only. No personal information is supplied.")
+            if not isinstance(guide, HumanGuide):
+                raise ValueError("Invalid guidance response")
+            guide.lang = self.language
+        except Exception:
+            # A failed model must not prevent a citizen taking control.
+            steps = (["स्क्रीन पर दिखाया गया कदम खुद पूरा करें।", "फिर आगे बढ़ें दबाएँ।"]
+                     if self.language == "hi" else
+                     ["Complete the step shown on the screen yourself.", "Then press Continue."])
+            guide = HumanGuide(title="आपकी मदद चाहिए" if self.language == "hi" else "Your help is needed",
+                               steps=steps, lang=self.language)
+        audio_url = None
+        try:
+            if self.language in sarvam.LANG_CODES:
+                audio_url = await sarvam.tts_to_file(" ".join(guide.steps), self.language)
+        except Exception:
+            log.warning("Guidance speech unavailable for %s", self.language)
+        crop = None
+        if hasattr(self.browser, "human_crop"):
+            crop = await self.browser.human_crop(kind, element_id)
+        return {"type": "needs_human", "kind": kind, "guide": guide.model_dump(),
+                "crop": crop, "audio_url": audio_url, **details}
+
+    async def duplicate_runs(self) -> list[str]:
+        if not self.profile_id:
+            return []
+        async with SessionLocal() as db:
+            current = await db.get(AgentRun, self.id)
+            if current.kind != "application":
+                return []
+            match = AgentRun.portal_url == current.portal_url
+            if current.scheme_slug:
+                match = or_(match, AgentRun.scheme_slug == current.scheme_slug)
+            rows = await db.execute(select(AgentRun.id).where(
+                AgentRun.profile_id == self.profile_id, AgentRun.id != self.id,
+                AgentRun.kind == "application", AgentRun.status == "done", match))
+            return list(rows.scalars())
+
     # ---------- llm view of the citizen ----------
+    def redact(self, value):
+        if isinstance(value, dict):
+            return {k: self.redact(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self.redact(v) for v in value]
+        if not isinstance(value, str):
+            return value
+        for secret in sorted(self.private_values | set(self.answers.values()), key=len, reverse=True):
+            if secret:
+                value = value.replace(secret, "<private>")
+        value = re.sub(r"\b\d{10,16}\b|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", "<private>", value)
+        return value
+
     def citizen_view(self) -> dict:
-        view = {k: v for k, v in self.profile.items() if v is not None}
-        view.update({k: "<set>" for k in self.sensitive})
         personal = re.compile(r"name|phone|mobile|email|dob|birth|address|bank|ifsc|aadhaar|account|password|otp|human_answer_", re.I)
-        view.update({k: "<set>" if personal.search(k) else v for k, v in self.answers.items()})
+        view = {k: "<set>" if personal.search(k) else v for k, v in self.profile.items() if v is not None}
+        view.update({k: "<set>" for k in self.sensitive})
+        safe_keys = set(ProfileData.model_fields) | {"scheme_type_id"}
+        view.update({k: v if k in safe_keys and not personal.search(k) else "<set>" for k, v in self.answers.items()})
         return view
 
     def resolve(self, d: Decision, *, search_field: bool = False) -> str:
@@ -324,6 +423,7 @@ class RunSession:
                 if t == "click":
                     await self.browser.human_click(float(msg["x"]), float(msg["y"]))
                 elif t == "type":
+                    self.private_values.add(str(msg.get("text", "")))
                     await self.browser.human_type(str(msg.get("text", "")))
                 elif t == "key":
                     await self.browser.human_key(str(msg.get("key", "Enter")))
@@ -358,14 +458,15 @@ def _history_text(h: list[dict]) -> str:
 
 
 def build_graph(rs: RunSession):
-    shots_dir = Path(get_settings().storage_dir) / "runs" / rs.id
+    shots_dir = Path(str(Path(get_settings().storage_dir).resolve()) + "-private") / "runs" / rs.id
     shots_dir.mkdir(parents=True, exist_ok=True)
 
     async def record(st: State, d: Decision | None, status: str, result: str) -> str:
-        shot_path = shots_dir / f"{st['step']:03d}.jpg"
+        shot_path = shots_dir / f"{st['step']:03d}.enc"
         try:
-            await rs.browser.screenshot(str(shot_path), quality=50)
-            shot_url = f"/files/runs/{rs.id}/{shot_path.name}"
+            image = await rs.browser.screenshot(quality=50)
+            await asyncio.to_thread(locker.encrypt_file, shot_path, image)
+            shot_url = f"/api/agent/runs/{rs.id}/screenshots/{st['step']}?profile_id={rs.profile_id}"
         except Exception:
             shot_url = None
         action = d.model_dump(exclude_none=True, exclude={"thought"}) if d else None
@@ -411,17 +512,28 @@ def build_graph(rs: RunSession):
             message = "The portal has not changed after three attempts. " + (errors or "Please check the live browser before continuing.")
             return {"decision": Decision(thought="The portal is not responding; stopping repeated actions.",
                     action="ask_human", kind="missing_field", message=message), "remaining": []}
-        obs = {
+        elements = []
+        for element in snap["elements"]:
+            safe = dict(element)
+            if safe.get("tag") in ("input", "textarea") and safe.get("value"):
+                safe["value"] = "<set>"
+            elements.append(safe)
+        obs = rs.redact({
             "url": snap["url"], "title": snap["title"], "headings": snap["headings"],
             "validation_errors": snap["errors"], "captcha_detected": snap["captcha"],
             "network_errors": snap.get("network_errors", []),
-            "elements": snap["elements"], "page_text": snap["text"][:1500],
-        }
+            "elements": elements, "page_text": snap["text"][:1500],
+        })
+        doc_types = []
+        if rs.profile_id:
+            async with SessionLocal() as db:
+                doc_types = list((await db.execute(select(LockerItem.doc_type).where(
+                    LockerItem.profile_id == rs.profile_id))).scalars())
         prompt = [
-            f"GOAL: {rs.goal}\n\nCITIZEN (personal fields hidden): {json.dumps(rs.citizen_view(), ensure_ascii=False)}\n\n"
-            f"PREVIOUS STEPS:\n{_history_text(st.get('history', []))}\n\n"
+            f"GOAL: {rs.redact(rs.goal)}\n\nCITIZEN (personal fields hidden): {json.dumps(rs.citizen_view(), ensure_ascii=False)}\n\n"
+            f"PREVIOUS STEPS:\n{rs.redact(_history_text(st.get('history', [])))}\n\n"
             f"OBSERVATION:\n{json.dumps(obs, ensure_ascii=False)}",
-            types.Part.from_bytes(data=st["shot"], mime_type="image/jpeg"),
+            f"LOCKER document types available: {json.dumps(doc_types)}",
         ]
         rs.llm_calls += 1
         plan = await llm.generate_json(prompt, ActionPlan, system=SYSTEM, temperature=0.1, model=get_settings().agent_model)
@@ -436,6 +548,12 @@ def build_graph(rs: RunSession):
         if page_changed(st["snap"], snap) or missing_target:
             return {"snap": snap, "stale": True, "remaining": []}
         el = next((e for e in snap["elements"] if e["id"] == d.element_id), None) if d.element_id else None
+        label = json.dumps(el or {})
+        payment = re.search(r"\b(upi|net\s*banking|pay|make\s*payment)\b", label, re.I)
+        payment_page = re.search(r"upi|net.?banking|payment|checkout", snap.get("url", "") + " " + snap.get("title", ""), re.I)
+        payment_page = payment_page or re.search(r"pay using|select payment method|card number|\bcvv\b|upi pin", snap.get("text", ""), re.I)
+        if d.action in ("click", "type", "select", "check", "upload", "request_approval") and (payment or payment_page):
+            d = d.model_copy(update={"action": "ask_human", "kind": "payment", "message": "Complete payment yourself on your phone or netbanking, then continue."})
         if d.action == "click" and el:
             label = str(el.get("text") or el.get("value") or el.get("title") or el.get("label") or "")
             # any clickable thing that reads like "submit" counts - portals style divs as buttons
@@ -447,6 +565,8 @@ def build_graph(rs: RunSession):
             d = d.model_copy(update={"action": "ask_human", "kind": "captcha", "message": "Please solve the CAPTCHA, then press Continue."})
         if d.action == "type" and el and el.get("type") == "password":
             d = d.model_copy(update={"action": "ask_human", "kind": "login", "message": "Please enter your password yourself, then press Continue."})
+        if d.action == "type" and el and re.search(r"\botp\b|one.time|verification.code", json.dumps(el), re.I):
+            d = d.model_copy(update={"action": "ask_human", "kind": "otp", "message": "Enter the code received on your phone."})
         known = {**rs.profile, **rs.sensitive, **rs.answers}
         if explicitly_requested_option(d, el, rs.goal):
             known["goal"] = rs.goal
@@ -485,6 +605,43 @@ def build_graph(rs: RunSession):
             elif d.action == "check":
                 value = rs.resolve(d) if d.value_from else (d.value or "true")
                 await b.check(d.element_id, value.strip().lower() in ("true", "yes", "1"))
+            elif d.action == "upload":
+                if not rs.profile_id or not d.doc_type:
+                    raise ValueError("A profile and document type are required for upload")
+                element = next((e for e in st["snap"]["elements"] if e["id"] == d.element_id), {})
+                if element.get("type") != "file":
+                    raise ValueError("Upload target must be a file input")
+                async with SessionLocal() as db:
+                    item = (await db.execute(select(LockerItem).where(
+                        LockerItem.profile_id == rs.profile_id, LockerItem.doc_type == d.doc_type
+                    ).order_by(LockerItem.created_at.desc()).limit(1))).scalar_one_or_none()
+                if not item:
+                    raise ValueError("Save this document in your locker before attaching it")
+                hint = str(element.get("size_hint", ""))
+                if element.get("data-max-size", "").isdigit():
+                    hint += f" {int(element['data-max-size']) / 1000} KB"
+                variant = locker.choose_variant(item, element.get("accept", ""), hint)
+                attachment = {"id": item.id, "title": item.title, "doc_type": item.doc_type,
+                              "format": variant["format"], "bytes": variant["bytes"], "meta": item.meta}
+                await rs.set_status("needs_human")
+                await record(st, d, "human", "confirm_upload")
+                event = await rs.human_event("confirm_upload", d.element_id,
+                    message=f"Attach {item.title} from your locker?", document=attachment)
+                await rs.wait_human(event, {"approve"})
+                # Revalidate the owner and target after an unbounded human pause.
+                async with SessionLocal() as db:
+                    fresh = await db.get(LockerItem, item.id)
+                    if not fresh or fresh.profile_id != rs.profile_id:
+                        raise ValueError("Document is no longer available")
+                now = await b.snapshot()
+                if page_changed(st["snap"], now):
+                    raise ValueError("Portal changed while awaiting upload approval; please review again")
+                content = await asyncio.to_thread(locker.decrypt_file, variant["path"])
+                await b.upload(d.element_id, {"name": f"{item.doc_type}.{variant['format']}",
+                    "mimeType": {"jpg": "image/jpeg", "pdf": "application/pdf"}[variant["format"]],
+                    "buffer": content})
+                rs.uploads.append({k: v for k, v in attachment.items() if k != "meta"})
+                await rs.set_status("running")
             elif d.action == "scroll":
                 await b.scroll((d.value or "down") != "up")
             elif d.action == "wait":
@@ -504,6 +661,8 @@ def build_graph(rs: RunSession):
                         "decision": remaining[0], "remaining": remaining[1:]}
             return {"step": step, "history": hist, "fails": 0, "outcome": "next",
                     "snap": after, "digest": _digest(st["snap"]), "remaining": []}
+        except RunAborted:
+            raise
         except Exception as e:
             err = str(e).split("\n")[0][:200]
             hist.append({"step": step, "action": desc, "result": f"ERROR: {err}"})
@@ -519,22 +678,32 @@ def build_graph(rs: RunSession):
     async def human(st: State) -> State:
         d: Decision = st["decision"]
         kind = d.kind or "missing_field"
+        if kind in ("captcha", "otp"):
+            target = next((e for e in st["snap"]["elements"] if e["id"] == d.element_id), {})
+            if target.get("tag") not in ("input", "textarea"):
+                target = next((e for e in st["snap"]["elements"] if e.get("tag") in ("input", "textarea")
+                    and re.search("captcha" if kind == "captcha" else r"otp|one.time|verification", json.dumps(e), re.I)), {})
+                d = d.model_copy(update={"element_id": target.get("id")})
         await rs.set_status("needs_human")
-        ev = {"type": "needs_human", "kind": kind, "message": d.message or "Your help is needed", "field": d.value_from}
+        ev = await rs.human_event(kind, d.element_id, message=d.message or "Your help is needed", field=d.value_from)
         await record(st, d, "human", kind)
         msg = await rs.wait_human(ev, {"resume", "human_input"})
         hist = list(st.get("history", []))
         if msg["type"] == "human_input" and msg.get("value"):
             val = str(msg["value"])
+            rs.private_values.add(val)
             el = next((e for e in st["snap"]["elements"] if e["id"] == d.element_id), {})
             source_key = d.value_from if d.value_from != "goal" else None
             answer_key = source_key or el.get("formcontrolname") or el.get("name") or f"human_answer_{st['step']}"
             if kind == "missing_field":
                 rs.answers[answer_key] = val
-            if d.element_id and el.get("tag") in ("input", "textarea") and not el.get("readonly"):
+                if rs.profile_id:
+                    await rs.save_answers()
+            if kind not in ("login", "payment") and d.element_id and el.get("tag") in ("input", "textarea") and not el.get("readonly"):
                 await rs.browser.fill(d.element_id, val)  # OTP never goes to the model
-            hist.append({"step": st["step"], "action": f"ask_human({kind}): {d.message or ''}",
-                         "result": f"Human supplied an answer; use value_from={answer_key} to enter it"})
+            result = (f"Human supplied an answer; use value_from={answer_key} to enter it" if kind == "missing_field"
+                      else "Human completed verification in the page; preserve their entry unless the portal rejects it")
+            hist.append({"step": st["step"], "action": f"ask_human({kind}): {d.message or ''}", "result": result})
         else:
             hist.append({"step": st["step"], "action": f"ask_human({kind})", "result": "human finished it in the live view"})
         await rs.browser.settle()
@@ -545,10 +714,20 @@ def build_graph(rs: RunSession):
         d: Decision = st["decision"]
         await rs.set_status("awaiting_approval")
         await record(st, d, "human", "approval")
-        await rs.wait_human({"type": "needs_human", "kind": "confirm_submit", "message": d.message or "Submit now?"}, {"approve"})
+        duplicates = await rs.duplicate_runs()
+        event = await rs.human_event("confirm_submit", d.element_id, message=d.message or "Submit now?",
+            duplicate_warning=("An application was already completed for this scheme or portal. Check before submitting again." if duplicates else None),
+            duplicate_run_ids=duplicates)
+        # Repeating a completed application needs a separate, explicit override.
+        if duplicates:
+            await rs.wait_human(event, {"approve_duplicate"})
+        else:
+            await rs.wait_human(event, {"approve"})
         await rs.set_status("running")
         hist = list(st.get("history", []))
         try:
+            if page_changed(st["snap"], await rs.browser.snapshot()):
+                raise ValueError("Portal changed while waiting for approval; review the new page")
             await rs.browser.click(d.element_id)
             hist.append({"step": st["step"], "action": f"click({d.element_id}) [approved submit]", "result": "ok"})
         except Exception as e:
@@ -565,6 +744,7 @@ def build_graph(rs: RunSession):
             "title": st["snap"].get("title"),
             "screenshot": shot,
             "planning_calls": rs.llm_calls,
+            "attachments": rs.uploads,
         }
         return {"receipt": receipt, "outcome": "done"}
 

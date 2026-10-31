@@ -234,6 +234,8 @@ class RunIn(BaseModel):
     portal_url: str
     goal: str
     scheme_slug: str | None = None
+    kind: Literal["application", "complaint", "status_check"] = "application"
+    meta: dict = Field(default_factory=dict)
 
 
 class RunStepOut(BaseModel):
@@ -252,6 +254,8 @@ class RunOut(BaseModel):
     portal_url: str
     goal: str
     status: str
+    kind: str = "application"
+    meta: dict = Field(default_factory=dict)
     receipt: dict | None = None
     error: str | None = None
     steps: list[RunStepOut] = []
@@ -262,7 +266,9 @@ class RunOut(BaseModel):
 #   {"type":"frame","jpeg":"<base64>"}
 #   {"type":"step","step":{RunStepOut}}
 #   {"type":"status","status":"running"}
-#   {"type":"needs_human","kind":"captcha|otp|missing_field|confirm_submit|login","message":"...","field":"..."}
+#   {"type":"needs_human","kind":"captcha|otp|missing_field|confirm_submit|confirm_upload|login|payment",
+#    "message":"...","field":"...","guide":{"title":"...","steps":["..."],"lang":"hi"},
+#    "crop":"<base64 JPEG>","audio_url":"/files/audio/...wav"}
 #   {"type":"done","receipt":{"reference_no":"...","screenshot":"...","url":"...","summary":"..."}}
 #   {"type":"error","message":"..."}
 # client -> server:
@@ -442,3 +448,14 @@ class MonitorOut(BaseModel):
     notifications: int = 0
     errors: int = 0
     timed_out: bool = False
+#   {"type":"approve_duplicate"}                  explicit override of duplicate_warning
+# Owner capability on run reads/resume/WS and locker file/delete: profile_id query or X-Profile-ID header.
+
+# ---------- agent: document locker ----------
+class LockerOut(BaseModel):
+    id: str
+    doc_type: str
+    title: str
+    variants: list[dict]
+    meta: dict
+    created_at: datetime

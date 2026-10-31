@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import get_settings
 from .db import engine, init_db
 from .services import llm, monitor
-from .routers import activity, agent, assist, chat, documents, notifications, profile, reports, schemes, talk, voice
+from .routers import activity, agent, assist, chat, documents, locker, notifications, profile, reports, schemes, talk, voice
 from .agents.civic import completion_loop
 
 settings = get_settings()
@@ -48,7 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (assist, profile, schemes, documents, chat, voice, agent, talk, reports, notifications, activity):
+for r in (assist, profile, schemes, documents, chat, voice, agent, talk, reports, notifications, activity, locker):
     app.include_router(r.router, prefix="/api")
 
 Path(settings.storage_dir).mkdir(parents=True, exist_ok=True)

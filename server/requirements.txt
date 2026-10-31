@@ -11,6 +11,7 @@ google-genai>=1.2
 langgraph>=0.2.70
 playwright>=1.49
 pypdf>=5.1
+Pillow>=11.0
 feedparser>=6.0.11
 beautifulsoup4>=4.12
 cryptography>=44.0
