@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     agent_allowed_domains: str = "gov.in,nic.in"
     storage_dir: str = "storage"
 
+    def model_post_init(self, __context: object) -> None:
+        # The 12-RPM default is for AI Studio's free tier, not paid Vertex.
+        if self.gemini_backend == "vertex" and "gemini_rpm" not in self.model_fields_set:
+            self.gemini_rpm = 600
+
     @property
     def fallback_models(self) -> list[str]:
         return [m.strip() for m in self.gemini_fallback_models.split(",") if m.strip()]
