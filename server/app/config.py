@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     client_origin: str = "http://localhost:5173"
     agent_headless: bool = True
+    agent_browser_channel: str | None = None  # e.g. chrome; default is bundled Chromium
     agent_allowed_domains: str = "gov.in,nic.in"
     storage_dir: str = "storage"
 

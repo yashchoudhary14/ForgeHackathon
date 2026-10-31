@@ -95,6 +95,8 @@ SNAPSHOT_JS = r"""
     }
     if (el.required || el.getAttribute('aria-required') === 'true') d.required = true;
     if (el.disabled) d.disabled = true;
+    if (el.readOnly || el.getAttribute('aria-readonly') === 'true') d.readonly = true;
+    for (const a of ['min', 'max', 'pattern']) { const v = el.getAttribute(a); if (v) d[a] = v; }
     if (el.getAttribute('aria-invalid') === 'true') d.invalid = true;
     out.push(d);
     if (n >= 150) break;
@@ -131,7 +133,8 @@ class Browser:
     async def start(self):
         self._pw = await async_playwright().start()
         self._browser = await self._pw.chromium.launch(
-            headless=get_settings().agent_headless, args=["--disable-blink-features=AutomationControlled"]
+            headless=get_settings().agent_headless, channel=get_settings().agent_browser_channel,
+            args=["--disable-blink-features=AutomationControlled"]
         )
         self.ctx = await self._browser.new_context(viewport=VIEWPORT, locale="en-IN", accept_downloads=True)
         await self.ctx.route("**/*", self._guard)
@@ -178,6 +181,12 @@ class Browser:
         # Analytics and polling need not finish before a form can be used.
         await self.page.wait_for_load_state("domcontentloaded", timeout=10000)
         await self.page.wait_for_timeout(150)
+        busy = self.page.locator('[aria-busy="true"], mat-progress-spinner, mat-spinner').filter(visible=True)
+        if await busy.count():
+            try:
+                await busy.first.wait_for(state="hidden", timeout=2000)
+            except Exception:
+                pass  # report the current state rather than waiting forever
 
     async def _snap_once(self) -> dict:
         try:
@@ -193,7 +202,7 @@ class Browser:
         for _ in range(4):
             await asyncio.sleep(0.15)
             again = await self._snap_once()
-            if again["headings"] == snap["headings"] and len(again["elements"]) == len(snap["elements"]) and again["text"] == snap["text"]:
+            if again == snap:
                 snap = again
                 break
             snap = again
