@@ -64,16 +64,23 @@ SNAPSHOT_JS = r"""
     const field = el.closest('mat-form-field, .form-group, .form-field');
     const caption = field?.querySelector('mat-label, label');
     if (caption) return caption.innerText.trim();
+    if (el.matches('[role=radio], input[type=radio]')) {
+      const row = el.closest('tr, [role=row]');
+      if (row) return row.innerText.trim();
+    }
     // table layouts: label in previous cell
     const td = el.closest('td'); if (td && td.previousElementSibling) return td.previousElementSibling.innerText.trim();
     return '';
   };
   const registry = window.__adhikaarAgentIds ||= { ids: new WeakMap(), next: 1 };
+  const dialogs = [...document.querySelectorAll('[role=dialog], [role=alertdialog], [aria-modal=true], mat-dialog-container, .modal')].filter(vis);
+  const root = dialogs.at(-1) || document;
+  const roots = [root, ...document.querySelectorAll('[role=listbox], mat-calendar')].filter(r => r === document || vis(r));
   const out = [];
   document.querySelectorAll('[data-agent-id]').forEach(e => e.removeAttribute('data-agent-id'));
   // react/angular portals attach click handlers to plain divs - catch those via cursor:pointer
-  const cands = new Set(document.querySelectorAll(sel));
-  for (const el of document.querySelectorAll('div, span, li, img, td')) {
+  const cands = new Set(roots.flatMap(r => [...r.querySelectorAll(sel)]));
+  for (const el of roots.flatMap(r => [...r.querySelectorAll('div, span, li, img, td')])) {
     if (getComputedStyle(el).cursor !== 'pointer') continue;
     if (el.parentElement && getComputedStyle(el.parentElement).cursor === 'pointer') continue;
     if (el.closest(sel) || el.querySelector(sel)) continue;
@@ -143,7 +150,8 @@ SNAPSHOT_JS = r"""
     .filter(vis).map(e => e.innerText.trim()).filter(Boolean).slice(0, 8);
   const heads = [...document.querySelectorAll('h1,h2,h3,legend')].filter(vis).map(e => e.innerText.trim()).filter(Boolean).slice(0, 8);
   const captcha = !!document.querySelector('iframe[src*="recaptcha"], iframe[src*="hcaptcha"], img[src*="captcha" i], img[id*="captcha" i], input[name*="captcha" i], input[id*="captcha" i], input[formcontrolname*="captcha" i], input[placeholder*="captcha" i]');
-  const body = document.body ? document.body.innerText.replace(/\s+/g, ' ').slice(0, 2500) : '';
+  const textRoot = root === document ? document.body : root;
+  const body = textRoot ? textRoot.innerText.replace(/\s+/g, ' ').slice(0, 2500) : '';
   const steps = [...document.querySelectorAll('[aria-current="step"], [role="tab"][aria-selected="true"]')]
     .filter(vis).map(e => e.innerText.trim());
   return { elements: out, errors: errs, headings: heads, steps, captcha, text: body };

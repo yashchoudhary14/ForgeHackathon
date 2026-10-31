@@ -320,8 +320,10 @@ class RunSession:
 # ---------- graph nodes ----------
 
 def _digest(snap: dict) -> str:
-    els = [(e.get("tag"), e.get("text") or e.get("label"), e.get("value"), e.get("checked"), e.get("selected")) for e in snap["elements"]]
-    return str(hash((snap["url"], tuple(snap["headings"]), tuple(snap["errors"]), tuple(els))))
+    els = [(e.get("tag"), e.get("text") or e.get("label"), e.get("value"), e.get("checked"),
+            e.get("selected"), e.get("disabled"), e.get("expanded")) for e in snap["elements"]]
+    return str(hash((snap["url"], tuple(snap["headings"]), tuple(snap["errors"]),
+                     tuple(snap.get("network_errors", [])), snap.get("text", ""), tuple(els))))
 
 
 def _el_name(snap: dict, element_id: int | None) -> str:

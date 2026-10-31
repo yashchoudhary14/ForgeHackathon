@@ -3,7 +3,7 @@ from copy import deepcopy
 import pytest
 from pydantic import ValidationError
 
-from app.agents.executor import ActionPlan, Decision, execution_prefix, page_changed
+from app.agents.executor import ActionPlan, Decision, execution_prefix, page_changed, _digest
 
 
 def action(kind="type", element_id=1):
@@ -34,6 +34,14 @@ def test_filling_a_value_does_not_end_batch():
     after = deepcopy(before)
     after["elements"][0]["value"] = "144000"
     assert not page_changed(before, after)
+
+
+def test_pagination_text_is_progress_even_when_controls_are_reused():
+    before = snapshot()
+    before["text"] = "first ten institutes; 1-10 of 13"
+    after = deepcopy(before)
+    after["text"] = "Indian Institute of Technology Guwahati; 11-13 of 13"
+    assert _digest(before) != _digest(after)
 
 
 def test_visible_radio_can_share_batch_but_next_button_cannot():
