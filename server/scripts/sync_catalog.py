@@ -18,13 +18,7 @@ from app import db, models  # noqa: E402
 from app.services import myscheme  # noqa: E402
 
 
-async def all_slugs(limit: int | None) -> list[str]:
-    first = await myscheme.search("", filters={}, offset=0, size=100)
-    total = min(first.total, limit) if limit else first.total
-    pages = [first] + await asyncio.gather(*(myscheme.search("", filters={}, offset=offset, size=100)
-                                             for offset in range(100, total, 100)))
-    slugs = list(dict.fromkeys(s.slug for page in pages for s in page.items))
-    return slugs[:total]
+all_slugs = myscheme.all_slugs
 
 
 async def main(limit: int | None, batch: int):

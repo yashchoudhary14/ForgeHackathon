@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     agent_browser_channel: str | None = None  # e.g. chrome; default is bundled Chromium
     agent_allowed_domains: str = "gov.in,nic.in"
     storage_dir: str = "storage"
+    monitor_hours: float = Field(default=6, ge=0)
 
     def model_post_init(self, __context: object) -> None:
         # The 12-RPM default is for AI Studio's free tier, not paid Vertex.
