@@ -4,6 +4,9 @@ import base64
 import logging
 import json
 import re
+from io import BytesIO
+
+from PIL import Image
 from datetime import datetime
 from typing import Awaitable, Callable
 from urllib.parse import urlparse
@@ -149,7 +152,8 @@ SNAPSHOT_JS = r"""
     if (el.required || el.getAttribute('aria-required') === 'true') d.required = true;
     if (el.disabled || el.getAttribute('aria-disabled') === 'true' || el.closest('fieldset[disabled]')) d.disabled = true;
     if (el.readOnly || el.getAttribute('aria-readonly') === 'true') d.readonly = true;
-    for (const a of ['min', 'max', 'pattern']) { const v = el.getAttribute(a); if (v) d[a] = v; }
+    for (const a of ['min', 'max', 'pattern', 'accept', 'data-max-size']) { const v = el.getAttribute(a); if (v) d[a] = v; }
+    if (t === 'file') d.size_hint = el.parentElement?.innerText?.slice(0, 300) || '';
     if (el.getAttribute('aria-invalid') === 'true') d.invalid = true;
     out.push(d);
     if (out.length >= 150) break;
@@ -321,15 +325,48 @@ class Browser:
 
     async def decision_screenshot(self) -> bytes:
         """Scale the entire visible viewport, preserving the user's browser geometry."""
-        metrics = await self._cdp.send("Page.getLayoutMetrics")
-        viewport = metrics.get("cssVisualViewport") or metrics["visualViewport"]
-        response = await self._cdp.send("Page.captureScreenshot", {
-            "format": "jpeg", "quality": 40, "captureBeyondViewport": False,
-            "clip": {"x": viewport["pageX"], "y": viewport["pageY"],
-                     "width": viewport["clientWidth"], "height": viewport["clientHeight"],
-                     "scale": min(1, 1024 / viewport["clientWidth"])},
-        })
-        return base64.b64decode(response["data"])
+        # Portal screenshots are for the citizen only. A visual planner must not
+        # receive filled personal data, OTPs or CAPTCHA pixels.
+        return b""
+
+    async def human_crop(self, kind: str, element_id: int | None = None) -> str | None:
+        """Only the relevant control, enlarged for the citizen; never sent to Gemini."""
+        target = self.el(element_id) if element_id else None
+        if kind == "captcha":
+            images = self.page.locator(
+                'img[src*="captcha" i], img[id*="captcha" i], img[alt*="captcha" i], '
+                'canvas[id*="captcha" i], iframe[src*="recaptcha"], iframe[src*="hcaptcha"]')
+            target = None
+            for candidate in await images.all():
+                if await candidate.is_visible():
+                    target = candidate
+                    break
+            if target is None and element_id:
+                # Some portals use a data-URL image with no semantic attributes.
+                field = self.el(element_id)
+                for depth in range(1, 4):
+                    nearby = field.locator(f'xpath=ancestor::*[{depth}]').locator('img, canvas')
+                    visible = [img for img in await nearby.all() if await img.is_visible()]
+                    if len(visible) == 1:
+                        target = visible[0]
+                        break
+            if target is None:
+                return None  # never mislabel a full-page screenshot as the CAPTCHA
+        if target is None:
+            target = self.page.locator('form:visible, [role="dialog"]:visible, main:visible').first
+            if not await target.count():
+                target = self.page.locator('body')
+        try:
+            raw = await target.screenshot(type="jpeg", quality=90, timeout=5000)
+            with Image.open(BytesIO(raw)) as im:
+                im = im.convert("RGB")
+                im = im.resize((im.width * 3, im.height * 3), Image.Resampling.LANCZOS)
+                out = BytesIO()
+                im.save(out, "JPEG", quality=90)
+            return base64.b64encode(out.getvalue()).decode("ascii")
+        except Exception:
+            log.warning("Could not capture human control (%s)", kind)
+            return None
 
     async def screenshot(self, path: str | None = None, quality: int = 60) -> bytes:
         return await self.page.screenshot(type="jpeg", quality=quality, path=path)
@@ -480,8 +517,8 @@ class Browser:
         else:
             await loc.set_checked(on, timeout=5000)
 
-    async def upload(self, element_id: int, path: str):
-        await self.el(element_id).set_input_files(path)
+    async def upload(self, element_id: int, file):
+        await self.el(element_id).set_input_files(file)
 
     async def scroll(self, down: bool = True):
         await self.page.mouse.wheel(0, 600 if down else -600)
