@@ -17,7 +17,11 @@ const Ask = lazy(() => import("./pages/Ask"));
 const Run = lazy(() => import("./pages/Run"));
 const Runs = lazy(() => import("./pages/Runs"));
 const Alerts = lazy(() => import("./pages/Alerts"));
+const Locker = lazy(() => import("./pages/Locker"));
 const Talk = lazy(() => import("./pages/Talk"));
+const Civic = lazy(() => import("./pages/Civic"));
+const CivicNew = lazy(() => import("./pages/CivicNew"));
+const CivicTrack = lazy(() => import("./pages/CivicTrack"));
 
 export function useUnread(profileId: string) {
   const [unread, setUnread] = useState(0);
@@ -92,6 +96,10 @@ export default function AppRoutes() {
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/talk" element={<Talk />} />
+        <Route path="/locker" element={<Locker />} />
+        <Route path="/civic" element={<Civic />} />
+        <Route path="/civic/new" element={<CivicNew />} />
+        <Route path="/civic/:id" element={<CivicTrack />} />
         <Route path="/alerts" element={<Alerts />} />
         <Route path="/schemes" element={<Schemes />} />
         <Route path="/schemes/:slug" element={<Scheme />} />
