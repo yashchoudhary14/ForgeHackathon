@@ -33,7 +33,7 @@ export default function TalkDock({
     onSend(v);
   };
   return (
-    <div className="sticky bottom-0 flex shrink-0 flex-col items-center gap-3 bg-gradient-to-t from-paper via-paper/95 to-transparent px-4 pb-6 pt-3">
+    <div className="sticky bottom-0 flex shrink-0 flex-col items-center gap-3 border-t border-line bg-card px-4 pb-6 pt-3">
       {quick.length > 0 && (
         <div className="flex max-w-xl flex-wrap justify-center gap-2">
           {quick.map((q) => (
@@ -42,7 +42,7 @@ export default function TalkDock({
               type="button"
               disabled={busy}
               onClick={() => submit(q)}
-              className="!bg-white !text-ink shadow-[inset_0_0_0_1px_#d9cfc0] transition-transform active:scale-[0.98] motion-reduce:transition-none"
+              className="!min-h-12 !rounded-full !border-2 !border-act !bg-card !text-act active:scale-[0.98] motion-reduce:transition-none"
             >
               {q}
             </button>
@@ -70,7 +70,7 @@ export default function TalkDock({
           if (e.key === " " || e.key === "Enter") onHoldEnd();
         }}
         onContextMenu={(e) => e.preventDefault()}
-        className="relative !h-auto !rounded-full !bg-transparent !p-0 touch-none select-none ring-4 ring-white/60 transition-transform active:scale-95 motion-reduce:transition-none"
+        className={"relative !h-auto !rounded-full !bg-transparent !p-0 touch-none select-none ring-[6px] ring-offset-4 ring-offset-card " + (orb === "listening" ? "ring-saffron" : orb === "speaking" ? "ring-ok" : busy ? "ring-act/50" : "ring-act") + " transition-transform active:scale-95 motion-reduce:transition-none"}
       >
         <Orb state={orb} size={listening ? 160 : 152} />
         {orb === "speaking" ? <Volume2 aria-hidden="true" className="absolute inset-0 m-auto text-ink" size={36} /> : <Mic
@@ -84,9 +84,9 @@ export default function TalkDock({
         disabled={busy}
         onClick={() => (listening ? onHoldEnd() : onHoldStart())}
         role="status"
-        className="-mt-4 z-10 inline-flex !min-h-10 items-center gap-2 !rounded-full !bg-ink !px-4 !py-1.5 text-xs font-semibold !text-paper shadow-md"
+        className={"-mt-3 z-10 inline-flex !min-h-11 items-center gap-2 !rounded-full !px-5 !py-1.5 text-sm font-semibold " + (listening ? "!bg-saffron !text-ink" : "!bg-act !text-white")}
       >
-        <span aria-hidden="true" className={"h-2 w-2 shrink-0 rounded-full " + (listening ? "bg-saffron animate-pulse motion-reduce:animate-none" : orb === "speaking" ? "bg-act" : "bg-paper/60")} />
+        <span aria-hidden="true" className={"h-2 w-2 shrink-0 rounded-full " + (listening ? "bg-ink animate-pulse motion-reduce:animate-none" : orb === "speaking" ? "bg-ok-soft" : "bg-white/70")} />
         {status}
       </button>
       <form
