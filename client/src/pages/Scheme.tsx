@@ -142,7 +142,7 @@ export default function Scheme() {
               </p>
               {!profileId ? (
                 <p>
-                  <Link to="/" className="inline-flex min-h-11 items-center font-semibold">
+                  <Link to="/welcome" className="inline-flex min-h-11 items-center font-semibold">
                     <Text value={"Create a profile first →"} />
                   </Link>
                 </p>

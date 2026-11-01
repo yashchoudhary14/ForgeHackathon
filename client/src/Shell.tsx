@@ -42,9 +42,15 @@ function Layout() {
   const { profileId, mode, lang } = useApp();
   const unread = useUnread(profileId);
   const { pathname } = useLocation();
+  const path = pathname.replace(/\/+$/, "") || "/";
   // Talk mode is a full-screen conversation, so the page itself provides its chrome.
-  const bare = pathname === "/talk";
-  if (!mode) return <Navigate to="/welcome" replace />;
+  const bare = path === "/talk";
+  // First visits start with onboarding, but shared links remain browsable.
+  if (!mode && path === "/") return <Navigate to="/welcome" replace />;
+  const needsProfile =
+    !profileId &&
+    (["/locker", "/alerts", "/runs", "/civic/new"].includes(path) ||
+      path.startsWith("/runs/"));
   return (
     <>
       {!bare && <PillNav unread={unread} />}
@@ -56,7 +62,20 @@ function Layout() {
         }
       >
         <Suspense fallback={<Loading message="Opening your page…" />}>
-          <Outlet />
+          {needsProfile ? (
+            <EmptyState
+              title={tt(lang, "needProfileTitle")}
+              action={
+                <Link to="/welcome" className="inline-flex min-h-11 items-center font-semibold">
+                  {tt(lang, "profileCreate")} →
+                </Link>
+              }
+            >
+              {tt(lang, "needProfile")}
+            </EmptyState>
+          ) : (
+            <Outlet />
+          )}
         </Suspense>
         {!bare && (
           <footer className="py-8 text-xs text-ink-soft">
@@ -91,7 +110,6 @@ export default function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/talk" element={<Talk />} />
-        <Route path="/profile" element={<BuddyWelcome profile />} />
         <Route path="/locker" element={<Locker />} />
         <Route path="/civic" element={<Civic />} />
         <Route path="/civic/new" element={<CivicNew />} />

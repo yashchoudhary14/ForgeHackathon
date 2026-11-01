@@ -233,6 +233,20 @@ export default function BuddyWelcome({
           </form>
         </Card>
       )}
+      {!profile && (
+        <button
+          className="secondary self-start"
+          disabled={busy}
+          onClick={() => {
+            setMode(mode || "manual");
+            setOnboarding(false);
+            setOpen(false);
+            navigate("/");
+          }}
+        >
+          {ui("skip")}
+        </button>
+      )}
       {error && (
         <p role="alert" className="text-bad">
           {error}

@@ -237,7 +237,7 @@ export function MatchResults({
         </p>
       )}
       {!profileId ? (
-        <EmptyState title={<Text value="See schemes matched to you" />} action={<PillLink to="/profile" tone="saffron">
+        <EmptyState title={<Text value="See schemes matched to you" />} action={<PillLink to="/welcome" tone="saffron">
             <Text value={"Create your profile →"} />
           </PillLink>}>
           {tt(lang, "needProfile")}
