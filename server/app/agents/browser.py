@@ -301,9 +301,13 @@ class Browser:
 
     async def settle(self):
         started = time.monotonic()
-        # Analytics and polling need not finish before a form can be used.
-        await self.page.wait_for_load_state("domcontentloaded", timeout=2500)
-        await self.page.locator("body").wait_for(state="visible", timeout=1000)
+        # Analytics and polling need not finish before a form can be used. Slow portals
+        # (Sarathi, PGPortal) can take longer: short waits are best effort, never fatal.
+        try:
+            await self.page.wait_for_load_state("domcontentloaded", timeout=8000)
+            await self.page.locator("body").wait_for(state="visible", timeout=5000)
+        except Exception:
+            log.info("browser phase=settle slow page; continuing with current state")
         busy = self.page.locator('[aria-busy="true"], mat-progress-spinner, mat-spinner, .ngx-spinner-overlay, .loading-overlay, .spinner-overlay').filter(visible=True)
         if await busy.count():
             try:

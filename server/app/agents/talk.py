@@ -132,12 +132,12 @@ def application_consent(message: str, named: bool, offered: bool) -> bool:
     message = message.replace("’", "'")
     denied = re.search(r"\b(do not|don't|dont|not now|not yet|later|maybe|perhaps|cancel|stop|no|mat|nahi|nahin)\b|मत|नहीं|না\b|নকৰিব|নালাগে|வேண்டாம்|వద్దు|ಬೇಡ|വേണ്ട|નહીં|ਨਹੀਂ|नको|ନାହିଁ", message, re.I)
     # Asking HOW to apply, or quoting an application instruction, is not consent.
-    delegated = re.search(r"\b(for me|can you|could you|would you|please|bana\s*(?:do|dijiye))\b|मेरे लिए|করুন|করে দিন|কৰি দিয়ক", message, re.I)
+    delegated = re.search(r"\b(for me|can you|could you|would you|please|get me|make me|ban(?:a|wa|va)\s*(?:do|dijiye|dena)|kar(?:wa|va)?\s*do)\b|मेरे लिए|बनवा|করুন|করে দিন|করে দাও|কৰি দিয়ক", message, re.I)
     informational = re.search(r"\b(what|which|where|when|why|how|explain|understand|documents?|fees?|requirements?|status|track|already|submitted|pending|rejected|can i|could i|should i|kaise)\b|कैसे|समझ|स्थिति|कर दिया|কীভাবে|কিভাবে|বোঝ|বুঝ", message, re.I)
     question = re.search(r"[?？]|क्या", message) and not delegated
     apply = re.search(r"\b(apply|start|begin|complete|fill)\b|"
-                      r"\b(bana\s*(?:do|dijiye)|(?:apply|fill|bhar|shuru)\s*(?:kar\s*)?(?:do|dijiye))\b|"
-                      r"आवेदन|फॉर्म|बना\s*(?:दो|दीजिए)|ফর্ম|আবেদন|পূরণ\s*(?:করুন|করে)|পূৰণ|விண்ணப்ப|దరఖాస్తు|ಅರ್ಜಿ|അപേക്ഷ|અરજી|ਅਰਜ਼ੀ|अर्ज|ଆବେଦନ", message, re.I)
+                      r"\b(ban(?:a|wa|va)\s*(?:do|dijiye|dena|na\s+hai)|banwana|(?:apply|fill|bhar|shuru)\s*(?:kar\s*)?(?:do|dijiye)|get\s+me|make\s+me|chahiye)\b|"
+                      r"आवेदन|फॉर्म|बना\s*(?:दो|दीजिए)|बनवा\s*(?:दो|दीजिए|ना)|चाहिए|ফর্ম|আবেদন|পূরণ\s*(?:করুন|করে)|পূৰণ|বানিয়ে|விண்ணப்ப|దరఖాస్తు|ಅರ್ಜಿ|അപേക്ഷ|અરજી|ਅਰਜ਼ੀ|अर्ज|ଆବେଦନ", message, re.I)
     yes = re.search(r"^(?:yes|ok|okay|haan|han|ha|हाँ|हां|जी|ठीक|হ্যাঁ|হাঁ|হয়|ஆம்|అవును|ಹೌದು|അതെ|હા|ਹਾਂ|हो|ହଁ)(?!\w)", message.strip(), re.I)
     return bool(not denied and not informational and not question and ((apply and (named or offered)) or (yes and offered)))
 

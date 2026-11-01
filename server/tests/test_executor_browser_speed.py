@@ -25,9 +25,19 @@ async def test_settle_waits_for_body_and_visible_loading_indicator():
     locator = Mock(side_effect=[body, SimpleNamespace(filter=Mock(return_value=busy))])
     browser.page = SimpleNamespace(wait_for_load_state=AsyncMock(), locator=locator)
     await browser.settle()
-    browser.page.wait_for_load_state.assert_awaited_once_with("domcontentloaded", timeout=2500)
-    body.wait_for.assert_awaited_once_with(state="visible", timeout=1000)
+    browser.page.wait_for_load_state.assert_awaited_once_with("domcontentloaded", timeout=8000)
+    body.wait_for.assert_awaited_once_with(state="visible", timeout=5000)
     busy.first.wait_for.assert_awaited_once_with(state="hidden", timeout=2000)
+
+
+async def test_slow_page_settle_never_crashes_the_run():
+    browser = Browser.__new__(Browser)
+    body = SimpleNamespace(wait_for=AsyncMock(side_effect=TimeoutError("slow portal")))
+    busy = SimpleNamespace(count=AsyncMock(return_value=0))
+    busy.filter = lambda **_: busy
+    browser.page = SimpleNamespace(wait_for_load_state=AsyncMock(),
+                                   locator=lambda selector: body if selector == "body" else busy)
+    await browser.settle()
 
 
 async def test_slow_frame_consumer_does_not_queue_more_sends():

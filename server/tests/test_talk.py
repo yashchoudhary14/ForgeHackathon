@@ -107,6 +107,14 @@ async def test_first_text_detection_redacts_private_data_and_respects_explicit_l
     detect.assert_not_awaited()
 
 
+def test_romanized_and_casual_apply_requests_are_consent():
+    for text in ("mera passport banwa do", "mujhe driving licence chahiye", "get me a PAN card",
+                 "मेरा पासपोर्ट बनवा दो", "fill my drivers licence for me"):
+        assert talk.application_consent(text, True, False), text
+    for text in ("passport ke liye kya documents chahiye", "passport kaise banwa sakte hain?", "mat banwao abhi"):
+        assert not talk.application_consent(text, True, False), text
+
+
 async def test_typed_hindi_switches_an_english_ui_session(db, monkeypatch):
     mock_brain(monkeypatch)
     # the client always sends its UI language; Hindi script still switches the session
