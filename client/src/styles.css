@@ -1,5 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Mukta:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@500;700&display=swap");
 @import "tailwindcss";
+@import "./theme.css";
 :root {
   font-family: "Noto Sans", "Noto Sans Devanagari", system-ui, sans-serif;
   color: #202c39;
@@ -23,28 +24,6 @@ svg {
 .fields > *,
 .search > * {
   min-width: 0;
-}
-.language-controls {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.language-toggle {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  background: #eeeee5;
-  border-radius: 12px;
-}
-.language-toggle button {
-  min-height: 44px;
-  padding: 0.45rem 0.8rem;
-  background: transparent;
-  border-color: transparent;
-}
-.language-toggle button[aria-pressed="true"] {
-  color: white;
-  background: #244e4b;
 }
 .hero-actions {
   align-items: center;
@@ -209,78 +188,6 @@ a:hover {
 *:focus-visible {
   outline: 3px solid #187c8b;
   outline-offset: 3px;
-}
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.2rem 4%;
-  border-bottom: 1px solid #deded5;
-  background: #fffdf8;
-}
-.brand {
-  display: flex;
-  gap: 0.65rem;
-  align-items: center;
-  text-decoration: none;
-  color: #243e42;
-  font-size: 1.5rem;
-  font-weight: 800;
-}
-.brand > svg {
-  color: #b65314;
-  width: 36px;
-  height: 36px;
-}
-.brand small {
-  display: block;
-  font-size: 0.65rem;
-  font-weight: 500;
-  color: #66716f;
-}
-.language {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-}
-.language select {
-  width: auto;
-}
-.shell {
-  max-width: 1500px;
-  margin: auto;
-  display: grid;
-  grid-template-columns: 215px 1fr;
-}
-nav {
-  padding: 2rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-nav a {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.9rem 0.8rem;
-  text-decoration: none;
-  color: #59655f;
-  font-size: 0.88rem;
-  border-radius: 9px;
-}
-nav a.active {
-  color: #873d13;
-  background: #f6e5cc;
-  font-weight: 700;
-}
-main {
-  min-width: 0;
-  padding: 2.8rem 3rem 1rem;
-  border-left: 1px solid #e4e2d8;
-  min-height: calc(100vh - 90px);
 }
 h1,
 h2,
@@ -454,11 +361,6 @@ form button {
   to {
     opacity: 0.4;
   }
-}
-footer {
-  font-size: 0.72rem;
-  color: #687266;
-  padding: 2rem 0;
 }
 .page-heading {
   margin-bottom: 2rem;
@@ -719,12 +621,6 @@ pre {
   margin-bottom: 0;
 }
 @media (max-width: 1000px) {
-  main {
-    padding: 2rem 1.4rem;
-  }
-  .shell {
-    grid-template-columns: 180px 1fr;
-  }
   .intake-grid,
   .run-grid {
     grid-template-columns: 1fr;
@@ -876,3 +772,5 @@ pre {
     scroll-behavior: auto !important;
   }
 }
+
+

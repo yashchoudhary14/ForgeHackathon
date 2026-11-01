@@ -5,14 +5,15 @@ import { request, websocketUrl } from "../api/client";
 import { applyRunEvent, isTerminal, mergeRunSnapshot } from "../api/run-state";
 import type {
   ClientMessage,
-  HumanKind,
+  Human,
   RunOut,
   ServerMessage,
 } from "../api/types";
 import { ErrorBox, Loading } from "../components";
+import HumanStep from "./HumanStep";
 import { ReceiptView } from "../ReceiptView";
 import { Globe, Monitor, ShieldCheck } from "lucide-react";
-type Human = { kind: HumanKind; message: string; field?: string };
+
 const actionLabels: Record<string, string> = {
   click: "Selecting a field or button",
   type: "Filling in your details",
@@ -358,150 +359,16 @@ export default function Run() {
               </section>
             )}
           {human && (
-            <section
-              className="panel human"
-              role="alert"
-              ref={humanPanel}
-              tabIndex={-1}
-              aria-labelledby="human-heading"
-            >
-              <span className="eyebrow">
-                <Text value={"YOUR HELP IS NEEDED"} />
-              </span>
-              <h2 id="human-heading">
-                <Text
-                  value={
-                    human.kind === "confirm_submit"
-                      ? "Ready to submit?"
-                      : human.kind === "otp"
-                        ? "Enter your one-time password"
-                        : human.kind === "captcha"
-                          ? "Complete the CAPTCHA"
-                          : human.kind === "login"
-                            ? "Sign in to continue"
-                            : "A detail is missing"
-                  }
-                />
-              </h2>
-              <div className="human-gates" aria-label="Human checkpoints">
-                {[
-                  ["captcha", "CAPTCHA"],
-                  ["otp", "OTP"],
-                  ["confirm_submit", "Final approval"],
-                ].map(([kind, label]) => (
-                  <span
-                    key={kind}
-                    className={human.kind === kind ? "active" : ""}
-                  >
-                    <Text value={label} />
-                  </span>
-                ))}
-              </div>
-              <p>{human.message}</p>
-              {human.kind === "confirm_submit" ? (
-                <>
-                  <p>
-                    <Text
-                      value={
-                        "Review the application in the browser view before approving."
-                      }
-                    />
-                  </p>
-                  <div className="actions">
-                    <button
-                      disabled={connection !== "Connected"}
-                      onClick={() => humanAction("approve")}
-                    >
-                      <Text value={"Approve final submission"} />
-                    </button>
-                    <button
-                      className="secondary"
-                      disabled={connection !== "Connected"}
-                      onClick={() => humanAction("abort")}
-                    >
-                      <Text value={"Abort application"} />
-                    </button>
-                  </div>
-                </>
-              ) : human.kind === "captcha" || human.kind === "login" ? (
-                <div className="actions">
-                  <button
-                    disabled={connection !== "Connected"}
-                    onClick={takeOver}
-                  >
-                    <Text value={"Take over"} />
-                  </button>
-                  <button
-                    className="secondary"
-                    disabled={!takeover || connection !== "Connected"}
-                    onClick={() => humanAction("resume")}
-                  >
-                    <Text value={"I’m done, continue"} />
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (
-                        answer.trim() &&
-                        send({ type: "human_input", value: answer })
-                      ) {
-                        setAnswer("");
-                        setHuman(null);
-                      }
-                    }}
-                  >
-                    <label htmlFor="human-answer">
-                      <Text
-                        value={
-                          human.kind === "otp"
-                            ? "One-time password (OTP)"
-                            : human.field || "Your answer"
-                        }
-                      />
-                    </label>
-                    <input
-                      id="human-answer"
-                      type={human.kind === "otp" ? "password" : "text"}
-                      autoComplete={
-                        human.kind === "otp" ? "one-time-code" : "off"
-                      }
-                      inputMode={human.kind === "otp" ? "numeric" : undefined}
-                      value={answer}
-                      onChange={(e) => setAnswer(e.target.value)}
-                      required
-                    />
-                    <button
-                      disabled={!answer.trim() || connection !== "Connected"}
-                    >
-                      <Text value={"Continue"} />
-                    </button>
-                  </form>
-                  {human.kind === "missing_field" && (
-                    <div className="actions">
-                      <button
-                        className="secondary"
-                        disabled={connection !== "Connected"}
-                        onClick={takeOver}
-                      >
-                        <Text value="Take over" />
-                      </button>
-                      {takeover && (
-                        <button
-                          className="secondary"
-                          disabled={connection !== "Connected"}
-                          onClick={() => humanAction("resume")}
-                        >
-                          <Text value="I’m done, continue" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </section>
+            <HumanStep
+              human={human}
+              connected={connection === "Connected"}
+              answer={answer}
+              setAnswer={setAnswer}
+              takeover={takeover}
+              onTakeOver={takeOver}
+              send={send}
+              onDone={humanAction}
+            />
           )}
           <div className="run-grid">
             <section className="panel browser-panel">

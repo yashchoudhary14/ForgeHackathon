@@ -6,7 +6,10 @@ import { request, streamMatches } from "../api/client";
 import { applyMatchEvent } from "../api/match-state";
 import type { MatchResult, SearchOut } from "../api/types";
 import { useApp } from "../context";
-import { Citations, Empty, ErrorBox, Loading } from "../components";
+import { Empty, ErrorBox, Loading } from "../components";
+import { MatchCards, MatchStats } from "./SchemeCards";
+import { AlertsPanel } from "./Alerts";
+import { Card, Eyebrow } from "../ui";
 export default function Schemes() {
   const { profileId, t, lang } = useApp();
   const [matches, setMatches] = useState<MatchResult[]>([]),
@@ -81,18 +84,23 @@ export default function Schemes() {
   }
   return (
     <>
-      <div className="page-heading">
-        <span className="eyebrow">
-          <Text value={"DISCOVER / सरकारी योजनाएँ"} />
-        </span>
+      <div className="mb-6 flex flex-col gap-2">
+        <Eyebrow>{t.schemes}</Eyebrow>
         <h1>{t.schemes}</h1>
-        <p className="muted">
+        <p className="muted m-0">
           <Text
             value={
               "Find support for your next step, with reasons from official sources."
             }
           />
         </p>
+      </div>
+      <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_340px]">
+        <MatchStats matches={matches} />
+        <Card>
+          <h2 className="mb-2">Alerts</h2>
+          <AlertsPanel compact />
+        </Card>
       </div>
       <section className="panel">
         <form
@@ -202,90 +210,6 @@ export default function Schemes() {
         </>
       )}
     </>
-  );
-}
-
-function MatchCards({ matches }: { matches: MatchResult[] }) {
-  const verdicts = {
-    eligible: "Eligible",
-    likely: "Likely eligible",
-    not_eligible: "Not eligible",
-    unknown: "Need more information",
-  };
-  return (
-    <div className="cards">
-      {matches.map((m) => (
-        <article className="panel" key={m.scheme.slug}>
-          <div className="card-top">
-            <div>
-              <small>{m.scheme.ministry || m.scheme.state}</small>
-              <h2>
-                <Link to={"/schemes/" + encodeURIComponent(m.scheme.slug)}>
-                  {m.scheme.name}
-                </Link>
-              </h2>
-            </div>
-            <span className={"badge " + m.verdict}>
-              <Text value={verdicts[m.verdict]} />
-            </span>
-          </div>
-          <p>{m.scheme.brief}</p>
-          <label>
-            <Text value={"Match confidence ·"} />{" "}
-            {Math.round(Math.max(0, Math.min(1, m.confidence)) * 100)}%
-            <progress value={Math.max(0, Math.min(1, m.confidence))} max={1} />
-          </label>
-          <details open>
-            <summary>
-              <Text value={"Why this matches you"} />
-            </summary>
-            {m.reasons.map((r, i) => (
-              <div key={i}>
-                <p>
-                  <span
-                    aria-label={
-                      r.met === true
-                        ? "Met"
-                        : r.met === false
-                          ? "Not met"
-                          : "Unknown"
-                    }
-                  >
-                    {r.met === true ? "✓" : r.met === false ? "✗" : "?"}
-                  </span>{" "}
-                  {r.claim}
-                </p>
-                {r.citation && <Citations items={[r.citation]} />}
-              </div>
-            ))}
-          </details>
-          {m.documents_needed.length > 0 && (
-            <>
-              <h3>
-                <Text value={"Documents you’ll need"} />
-              </h3>
-              <ul>
-                {m.documents_needed.map((d) => (
-                  <li key={d}>• {d}</li>
-                ))}
-              </ul>
-            </>
-          )}
-          {m.missing_info.length > 0 && (
-            <p className="muted">
-              <Text value={"More information needed:"} />
-              {m.missing_info.join(", ")}.{" "}
-              <Link to="/">
-                <Text value={"Update profile"} />
-              </Link>
-            </p>
-          )}
-          <Link to={"/schemes/" + encodeURIComponent(m.scheme.slug)}>
-            <Text value={"See benefits & apply →"} />
-          </Link>
-        </article>
-      ))}
-    </div>
   );
 }
 

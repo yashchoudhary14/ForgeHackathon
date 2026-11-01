@@ -76,6 +76,8 @@ const Context = createContext({
   setLang: (_l: Lang) => {},
   profileId: "",
   setProfileId: (_id: string) => {},
+  mode: "" as "" | "talk" | "manual",
+  setMode: (_m: "talk" | "manual") => {},
   t: strings.en,
 });
 export function Provider({ children }: { children: ReactNode }) {
@@ -85,6 +87,7 @@ export function Provider({ children }: { children: ReactNode }) {
       : "en",
   );
   const [profileId, setId] = useState(stored("adhikaar-profile", ""));
+  const [mode, setModeState] = useState(stored("adhikaar-mode", "") as "" | "talk" | "manual");
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
@@ -101,6 +104,11 @@ export function Provider({ children }: { children: ReactNode }) {
         setProfileId: (id) => {
           setId(id);
           persist("adhikaar-profile", id);
+        },
+        mode,
+        setMode: (m) => {
+          setModeState(m);
+          persist("adhikaar-mode", m);
         },
         t: lang === "hi" ? strings.hi : strings.en,
       }}

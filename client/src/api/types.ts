@@ -205,12 +205,21 @@ export interface RunOut {
   steps: RunStepOut[];
 }
 export type HumanKind =
-  "captcha" | "otp" | "missing_field" | "confirm_submit" | "login";
+  | "captcha" | "otp" | "missing_field" | "confirm_submit" | "confirm_upload" | "login" | "payment";
+export interface Human {
+  kind: HumanKind;
+  message: string;
+  field?: string;
+  guide?: { title?: string; steps?: string[]; lang?: string };
+  crop?: string | null;
+  audio_url?: string | null;
+  document?: { title?: string; doc_type?: string } | null;
+}
 export type ServerMessage =
   | { type: "frame"; jpeg: string }
   | { type: "step"; step: RunStepOut }
   | { type: "status"; status: RunStatus }
-  | { type: "needs_human"; kind: HumanKind; message: string; field?: string }
+  | ({ type: "needs_human" } & Human)
   | { type: "done"; receipt: Receipt }
   | { type: "error"; message: string };
 export type ClientMessage =
@@ -219,3 +228,14 @@ export type ClientMessage =
   | { type: "type"; text: string }
   | { type: "key"; key: string }
   | { type: "resume" | "approve" | "abort" };
+
+export interface NotificationOut {
+  id: number | string;
+  kind: string;
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  read: boolean;
+  created_at: string;
+  meta?: Record<string, unknown> | null;
+}

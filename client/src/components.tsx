@@ -81,53 +81,124 @@ export function Citations({ items }: { items: Citation[] }) {
     </ol>
   );
 }
-export function Explanation({ data }: { data: ExplainOut }) {
+export function Explanation({
+  data,
+  compare,
+}: {
+  data: ExplainOut;
+  compare?: ExplainOut | null;
+}) {
   return (
-    <article className="panel explanation">
-      <span className="eyebrow">
-        <Text value={"In plain language"} />
-      </span>
-      <h2>{data.title}</h2>
-      <p>{data.summary}</p>
-      {[
-        ["Key points", data.key_points],
-        ["Your rights", data.your_rights],
-        ["Deadlines", data.deadlines],
-        ["Documents you need", data.documents_needed],
-      ].map(
-        ([title, items]) =>
-          (items as string[]).length > 0 && (
-            <section key={title as string}>
-              <h3>
-                <Text value={title as string} />
-              </h3>
-              <ul>
-                {(items as string[]).map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </section>
-          ),
-      )}
-      {data.what_it_means_for_you && (
-        <section>
-          <h3>
+    <div className="explanation grid items-start gap-5 lg:grid-cols-[1.2fr_1fr]">
+      <div className="flex flex-col gap-4">
+        <article className="rounded-3xl bg-card p-6 shadow-[0_10px_30px_rgba(23,20,15,0.06),0_1px_0_rgba(23,20,15,0.05)] flex flex-col gap-4">
+          <span className="eyebrow">
+            <Text value={"In plain language"} /> · इन आसान शब्दों में
+          </span>
+          <h2 className="m-0 font-serif text-3xl font-normal">{data.title}</h2>
+          {data.audio_url && (
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#FFE7D3] p-3 text-saffron-text">
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold">
+                <Volume2 size={18} aria-hidden="true" />
+                <Text value={"Listen"} /> · सुनें
+              </span>
+              <audio
+                controls
+                preload="none"
+                src={assetUrl(data.audio_url)}
+                className="h-10 flex-1"
+              />
+            </div>
+          )}
+          <p className="m-0 text-[17px] leading-relaxed">{data.summary}</p>
+          <div className="grid gap-3 md:grid-cols-2">
+            {[
+              ["Key points", data.key_points],
+              ["Your rights", data.your_rights],
+              ["Deadlines", data.deadlines],
+              ["Documents you need", data.documents_needed],
+            ].map(
+              ([title, items]) =>
+                (items as string[]).length > 0 && (
+                  <section
+                    key={title as string}
+                    className="rounded-2xl bg-paper p-4"
+                  >
+                    <h3 className="m-0 mb-2 font-serif text-xl font-normal">
+                      <Text value={title as string} />
+                    </h3>
+                    <ul className="m-0 pl-5 text-sm leading-relaxed">
+                      {(items as string[]).map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </section>
+                ),
+            )}
+          </div>
+        </article>
+
+        {compare && (
+          <section className="rounded-3xl bg-card p-6 shadow-[0_10px_30px_rgba(23,20,15,0.06),0_1px_0_rgba(23,20,15,0.05)] flex flex-col gap-3">
+            <span className="eyebrow">
+              What changed · पुराने सर्कुलर से तुलना
+            </span>
+            <h3 className="m-0 font-serif text-2xl font-normal">
+              {compare.title} → {data.title}
+            </h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl bg-[#FDE4E0] p-4 text-[#8D1F17]">
+                <span className="block text-xs font-bold uppercase tracking-wider">
+                  Before · पहले ({compare.title})
+                </span>
+                <p className="m-0 mt-1.5 text-sm">{compare.summary}</p>
+                {compare.key_points.length > 0 && (
+                  <ul className="m-0 mt-2 pl-4 text-xs">
+                    {compare.key_points.slice(0, 3).map((pt, i) => (
+                      <li key={i}>{pt}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="rounded-2xl bg-[#DDF3E9] p-4 text-[#155C42]">
+                <span className="block text-xs font-bold uppercase tracking-wider">
+                  Now · अब ({data.title})
+                </span>
+                <p className="m-0 mt-1.5 text-sm">{data.summary}</p>
+                {data.key_points.length > 0 && (
+                  <ul className="m-0 mt-2 pl-4 text-xs">
+                    {data.key_points.slice(0, 3).map((pt, i) => (
+                      <li key={i}>{pt}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+
+      <aside className="flex flex-col gap-4">
+        <section className="rounded-3xl bg-peach p-6 flex flex-col gap-2">
+          <span className="eyebrow">
+            What this means for you · आपके लिए क्या बदला
+          </span>
+          <h3 className="m-0 font-serif text-2xl font-normal">
             <Text value={"What this means for you"} />
           </h3>
-          <p>{data.what_it_means_for_you}</p>
+          <p className="m-0 text-sm leading-relaxed">
+            {data.what_it_means_for_you ||
+              "Add your profile details on the home page or Talk mode to get personalized impact notes for your household."}
+          </p>
         </section>
-      )}
-      {data.audio_url && (
-        <div>
-          <h3>
-            <Volume2 size={18} />
-            <Text value={"Listen"} />
-          </h3>
-          <audio controls preload="none" src={assetUrl(data.audio_url)} />
-        </div>
-      )}
-      <Citations items={data.citations} />
-    </article>
+        <section className="rounded-3xl bg-card p-6 shadow-[0_10px_30px_rgba(23,20,15,0.06),0_1px_0_rgba(23,20,15,0.05)] flex flex-col gap-3">
+          <span className="eyebrow">
+            Every line is backed by a quote · आधिकारिक प्रमाण
+          </span>
+          <Citations items={data.citations} />
+        </section>
+      </aside>
+    </div>
   );
 }
 export function MicButton({
