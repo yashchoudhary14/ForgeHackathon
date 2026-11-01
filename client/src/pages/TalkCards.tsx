@@ -144,8 +144,8 @@ export default function CardView({
             {note}
           </p>
         ))}
-        {sources(card.sources)}
-        {card.official_portal_url && (
+        {card.sources.length > 0 && sources(card.sources)}
+        {safeLink(card.official_portal_url) && (
           <button
             type="button"
             disabled={disabled}

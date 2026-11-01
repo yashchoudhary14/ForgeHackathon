@@ -2,17 +2,53 @@
 import asyncio
 import hashlib
 import json
-from urllib.parse import urljoin, urlsplit
+import re
+from urllib.parse import quote, urljoin, urlsplit
 
 import httpx
 from google.genai import types
 from pydantic import BaseModel, Field
 
 from . import llm
-from .services_registry import https_url, match_service, official_url
+from .services_registry import REGISTRY, https_url, match_service, official_url
 from .service_copy import HINDI_NAMES, service_copy
 
 GUIDANCE_TIMEOUT_SECONDS = 40
+
+
+def application_urls(scheme) -> list[str]:
+    """Resolve only government URLs present in official application data."""
+    candidates = []
+    for mode in scheme.application:
+        if mode.url:
+            candidates.append(mode.url)
+        candidates.extend(re.findall(r"https?://[^\s<>\"\)\]]+", mode.steps_md))
+    for reference in scheme.references:
+        # myScheme references can use either key.
+        candidates.extend(value for key, value in reference.items()
+                          if key in {"url", "link", "href"} and isinstance(value, str))
+    urls = []
+    for candidate in candidates:
+        candidate = candidate.rstrip(".,;")
+        try:
+            parsed = urlsplit(candidate)
+            host = (parsed.hostname or "").lower()
+            if (parsed.scheme in {"http", "https"} and not parsed.username and not parsed.password
+                    and parsed.port in (None, 80, 443)
+                    and any(host == d or host.endswith("." + d) for d in ("gov.in", "nic.in"))):
+                urls.append(candidate)
+        except ValueError:
+            continue
+    return list(dict.fromkeys(urls))
+
+
+def scheme_application_url(scheme) -> str:
+    urls = application_urls(scheme)
+    if urls:
+        return urls[0]
+    if official_url(scheme.source_url):
+        return scheme.source_url
+    return "https://www.myscheme.gov.in/schemes/" + quote(scheme.slug, safe="")
 
 
 async def source_url(uri: str) -> str | None:
@@ -87,10 +123,10 @@ class ServiceExtraction(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
-async def find_service(query: str, language: str, state: str | None = None) -> dict:
-    entry = match_service(query)
+async def find_service(query: str, language: str, state: str | None = None, *, service_id: str | None = None) -> dict:
+    entry = match_service(query) or next((s for s in REGISTRY if s.key == service_id), None)
     copy = service_copy(language)
-    name = entry.name if entry else query[:200]
+    name = entry.name if entry else "Government service"
     if entry and language == "hi":
         name = HINDI_NAMES.get(entry.key, name)
     result = {"service": name,

@@ -4,7 +4,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 
 from ..schemas import SchemeDetail, SearchOut
-from ..services import myscheme
+from ..services import government, myscheme
 
 router = APIRouter(tags=["schemes"])
 
@@ -27,6 +27,19 @@ async def search_schemes(
 
 
 # POST /schemes/match can be registered independently of this GET detail route.
+@router.get("/schemes/{slug}/application-url")
+async def scheme_application_url(slug: str):
+    try:
+        detail = await myscheme.get_scheme(slug, lang="en", index=False)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, "myScheme detail is temporarily unavailable") from exc
+    return {"portal_url": government.scheme_application_url(detail)}
+
+
 @router.get("/schemes/{slug}", response_model=SchemeDetail)
 async def scheme_detail(slug: str, lang: Literal["en", "hi"] = "en"):
     try:

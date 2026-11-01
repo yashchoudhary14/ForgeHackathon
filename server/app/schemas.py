@@ -292,7 +292,7 @@ class TalkContext(BaseModel):
     # Values/portal text are deliberately excluded, especially OTP and CAPTCHA.
     page: str = Field(default="/", max_length=240)
     run_id: str | None = Field(default=None, max_length=32)
-    pending_step: Literal["captcha", "otp", "login", "missing_field", "confirm_submit", "confirm_upload", "payment"] | None = None
+    pending_step: Literal["captcha", "otp", "login", "missing_field", "confirm_submit", "confirm_upload", "capture_required", "payment"] | None = None
     onboarding: bool = False
 
 

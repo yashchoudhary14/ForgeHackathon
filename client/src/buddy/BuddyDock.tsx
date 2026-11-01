@@ -9,7 +9,7 @@ import {
   Volume2,
   X,
 } from "lucide-react";
-import { applyTalkEvent, streamTalk } from "../api/talk";
+import { applyTalkEvent, asksAboutPendingStep, streamTalk } from "../api/talk";
 import { request } from "../api/client";
 import { uploadForm } from "../api/locker";
 import type { LockerItem } from "../api/locker";
@@ -404,8 +404,12 @@ export default function BuddyDock() {
           live.pending.current?.request_id !== requestId
         )
           return;
-        await humanAnswer(value, human, !!input.audio);
-        return;
+        if (asksAboutPendingStep(value, human.kind)) {
+          input = { text: value };
+        } else {
+          await humanAnswer(value, human, !!input.audio);
+          return;
+        }
       }
       const pid = await ensureProfile();
       const userId = ++id.current,

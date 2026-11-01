@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from starlette.datastructures import UploadFile
 
-from ..agents.talk import ONBOARDING_FIELDS, UI_ROUTES, TalkTools, asks_for_help, detect_text_language, requested_language, respond, safe_text, script_language
+from ..agents.talk import ONBOARDING_FIELDS, UI_ROUTES, TalkTools, application_consent, asks_for_help, detect_text_language, requested_language, respond, safe_text, script_language, service_request
 from ..db import SessionLocal
 from ..models import AgentRun, ChatMessage, Profile
 from ..schemas import ProfileData, TalkIn
@@ -26,6 +26,28 @@ KEEPALIVE_SECONDS = 10
 # One worker: serialize overlapping turns so they cannot race on profile language,
 # facts or consent. Weak entries disappear once no request references the lock.
 _profile_locks: WeakValueDictionary = WeakValueDictionary()
+
+
+def pending_step_context(pending: dict, live, sensitive: dict) -> dict | None:
+    """Keep the request description; omit document metadata, answers and IDs."""
+    if pending.get("kind") not in {"confirm_upload", "missing_field", "capture_required"}:
+        return None
+    document = pending.get("document") or {}
+    secrets = {**sensitive, **getattr(live, "sensitive", {}), **getattr(live, "answers", {})}
+    secrets.update({str(i): v for i, v in enumerate(getattr(live, "private_values", set()))})
+    # Upload messages include the private locker title, which is not profile data.
+    for key in ("title", "filename", "name"):
+        if document.get(key):
+            secrets["document_" + key] = document[key]
+    result = {"kind": pending["kind"]}
+    for key, value in {"field_label": pending.get("field_label") or pending.get("field"),
+                       "doc_type": pending.get("doc_type") or document.get("doc_type"),
+                       "message": pending.get("message")}.items():
+        if isinstance(value, str):
+            result[key] = safe_text(value[:1200], secrets)
+    if pending.get("capture_required"):
+        result["capture_required"] = True
+    return result
 
 
 async def spoken_events(events, language: str, enabled: bool):
@@ -103,6 +125,20 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
         yield {"type": "error", "message": "I could not hear any words. Please try again."}
         return
     sensitive = crypto.decrypt_json(profile.sensitive)
+    last_assistant = (await db.execute(select(ChatMessage).where(
+        ChatMessage.session_id == session_id, ChatMessage.role == "assistant")
+        .order_by(ChatMessage.id.desc()).limit(1))).scalars().first()
+    name_pending = bool(last_assistant and any(
+        c.get("talk_profile_question") == "full_name" for c in (last_assistant.citations or [])))
+    name_saved = False
+    public_text = safe_text(text, sensitive)
+    applying = body.action or (service_request(public_text) and application_consent(public_text, True, False))
+    if name_pending and not sensitive.get("full_name") and not applying:
+        # This answer stays local. Update the redaction dictionary BEFORE language
+        # detection, intake, history construction or respond can see the reply.
+        sensitive["full_name"] = text.strip()
+        profile.sensitive = crypto.encrypt_json(sensitive)
+        name_saved = True
     message = safe_text(text, sensitive)
     if audio is None and not body.lang and language == "en":
         prior_turn = (await db.execute(select(ChatMessage.id).where(
@@ -136,6 +172,8 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
     db.add(ChatMessage(session_id=session_id, role="user", content=message))
     await db.commit()
     tools = TalkTools(db, profile, message, history)
+    if name_saved:
+        tools.saved = True  # a name is never sent to intake, even as an extraction task
     if body.action:
         tools.requested_service = body.action.service
     if body.context:
@@ -159,10 +197,17 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
                 live = manager.get(run.id)
                 tools.context.update({"run_active": run.status not in {"done", "failed", "aborted"},
                                       "pending_step": live.pending.get("kind") if live and live.pending else None})
+                if live and live.pending:
+                    description = pending_step_context(live.pending, live, sensitive)
+                    if description:
+                        tools.context["pending_step"] = description
+                        tools.context["onboarding"] = False
     if tools.context.get("onboarding"):
-        yield {"type": "progress", "stage": "saving_profile"}
-        tools.profile_question = next((field for field in ONBOARDING_FIELDS if getattr(tools.profile, field) is None), None)
-        await tools.save_profile_facts()
+        tools.context["needs_name"] = not bool(sensitive.get("full_name"))
+        if not tools.context["needs_name"]:
+            yield {"type": "progress", "stage": "saving_profile"}
+            tools.profile_question = next((field for field in ONBOARDING_FIELDS if getattr(tools.profile, field) is None), None)
+            await tools.save_profile_facts()
     reply, cards = None, []
     first_sentence = ""
     async with aclosing(spoken_events(respond(message, language, history, tools), language, body.stream_audio)) as events:
@@ -183,6 +228,8 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
         content += "\nCards shown: " + json.dumps(cards, ensure_ascii=False)
     offer = reply.get("application_offer_slug")
     metadata = []
+    if tools.profile_question == "full_name":
+        metadata.append({"talk_profile_question": "full_name"})
     if offer:
         metadata.append({"talk_offer_slug": offer})
     if reply.get("application_offer_service"):

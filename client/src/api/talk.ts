@@ -89,6 +89,12 @@ export interface TalkInput {
   action?: { type: "start_application"; service: string };
 }
 
+/** Explain a paused document/field without treating the question as its value. */
+export function asksAboutPendingStep(text: string, kind: string): boolean {
+  return ["confirm_upload", "missing_field", "capture_required"].includes(kind) &&
+    /\b(what|which|why|how|explain|kaunsa|konsa|kaun|kya|kaise|samjhao)\b|क्या|कौन|कैसे|समझा|কোন|কী|কি|কিভাবে|কীভাবে|কেন|বুঝিয়ে|বুজাই/i.test(text);
+}
+
 /** Builds the request body: multipart when audio is present, JSON otherwise. */
 export function talkBody(input: TalkInput): {
   body: BodyInit;
