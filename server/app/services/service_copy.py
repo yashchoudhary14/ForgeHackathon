@@ -1,5 +1,20 @@
 """Local coordination copy; these strings make no procedural claims."""
 
+NAME_QUESTION = {
+    "en": "What is your name?",
+    "hi": "आपका नाम क्या है?",
+    "bn": "আপনার নাম কী?",
+    "as": "আপোনাৰ নাম কি?",
+    "ta": "உங்கள் பெயர் என்ன?",
+    "te": "మీ పేరు ఏమిటి?",
+    "mr": "तुमचे नाव काय आहे?",
+    "gu": "તમારું નામ શું છે?",
+    "kn": "ನಿಮ್ಮ ಹೆಸರೇನು?",
+    "ml": "നിങ്ങളുടെ പേര് എന്താണ്?",
+    "pa": "ਤੁਹਾਡਾ ਨਾਮ ਕੀ ਹੈ?",
+    "od": "ଆପଣଙ୍କ ନାମ କଣ?",
+}
+
 # unverified guidance, external provider, registry source, missing state question
 COPY = {
     "en": ("Current application instructions could not be verified. I can help you apply on the official portal; documents, fees and processing time must be checked there.",

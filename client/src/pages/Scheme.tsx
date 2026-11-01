@@ -34,7 +34,7 @@ export default function Scheme() {
       );
       setScheme(out);
       setGoal(`Apply for ${out.name}`);
-      setPortal(out.application.find((a) => a.url)?.url || "");
+      setPortal("");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -63,16 +63,25 @@ export default function Scheme() {
       setBusy("");
     }
   }
-  async function run() {
-    retryAction.current = () => void run();
-    if (!safeUrl(portal) || !profileId) return;
+  async function run(useAnother = false) {
+    retryAction.current = () => void run(useAnother);
+    if (!profileId) {
+      navigate("/profile");
+      return;
+    }
+    if (useAnother && !safeUrl(portal)) return;
     setBusy("run");
     setError("");
     try {
+      const resolved = useAnother
+        ? portal
+        : (await request<{ portal_url: string }>(
+            `/schemes/${encodeURIComponent(slug)}/application-url`,
+          )).portal_url;
       const out = await post<RunOut>("/agent/runs", {
         profile_id: profileId,
-        portal_url: portal,
-        goal: goal.trim(),
+        portal_url: resolved,
+        goal: `Apply for ${scheme?.name || slug}`,
         scheme_slug: slug,
       });
       navigate("/runs/" + encodeURIComponent(out.id));
@@ -125,9 +134,8 @@ export default function Scheme() {
               <div className="flex flex-wrap gap-2.5">
                 <PillButton
                   tone="saffron"
-                  onClick={() => setApply(!apply)}
+                  onClick={() => void run()}
                   disabled={!!busy}
-                  aria-expanded={apply}
                 >
                   <Bot size={18} aria-hidden="true" className="shrink-0" />
                   <Text value={"Apply for me"} />
@@ -162,6 +170,15 @@ export default function Scheme() {
           {busy === "run" && (
             <Loading message="Opening the portal and starting your assisted application…" />
           )}
+          <button
+            type="button"
+            className="mb-4 !bg-transparent !text-sm !text-ink-soft underline"
+            onClick={() => setApply(!apply)}
+            aria-expanded={apply}
+            disabled={!!busy}
+          >
+            <Text value="Use another official portal" />
+          </button>
           {apply && (
             <section className="panel">
               <h2>
@@ -184,7 +201,7 @@ export default function Scheme() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    void run();
+                    void run(true);
                   }}
                 >
                   {scheme.application.filter((a) => a.url).length > 0 && (
@@ -222,17 +239,8 @@ export default function Scheme() {
                     onChange={(e) => setPortal(e.target.value)}
                     placeholder="https://…"
                   />
-                  <label htmlFor="application-goal">
-                    <Text value="What should the assistant do?" />
-                  </label>
-                  <textarea
-                    id="application-goal"
-                    required
-                    value={goal}
-                    onChange={(e) => setGoal(e.target.value)}
-                    disabled={!!busy}
-                  />
-                  <button disabled={!!busy || !safeUrl(portal) || !goal.trim()}>
+                  <p>{goal}</p>
+                  <button disabled={!!busy || !safeUrl(portal)}>
                     <Text
                       value={busy === "run" ? "Starting…" : "Start application"}
                     />
