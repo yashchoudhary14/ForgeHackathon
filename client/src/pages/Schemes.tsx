@@ -227,7 +227,7 @@ export function MatchResults({
   progress: string;
 }) {
   return (
-    <>
+    <section aria-label="Scheme matches" aria-busy={busy}>
       {progress && (
         <p className="muted" role="status" aria-live="polite">
           {progress}
@@ -255,6 +255,6 @@ export function MatchResults({
       ) : (
         <MatchCards matches={matches} />
       )}
-    </>
+    </section>
   );
 }

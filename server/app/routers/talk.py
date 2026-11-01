@@ -89,6 +89,7 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
                        citations=[{"talk_offer_slug": offer}] if offer else []))
     await db.commit()
     audio_url = None
+    yield {"type": "progress", "stage": "preparing_audio"}
     try:
         audio_url = await sarvam.tts_to_file(reply["text"], language)
     except Exception:
