@@ -103,7 +103,12 @@ export default function CivicNew() {
   if (!profileId)
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-4">
-        <h1>Report a local issue · समस्या बताएँ</h1>
+        <h1>
+          Report a local issue
+          <span lang="hi" className="mt-2 block font-sans text-xl font-medium text-ink-soft">
+            समस्या बताएँ
+          </span>
+        </h1>
         <EmptyState title="Create a profile first" action={<PillLink to="/talk">Talk to Sahayak →</PillLink>}>
           Reports are linked to your profile so you can follow the official reply.
         </EmptyState>
@@ -115,7 +120,12 @@ export default function CivicNew() {
       <div className="flex flex-col gap-1">
         <Link to="/civic" className="inline-flex min-h-11 items-center text-sm font-semibold">← Civic map · नागरिक नक्शा</Link>
         <Eyebrow>Speak up · आवाज़ उठाएँ</Eyebrow>
-        <h1>Report a local issue · समस्या बताएँ</h1>
+        <h1>
+          Report a local issue
+          <span lang="hi" className="mt-2 block font-sans text-xl font-medium text-ink-soft">
+            समस्या बताएँ
+          </span>
+        </h1>
         <p className="m-0 text-ink-soft">फ़ोटो लें या अपनी आवाज़ में बताएँ — विभाग और अर्ज़ी AI तैयार करेगा</p>
       </div>
 

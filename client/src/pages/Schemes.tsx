@@ -10,6 +10,7 @@ import { Empty, ErrorBox, Loading } from "../components";
 import { MatchCards, MatchStats } from "./SchemeCards";
 import { AlertsPanel } from "./Alerts";
 import { Card, Eyebrow } from "../ui";
+import { tt } from "../ui-strings";
 export default function Schemes() {
   const { profileId, t, lang } = useApp();
   const [matches, setMatches] = useState<MatchResult[]>([]),
@@ -95,10 +96,10 @@ export default function Schemes() {
           />
         </p>
       </div>
-      <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="mb-6 grid items-start gap-4 lg:grid-cols-[1fr_340px]">
         <MatchStats matches={matches} />
         <Card>
-          <h2 className="mb-2">Alerts</h2>
+          <h2 className="mb-2">{tt(lang, "alertsTitle")}</h2>
           <AlertsPanel compact />
         </Card>
       </div>
@@ -109,20 +110,20 @@ export default function Schemes() {
             void search();
           }}
         >
-          <label htmlFor="search">
-            <Text value={"Search all government schemes"} />
-          </label>
-          <div className="search">
-            <input
-              id="search"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder={
-                lang === "hi"
-                  ? "ज़रूरत या योजना का नाम"
-                  : "Search by need or scheme name"
-              }
-            />
+          <div className="grid gap-x-3 md:grid-cols-[minmax(0,1fr)_10rem_auto] md:items-end">
+            <label htmlFor="search">
+              <Text value={"Search all government schemes"} />
+              <input
+                id="search"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder={
+                  lang === "hi"
+                    ? "ज़रूरत या योजना का नाम"
+                    : "Search by need or scheme name"
+                }
+              />
+            </label>
             <label>
               <Text value={"State"} />
               <input
@@ -131,7 +132,7 @@ export default function Schemes() {
                 placeholder={lang === "hi" ? "कोई भी राज्य" : "Any state"}
               />
             </label>
-            <button disabled={busy}>
+            <button disabled={busy} className="mb-4 justify-self-start">
               <Search size={18} />
               <Text value={"Search"} />
             </button>
