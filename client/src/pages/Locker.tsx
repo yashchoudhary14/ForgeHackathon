@@ -87,7 +87,7 @@ export default function Locker() {
         <Eyebrow>Locker · सुरक्षित, सिर्फ़ आपके लिए</Eyebrow>
         <h1>Your documents</h1>
         <p className="m-0 text-ink-soft">
-          Scan a paper with your camera. Adhikaar names it, checks it is
+          Scan a paper with your camera. Buddy names it, checks it is
           readable and makes a small copy that fits government portals.
         </p>
       </div>

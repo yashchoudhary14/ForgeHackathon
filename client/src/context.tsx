@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import type { Lang } from "./api/types";
 export const languages: Record<Lang, string> = {
   en: "English",
-  as: "অসমীয়া",
   hi: "हिन्दी",
   bn: "বাংলা",
   as: "অসমীয়া",
