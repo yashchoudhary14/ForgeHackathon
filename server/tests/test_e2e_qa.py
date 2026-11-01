@@ -76,3 +76,67 @@ def test_stream_request_assertion_does_not_depend_on_body_completion(qa):
     demo.profile_id = "other"
     with pytest.raises(AssertionError, match="Wrong method/profile"):
         demo.assert_stream_request("/api/schemes/match/stream", 0)
+
+
+def test_farmer_fixture_is_one_real_write_with_client_storage_keys(qa):
+    response = SimpleNamespace(ok=True, json=lambda: {"id": "farmer-1"})
+    post, init = Mock(return_value=response), Mock()
+    demo = object.__new__(qa.Demo)
+    demo.context = SimpleNamespace(request=SimpleNamespace(post=post))
+    demo.page = SimpleNamespace(add_init_script=init)
+    demo.saved_profile = Mock(return_value=dict(qa.PROFILE_FACTS))
+    demo.create_farmer()
+    post.assert_called_once_with(qa.API + "/api/profile", data={
+        "data": qa.PROFILE_FACTS, "language": "en", "mode": "manual",
+    }, timeout=60000)
+    assert demo.profile_id == "farmer-1"
+    script = init.call_args.args[0]
+    for key in ("adhikaar-profile", "adhikaar-mode", "adhikaar-language", "buddy-onboarding"):
+        assert key in script
+    assert '"farmer-1"' in script and "'false'" in script
+
+
+def test_failed_farmer_fixture_is_not_retried_or_installed(qa):
+    response = SimpleNamespace(ok=False, status=503, text=lambda: "Service unavailable")
+    post, init = Mock(return_value=response), Mock()
+    demo = object.__new__(qa.Demo)
+    demo.profile_id = None
+    demo.context = SimpleNamespace(request=SimpleNamespace(post=post))
+    demo.page = SimpleNamespace(add_init_script=init)
+    with pytest.raises(AssertionError, match="Farmer fixture HTTP 503"):
+        demo.create_farmer()
+    post.assert_called_once()
+    init.assert_not_called()
+    assert demo.profile_id is None
+
+
+def test_onboarding_failure_restores_main_page_context_and_farmer(qa):
+    demo = object.__new__(qa.Demo)
+    main_page, main_context = object(), object()
+    demo.page, demo.context, demo.profile_id = main_page, main_context, "farmer-1"
+    guest_page = Mock()
+    guest_context = Mock()
+    guest_context.new_page.return_value = guest_page
+    demo.browser = SimpleNamespace(new_context=Mock(return_value=guest_context))
+    demo.watch_page = Mock()
+
+    def failed_step(name, action):
+        assert name == "01_home_manual_profile"
+        assert demo.context is guest_context and demo.page is guest_page
+        raise AssertionError("Manual form failure")
+
+    demo.step = failed_step
+    with pytest.raises(AssertionError, match="Manual form failure"):
+        demo.onboarding_check()
+    assert demo.page is main_page and demo.context is main_context
+    assert demo.profile_id == "farmer-1"
+    demo.browser.new_context.assert_called_once_with(viewport={"width": 390, "height": 844}, locale="en-IN")
+    guest_page.add_init_script.assert_not_called()
+    guest_context.close.assert_called_once()
+
+
+def test_buddy_without_fixture_fails_before_constructing_profile_url(qa):
+    demo = object.__new__(qa.Demo)
+    demo.profile_id = None
+    with pytest.raises(AssertionError, match="API-created farmer fixture"):
+        demo.buddy("hi")

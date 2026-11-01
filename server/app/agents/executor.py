@@ -31,6 +31,8 @@ log = logging.getLogger(__name__)
 MAX_STEPS = 45
 MAX_FAILS = 3
 HUMAN_TIMEOUT = 15 * 60
+UNWATCHED_TIMEOUT = 120
+UNWATCHED_MESSAGE = "Stopped: nobody was watching"
 
 
 class Aborted(Exception):
@@ -257,6 +259,8 @@ class RunSession:
             re.search(r"name|phone|mobile|email|dob|birth|address|bank|ifsc|aadhaar|account", k, re.I))
         self.inbox: asyncio.Queue = asyncio.Queue()
         self.subs: set = set()
+        self.last_subscriber_at = time.monotonic()
+        self._abort_requested = False
         self.status = "queued"
         self.pending: dict | None = None  # current needs_human event, replayed to late joiners
         self.browser = Browser(self._on_frame)
@@ -268,6 +272,17 @@ class RunSession:
         self.human_wait_seconds = 0.0
 
     # ---------- pub/sub ----------
+    def subscribe(self, ws):
+        self.subs.add(ws)
+        self.last_subscriber_at = time.monotonic()
+
+    def unsubscribe(self, ws):
+        if ws in self.subs:
+            self.subs.discard(ws)
+            # Start the grace period when the last viewer leaves, even if they
+            # watched for longer than UNWATCHED_TIMEOUT before disconnecting.
+            self.last_subscriber_at = time.monotonic()
+
     async def emit(self, msg: dict):
         dead = []
         for ws in list(self.subs):
@@ -276,7 +291,7 @@ class RunSession:
             except Exception:
                 dead.append(ws)
         for ws in dead:
-            self.subs.discard(ws)
+            self.unsubscribe(ws)
 
     async def _on_frame(self, b64: str):
         now = time.monotonic()
@@ -445,16 +460,23 @@ class RunSession:
         waiting_since = time.monotonic()
         self.pending = event
         await self.emit(event)
-        deadline = time.monotonic() + HUMAN_TIMEOUT
+        deadline = waiting_since + HUMAN_TIMEOUT
         try:
             while True:
-                left = deadline - time.monotonic()
+                now = time.monotonic()
+                if self.subs:
+                    self.last_subscriber_at = now
+                unwatched_left = UNWATCHED_TIMEOUT - (now - self.last_subscriber_at)
+                if not self.subs and unwatched_left <= 0:
+                    raise RunAborted(UNWATCHED_MESSAGE)
+                left = deadline - now
                 if left <= 0:
-                    raise TimeoutError("waited too long for the user")
+                    raise TimeoutError("Human response timed out after 15 minutes")
                 try:
-                    msg = await asyncio.wait_for(self.inbox.get(), timeout=left)
-                except TimeoutError as exc:
-                    raise TimeoutError("Human response timed out after 15 minutes") from exc
+                    # Recheck viewers even when nobody sends an inbox message.
+                    msg = await asyncio.wait_for(self.inbox.get(), timeout=min(left, 1, unwatched_left))
+                except TimeoutError:
+                    continue
                 t = msg.get("type")
                 if event.get("request_id") and t in {"human_input", "resume", "approve", "approve_duplicate"} and msg.get("request_id") != event["request_id"]:
                     continue  # a late voice confirmation must never fill the next field
@@ -827,7 +849,7 @@ async def run(rs: RunSession):
             await rs.emit({"type": "error", "message": msg})
     except (RunAborted, asyncio.CancelledError) as e:
         await rs.set_status("aborted", error=str(e) or "aborted")
-        await rs.emit({"type": "error", "message": "Run aborted"})
+        await rs.emit({"type": "error", "message": UNWATCHED_MESSAGE if str(e) == UNWATCHED_MESSAGE else "Run aborted"})
     except Exception as e:
         log.exception("run %s crashed", rs.id)
         await rs.set_status("failed", error=str(e)[:500])
@@ -837,7 +859,7 @@ async def run(rs: RunSession):
 
 
 class RunManager:
-    def __init__(self, max_parallel: int = 2):
+    def __init__(self, max_parallel: int = 3):
         self.sessions: dict[str, RunSession] = {}
         self.sem = asyncio.Semaphore(max_parallel)
 
@@ -852,6 +874,27 @@ class RunManager:
 
     def get(self, run_id: str) -> RunSession | None:
         return self.sessions.get(run_id)
+
+    async def abort(self, rs: RunSession):
+        if rs.status in {"done", "failed", "aborted"}:
+            return
+        if rs.task and not rs.task.done():
+            if not rs._abort_requested:
+                rs._abort_requested = True
+                if rs.pending:
+                    rs.inbox.put_nowait({"type": "abort"})
+                else:
+                    rs.task.cancel("Run aborted by user")
+            try:
+                await asyncio.shield(rs.task)
+            except asyncio.CancelledError:
+                if not rs.task.cancelled():
+                    raise
+        # A task cancelled before it entered run() (including while queued)
+        # never reaches that function's status/cleanup handler.
+        if rs.status not in {"done", "failed", "aborted"}:
+            await rs.set_status("aborted", error="Run aborted by user")
+            await rs.emit({"type": "error", "message": "Run aborted"})
 
     def set_language(self, profile_id: str, language: str):
         for session in self.sessions.values():

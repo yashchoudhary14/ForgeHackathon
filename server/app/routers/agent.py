@@ -104,6 +104,23 @@ async def run_screenshot(run_id: str, step: int, profile_id: str = Depends(owner
     return Response(content, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
+@router.post("/runs/{run_id}/abort", response_model=RunOut)
+async def abort_run(run_id: str, profile_id: str = Depends(owner_id), db: AsyncSession = Depends(get_db)):
+    run = await db.get(AgentRun, run_id)
+    if not run or run.profile_id != profile_id:
+        raise HTTPException(404, "run not found")
+    if run.status not in {"done", "failed", "aborted"}:
+        live = manager.get(run_id)
+        if live:
+            await manager.abort(live)
+            await db.refresh(run)
+        else:
+            run.status = "aborted"
+            run.error = "Run aborted by user"
+            await db.commit()
+    return await _run_out(db, run, False)
+
+
 @router.websocket("/runs/{run_id}/ws")
 async def run_ws(ws: WebSocket, run_id: str, profile_id: str = Depends(owner_id), db: AsyncSession = Depends(get_db)):
     saved = await db.get(AgentRun, run_id)
@@ -116,24 +133,24 @@ async def run_ws(ws: WebSocket, run_id: str, profile_id: str = Depends(owner_id)
         await ws.send_json({"type": "error", "message": "run is not live (finished or server restarted)"})
         await ws.close()
         return
-    rs.subs.add(ws)
-    await ws.send_json({"type": "status", "status": rs.status})
-    if rs.browser.last_frame:
-        import base64
-        await ws.send_json({"type": "frame", "jpeg": base64.b64encode(rs.browser.last_frame).decode()})
-    if rs.pending:
-        await ws.send_json(rs.pending)
+    rs.subscribe(ws)
     try:
+        await ws.send_json({"type": "status", "status": rs.status})
+        if rs.browser.last_frame:
+            import base64
+            await ws.send_json({"type": "frame", "jpeg": base64.b64encode(rs.browser.last_frame).decode()})
+        if rs.pending:
+            await ws.send_json(rs.pending)
         while True:
             msg = await ws.receive_json()
-            if rs.pending:
+            if msg.get("type") == "abort":
+                await manager.abort(rs)
+            elif rs.pending:
                 await rs.inbox.put(msg)
-            elif msg.get("type") == "abort" and rs.task:
-                rs.task.cancel()
             # takeover input while the agent itself is driving is ignored on purpose
     except (WebSocketDisconnect, asyncio.CancelledError):
         pass
     except Exception as e:
         log.info("ws closed: %s", e)
     finally:
-        rs.subs.discard(ws)
+        rs.unsubscribe(ws)
