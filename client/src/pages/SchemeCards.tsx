@@ -1,25 +1,27 @@
+import { useTranslation, Text, useApp } from "../context";
 import { Link } from "react-router-dom";
 import type { MatchResult } from "../api/types";
 import { Citations } from "../components";
-import { Text, useApp } from "../context";
 import { Card, StatTile, VerdictChip } from "../ui";
 import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
 import { CheckCircle2, HelpCircle, Landmark, XCircle } from "lucide-react";
 
 export function MatchStats({ matches }: { matches: MatchResult[] }) {
+  const { lang } = useApp();
   const eligible = matches.filter((m) => m.verdict === "eligible").length;
   const likely = matches.filter((m) => m.verdict === "likely").length;
   return (
     <div className="grid grid-cols-3 gap-3">
-      <StatTile accent value={eligible} label={tt("en", "verdictEligible")} />
-      <StatTile value={likely} label={tt("en", "verdictLikely")} />
-      <StatTile value={matches.length} label="checked" />
+      <StatTile accent value={eligible} label={tt(lang, "verdictEligible")} />
+      <StatTile value={likely} label={tt(lang, "verdictLikely")} />
+      <StatTile value={matches.length} label={tt(lang, "checked")} />
     </div>
   );
 }
 
 export function MatchCards({ matches }: { matches: MatchResult[] }) {
+  const tr = useTranslation();
   const { lang } = useApp();
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -30,7 +32,7 @@ export function MatchCards({ matches }: { matches: MatchResult[] }) {
           <Card as="article" key={m.scheme.slug} className="stream-entry flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <VerdictChip verdict={m.verdict} />
-              <span className="rounded-full bg-paper px-2.5 py-1 text-xs font-semibold text-ink-soft" aria-label={`Match confidence: ${pct}%`}>{pct}%</span>
+              <span className="rounded-full bg-paper px-2.5 py-1 text-xs font-semibold text-ink-soft" aria-label={`${tr("Match confidence:")} ${pct}%`}>{pct}%</span>
             </div>
             {(m.scheme.ministry || m.scheme.state) && <small className="inline-flex items-center gap-1.5 self-start rounded-full bg-paper px-3 py-1 text-xs font-semibold text-[#5c5346]"><Landmark size={14} aria-hidden="true" className="shrink-0" />{m.scheme.ministry || m.scheme.state}</small>}
             <h2 className="m-0 text-[1.65rem]">
@@ -51,13 +53,13 @@ export function MatchCards({ matches }: { matches: MatchResult[] }) {
                     <span
                       aria-label={
                         r.met === true
-                          ? "Met"
+                          ? tr("Met")
                           : r.met === false
-                            ? "Not met"
-                            : "Unknown"
+                            ? tr("Not met")
+                            : tr("Unknown")
                       }
                     >
-                      <span className="sr-only">{r.met === true ? "Met" : r.met === false ? "Not met" : "Unknown"}</span>
+                      <span className="sr-only">{r.met === true ? tr("Met") : r.met === false ? tr("Not met") : tr("Unknown")}</span>
                       {r.met === true ? <CheckCircle2 size={16} aria-hidden="true" className="mr-1.5 inline shrink-0 text-ok" /> : r.met === false ? <XCircle size={16} aria-hidden="true" className="mr-1.5 inline shrink-0 text-bad" /> : <HelpCircle size={16} aria-hidden="true" className="mr-1.5 inline shrink-0 text-warn" />}
                     </span>{" "}
                     {r.claim}
@@ -79,10 +81,9 @@ export function MatchCards({ matches }: { matches: MatchResult[] }) {
               </p>
             )}
             <div className="mt-auto flex flex-wrap gap-2">
-              <PillLink to={"/schemes/" + slug}>Apply with agent</PillLink>
+              <PillLink to={"/schemes/" + slug}> <Text value="Apply with agent" /> </PillLink>
               <PillLink to={"/explain?scheme=" + slug} tone="light">
-                Explain
-              </PillLink>
+                 <Text value="Explain" /> </PillLink>
             </div>
           </Card>
         );

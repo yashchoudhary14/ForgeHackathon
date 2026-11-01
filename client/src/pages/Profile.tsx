@@ -1,3 +1,4 @@
+import { Text, languages, useApp } from "../context";
 import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -6,7 +7,6 @@ import { getActivity, resolveLink } from "../api/alerts";
 import { post, request } from "../api/client";
 import type { LockerItem } from "../api/locker";
 import type { ActivityItem, Lang, ProfileData, ProfileOut } from "../api/types";
-import { languages, useApp } from "../context";
 import { PersonIcon, PillLink } from "../nav";
 import {
   formToProfilePatch,
@@ -74,6 +74,7 @@ export default function Profile() {
   const [searchParams] = useSearchParams();
   const nextPath = searchParams.get("next");
   const [profile, setProfile] = useState<ProfileOut | null>(null);
+  const [fullName, setFullName] = useState("");
   const [form, setForm] = useState<ProfileForm>(() => profileToForm({}));
   const [originalData, setOriginalData] = useState<ProfileData>({});
   const [loading, setLoading] = useState(Boolean(profileId));
@@ -93,6 +94,7 @@ export default function Profile() {
   useEffect(() => {
     const c = new AbortController();
     setProfile(null);
+    setFullName("");
     setForm(profileToForm({}));
     setOriginalData({});
     setLoadError(false);
@@ -105,6 +107,7 @@ export default function Profile() {
       .then((out) => {
         if (!c.signal.aborted) {
           setProfile(out);
+          setFullName(out.sensitive?.full_name ?? "");
           setForm(profileToForm(out.data));
           setOriginalData(out.data);
         }
@@ -158,7 +161,12 @@ export default function Profile() {
     }
     setBusy(true);
     try {
-      const body = { data, language: lang, mode: mode || "manual" };
+      const body = {
+        data,
+        sensitive: { full_name: fullName.trim() },
+        language: lang,
+        mode: mode || "manual",
+      };
       const out = profileId
         ? await request<ProfileOut>(
             `/profile/${encodeURIComponent(profileId)}`,
@@ -166,6 +174,7 @@ export default function Profile() {
           )
         : await post<ProfileOut>("/profile", body);
       setProfile(out);
+      setFullName(out.sensitive?.full_name ?? "");
       setForm(profileToForm(out.data));
       setOriginalData(out.data);
       setSaved(true);
@@ -247,12 +256,10 @@ export default function Profile() {
           <div className="flex flex-wrap items-center gap-2">
             <PillLink to="/talk" tone="saffron">
               <Mic size={18} aria-hidden="true" />
-              Complete by Voice with Buddy
-            </PillLink>
+               <Text value="Complete by Voice with Buddy" /> </PillLink>
             {nextPath && profileId && (
               <PillLink to={nextPath} tone="dark">
-                Continue →
-              </PillLink>
+                 <Text value="Continue →" /> </PillLink>
             )}
           </div>
         </div>
@@ -300,8 +307,7 @@ export default function Profile() {
               </label>
               <span className="text-xs text-ink-soft">
                 {profileFields.length - missing.length} / {profileFields.length}{" "}
-                fields saved
-              </span>
+                 <Text value="fields saved" /> </span>
             </div>
             <progress
               id="profile-completeness"
@@ -360,6 +366,19 @@ export default function Profile() {
             }}
           >
             <fieldset disabled={busy} className="m-0 min-w-0 border-0 p-0">
+              <label htmlFor="profile-full-name">
+                {tt(lang, "fullName")}
+                <input
+                  id="profile-full-name"
+                  type="text"
+                  autoComplete="name"
+                  value={fullName}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setSaved(false);
+                  }}
+                />
+              </label>
               <div className="grid gap-5 lg:grid-cols-2">
                 {profileGroups.map((group) => (
                   <Card key={group.title}>

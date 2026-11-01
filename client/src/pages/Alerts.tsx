@@ -99,7 +99,7 @@ export function AlertsPanel({
               </div>
               {n.body && <p className="m-0 break-words text-[15px]">{n.body}</p>}
               <div className="flex flex-wrap items-center justify-between gap-x-3 text-sm text-ink-soft">
-                <time dateTime={n.created_at}>{new Date(n.created_at).toLocaleString()}</time>
+                <time dateTime={n.created_at}>{new Date(n.created_at).toLocaleString(lang)}</time>
                 <OpenLink link={n.link} lang={lang} />
               </div>
             </li>

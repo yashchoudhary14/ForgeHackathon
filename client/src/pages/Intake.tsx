@@ -1,4 +1,4 @@
-import { Text } from "../context";
+import { useTranslation, Text, useApp } from "../context";
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -8,7 +8,6 @@ import {
   ListChecks,
   MousePointer2,
 } from "lucide-react";
-import { useApp } from "../context";
 import { post, request } from "../api/client";
 import type {
   ProfileData,
@@ -54,6 +53,7 @@ const sensitiveFields: (keyof SensitiveData)[] = [
   "bank_ifsc",
 ];
 export default function Intake() {
+  const tr = useTranslation();
   const { lang, t, profileId, setProfileId } = useApp(),
     navigate = useNavigate();
   const [text, setText] = useState(""),
@@ -204,17 +204,15 @@ export default function Intake() {
               onChange={(e) => setText(e.target.value)}
               rows={4}
               placeholder={
-                lang === "hi"
-                  ? "मेरे बारे में…"
-                  : "My age, where I live, and what I do…"
+                tr("My age, where I live, and what I do…")
               }
               required
               disabled={busy}
             />
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Example details to try">
-              {["मैं 45 साल का किसान हूँ, बिहार से", "20 year old student in Assam", "আমি পশ্চিমবঙ্গের একজন শ্রমিক"].map((example, i) => (
-                <PillButton key={example} tone="light" lang={i === 0 ? "hi" : i === 2 ? "bn" : "en"} className="!px-4 !py-2 text-left !text-sm" disabled={busy || loading} onClick={() => { setText(example); document.getElementById("intake-text")?.focus(); }}>
-                  {example}
+            <div className="flex flex-wrap gap-2" role="group" aria-label={tr("Example details to try")}>
+              {["I am a 45-year-old farmer from Bihar", "20 year old student in Assam", "I am a worker from West Bengal"].map((example) => (
+                <PillButton key={example} tone="light" lang={lang} className="!px-4 !py-2 text-left !text-sm" disabled={busy || loading} onClick={() => { setText(tr(example)); document.getElementById("intake-text")?.focus(); }}>
+                  <Text value={example} />
                 </PillButton>
               ))}
             </div>
@@ -259,7 +257,7 @@ export default function Intake() {
           </span>
           <h2 className="m-0">
             <Text
-              value={lang === "hi" ? "आपकी जानकारी" : "A little about you"}
+              value={"A little about you"}
             />
           </h2>
           <p className="muted m-0">
@@ -270,7 +268,7 @@ export default function Intake() {
             />
           </p>
           {loading ? (
-            <Loading message="Loading your saved profile…" />
+            <Loading message={tr("Loading your saved profile…")} />
           ) : profile ? (
             <div className="fields">
               {fields.map((key) => (

@@ -1,5 +1,5 @@
 import type { Lang } from "./api/types";
-import { tt } from "./ui-strings";
+import { en, tt } from "./ui-strings";
 // Navigation and Talk mode chrome (en, hi, bn, as) live in ui-strings*.ts; `tt` is the lookup.
 export { tt } from "./ui-strings";
 // English is also the fallback for the other supported intake/answer languages.
@@ -295,7 +295,14 @@ const hi: Record<string, string> = {
   cancelled: "रद्द",
   pending: "इंतज़ार में",
 };
+// Resolve legacy English copy to the shared four-language UI catalog. Normalizing
+// typography also covers older callers that use straight quotes or three dots.
+const normalize = (value: string) => value.toLowerCase().replaceAll("’", "'").replaceAll("…", ".").replace(/[→↗]/g, "").trim().replace(/\.+$/, "").trim();
+const uiKeys = new Map(Object.entries(en).map(([key, value]) => [normalize(value), key]));
+const legacyHi = new Map(Object.entries(hi).map(([key, value]) => [normalize(key), value]));
 export function translate(text: string, lang: Lang) {
   if (text === "Buddy") return tt(lang, "brandName");
-  return lang === "hi" ? hi[text] || text : text;
+  if (lang === "en") return text;
+  const key = uiKeys.get(normalize(text));
+  return key ? tt(lang, key) : lang === "hi" ? legacyHi.get(normalize(text)) || text : text;
 }

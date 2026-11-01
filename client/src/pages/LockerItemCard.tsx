@@ -1,3 +1,4 @@
+import { useTranslation, Text } from "../context";
 import { Download, FileText, Trash2 } from "lucide-react";
 import {
   formatKb,
@@ -25,6 +26,7 @@ export default function LockerItemCard({
   onDelete: () => void;
   profileId?: string;
 }) {
+  const tr = useTranslation();
   const variants = variantSizes(d);
   const summary = variantSummary(d);
   const swatch = swatches[index % swatches.length];
@@ -40,32 +42,29 @@ export default function LockerItemCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <strong className="font-serif text-2xl font-normal capitalize">
-              {d.title || label(d.doc_type)}
+              {d.title || tr(label(d.doc_type))}
             </strong>
             {isNew && (
               <span className="rounded-full bg-[#FFE7D3] px-2.5 py-1 text-xs font-semibold text-[#9A4A12]">
-                New · नया
-              </span>
+                 <Text value="New" /> </span>
             )}
             {d.meta?.readable === true && (
               <span className="rounded-full bg-ok-soft px-2.5 py-1 text-xs font-semibold text-ok">
-                Readable
-              </span>
+                 <Text value="Readable" /> </span>
             )}
             {d.meta?.readable === false && (
               <span className="rounded-full bg-warn-soft px-2.5 py-1 text-xs font-semibold text-warn">
-                Needs rescan
-              </span>
+                 <Text value="Needs rescan" /> </span>
             )}
           </div>
           <div className="text-sm text-ink-soft">
-            <span className="capitalize">{label(d.doc_type)}</span>
-            {summary && ` · ${summary} ready`}
+            <span className="capitalize"><Text value={label(d.doc_type)} /></span>
+            {summary && ` · ${summary} ${tr("ready")}`}
           </div>
         </div>
         <button
           type="button"
-          aria-label={"Delete " + (d.title || d.doc_type)}
+          aria-label={tr("Delete") + " " + (d.title || tr(label(d.doc_type)))}
           onClick={onDelete}
           className="secondary !min-h-11 !w-11 shrink-0 !rounded-full !p-0"
         >
@@ -74,7 +73,7 @@ export default function LockerItemCard({
       </div>
       {!!d.meta?.issues?.length && (
         <p className="m-0 rounded-2xl bg-warn-soft p-2.5 text-sm text-warn">
-          {d.meta.issues.join(" · ")}
+          {d.meta.issues.map((issue) => tr(label(issue))).join(" · ")}
         </p>
       )}
       {variants.length > 0 && (

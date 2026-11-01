@@ -1,4 +1,4 @@
-import { Text, useApp } from "../context";
+import { useTranslation, Text, useApp } from "../context";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { request, websocketUrl, withOwner } from "../api/client";
@@ -27,6 +27,7 @@ const actionLabels: Record<string, string> = {
   done: "Finishing the application",
 };
 export default function Run() {
+  const tr = useTranslation();
   const { id = "" } = useParams();
   const { profileId } = useApp();
   const [run, setRun] = useState<RunOut | null>(null),
@@ -289,7 +290,7 @@ export default function Run() {
         </p>
       </div>
       {loading && (
-        <Loading message="Restoring your application and connecting to the live browser…" />
+        <Loading message={tr("Restoring your application and connecting to the live browser…")} />
       )}
       {error && !run ? (
         <section
@@ -298,12 +299,10 @@ export default function Run() {
         >
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-saffron-text">
-              SESSION NOT FOUND · आवेदन सत्र उपलब्ध नहीं
-            </span>
+               <Text value="SESSION NOT FOUND" /> </span>
             <h2 className="m-0 font-serif text-2xl font-normal text-ink">
-              We couldn’t find that live application session
-            </h2>
-            <p className="m-0 text-sm text-ink-soft">{error}</p>
+               <Text value="We couldn’t find that live application session" /> </h2>
+            <p className="m-0 text-sm text-ink-soft"><Text value={error} /></p>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
@@ -311,15 +310,13 @@ export default function Run() {
               style={{ color: "#17140f" }}
               className="inline-flex min-h-12 items-center gap-2 rounded-full bg-saffron px-5 text-sm font-semibold text-ink no-underline"
             >
-              Start a new application →
-            </Link>
+               <Text value="Start a new application →" /> </Link>
             <Link
               to="/runs"
               style={{ color: "#17140f" }}
               className="inline-flex min-h-12 items-center gap-2 rounded-full border border-line bg-white px-5 text-sm font-semibold text-ink no-underline"
             >
-              View my activity
-            </Link>
+               <Text value="View my activity" /> </Link>
             <button
               type="button"
               className="secondary !min-h-12 !rounded-full !px-5 text-sm"
@@ -446,7 +443,7 @@ export default function Run() {
                     cursor: takeover ? "crosshair" : "default",
                   }}
                   tabIndex={takeover ? 0 : -1}
-                  aria-label="Live government portal. In takeover mode, click to interact and use the typing controls below."
+                  aria-label={tr("Live government portal. In takeover mode, click to interact and use the typing controls below.")}
                   onClick={(e) => {
                     if (!takeover) return;
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -525,7 +522,7 @@ export default function Run() {
                         disabled={connection !== "Connected"}
                         onClick={() => send({ type: "key", key })}
                       >
-                        {key}
+                        <Text value={key} />
                       </button>
                     ))}
                   </div>
@@ -535,7 +532,7 @@ export default function Run() {
             <section
               className="panel timeline"
               ref={timeline}
-              aria-label="Application steps"
+              aria-label={tr("Application steps")}
               aria-live="polite"
             >
               <h2>

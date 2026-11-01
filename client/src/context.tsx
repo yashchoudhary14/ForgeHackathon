@@ -131,7 +131,7 @@ export function Provider({ children }: { children: ReactNode }) {
           setModeState(m);
           persist("adhikaar-mode", m);
         },
-        t: lang === "hi" ? strings.hi : strings.en,
+        t: Object.fromEntries(Object.entries(strings.en).map(([key, value]) => [key, translate(value, lang)])) as typeof strings.en,
       }}
     >
       {children}
@@ -139,6 +139,10 @@ export function Provider({ children }: { children: ReactNode }) {
   );
 }
 export const useApp = () => useContext(Context);
+export function useTranslation() {
+  const { lang } = useApp();
+  return (value: string) => translate(value, lang);
+}
 export function Text({ value }: { value: string }) {
   const { lang } = useApp();
   return translate(value, lang);

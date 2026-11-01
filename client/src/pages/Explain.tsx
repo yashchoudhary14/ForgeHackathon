@@ -1,3 +1,4 @@
+import { useTranslation, Text, useApp } from "../context";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowLeftRight, FileUp, Link2 } from "lucide-react";
@@ -10,10 +11,10 @@ import type {
   FeedItem,
 } from "../api/types";
 import { ErrorBox, Explanation, Loading } from "../components";
-import { Text, useApp } from "../context";
 import { Card, EmptyState, Eyebrow, PillButton, SourceLink } from "../ui";
 
 export default function Explain() {
+  const tr = useTranslation();
   const { profileId, lang, t } = useApp();
   const [searchParams] = useSearchParams();
   const schemeSlug = searchParams.get("scheme") || "";
@@ -172,7 +173,7 @@ export default function Explain() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <Eyebrow>Understand · आसान भाषा में समझें</Eyebrow>
+        <Eyebrow> <Text value="Understand" /> </Eyebrow>
         <h1>
           <Text value="Make sense of government notices, one clear explanation at a time." />
         </h1>
@@ -184,7 +185,7 @@ export default function Explain() {
       <Card className="flex flex-col gap-4">
         <div
           role="tablist"
-          aria-label="Explain input mode"
+          aria-label={tr("Explain input mode")}
           className="flex flex-wrap gap-2 border-b border-line pb-3"
         >
           {(
@@ -215,7 +216,7 @@ export default function Explain() {
               }
             >
               <Icon size={16} aria-hidden="true" />
-              <span>{label}</span>
+              <span><Text value={label} /></span>
             </button>
           ))}
         </div>
@@ -232,19 +233,16 @@ export default function Explain() {
                     className="shrink-0"
                   />
                 </span>
-                <Eyebrow>Upload a PDF or image</Eyebrow>
+                <Eyebrow> <Text value="Upload a PDF or image" /> </Eyebrow>
                 <strong className="font-serif text-2xl font-normal">
                   <Text value="Upload a PDF or image" />
                 </strong>
                 <p className="m-0 mt-1 text-sm text-ink-soft">
-                  Gazette notification, rejection letter, circular or scheme
-                  order
-                </p>
+                   <Text value="Gazette notification, rejection letter, circular or scheme order" /> </p>
               </div>
               <label className="inline-flex min-h-12 cursor-pointer items-center gap-2 self-start rounded-full bg-ink px-5 text-sm font-semibold text-paper">
                 <FileUp size={18} aria-hidden="true" />
-                Choose PDF or image
-                <input
+                 <Text value="Choose PDF or image" /> <input
                   type="file"
                   accept=".pdf,image/*"
                   disabled={busy}
@@ -260,9 +258,9 @@ export default function Explain() {
 
             <div className="flex flex-col justify-between gap-3 rounded-2xl bg-paper p-5">
               <div>
-                <Eyebrow>Or paste a government document URL</Eyebrow>
+                <Eyebrow> <Text value="Or paste a government document URL" /> </Eyebrow>
                 <label className="m-0">
-                  <span className="sr-only">Government document URL</span>
+                  <span className="sr-only"> <Text value="Government document URL" /> </span>
                   <input
                     value={url}
                     disabled={busy}
@@ -301,8 +299,7 @@ export default function Explain() {
               <>
                 <div className="flex flex-1 flex-wrap gap-3">
                   <label className="m-0 min-w-[200px] flex-1 text-xs font-semibold">
-                    New document / circular (Now · अब)
-                    <select
+                     <Text value="New document / circular (Now)" /> <select
                       value={docA}
                       disabled={busy}
                       onChange={(e) => setDocA(e.target.value)}
@@ -316,8 +313,7 @@ export default function Explain() {
                     </select>
                   </label>
                   <label className="m-0 min-w-[200px] flex-1 text-xs font-semibold">
-                    Previous circular to compare (Before · पहले)
-                    <select
+                     <Text value="Previous circular to compare (Before)" /> <select
                       value={docB}
                       disabled={busy}
                       onChange={(e) => setDocB(e.target.value)}
@@ -338,14 +334,11 @@ export default function Explain() {
                   className="!bg-saffron-text !text-white"
                 >
                   <ArrowLeftRight size={16} aria-hidden="true" />
-                  Compare · पुराने सर्कुलर से तुलना करें
-                </button>
+                   <Text value="Compare" /> </button>
               </>
             ) : (
               <p className="m-0 text-sm text-ink-soft">
-                Upload at least two circulars in the Upload tab to compare what
-                changed between the old and new versions.
-              </p>
+                 <Text value="Upload at least two circulars in the Upload tab to compare what changed between the old and new versions." /> </p>
             )}
           </div>
         )}
@@ -359,14 +352,14 @@ export default function Explain() {
         />
       )}
       {busy && (
-        <Loading message="Reading the document and writing a plain-language explanation…" />
+        <Loading message={tr("Reading the document and writing a plain-language explanation…")} />
       )}
       {data && !busy && <Explanation data={data} />}
 
       <div className="grid items-start gap-5 lg:grid-cols-2">
         {docs.length > 0 && (
           <section className="flex flex-col gap-3">
-            <Eyebrow>Your uploaded documents</Eyebrow>
+            <Eyebrow> <Text value="Your uploaded documents" /> </Eyebrow>
             <h2 className="m-0 font-serif text-2xl font-normal">
               <Text value="Your uploaded documents" />
             </h2>
@@ -400,7 +393,7 @@ export default function Explain() {
         )}
 
         <section className="flex flex-col gap-3">
-          <Eyebrow>From official sources · PIB &amp; eGazette</Eyebrow>
+          <Eyebrow> <Text value="From official sources · PIB & eGazette" /> </Eyebrow>
           <h2 className="m-0 font-serif text-2xl font-normal">
             <Text value="Latest government updates" />
           </h2>
@@ -434,7 +427,7 @@ export default function Explain() {
             </div>
           ) : (
             <EmptyState
-              title="No updates available"
+              title={tr("No updates available")}
               action={
                 <button
                   type="button"
@@ -445,8 +438,7 @@ export default function Explain() {
                 </button>
               }
             >
-              Check back shortly for the latest PIB releases.
-            </EmptyState>
+               <Text value="Check back shortly for the latest PIB releases." /> </EmptyState>
           )}
         </section>
       </div>

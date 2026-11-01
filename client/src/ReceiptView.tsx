@@ -1,10 +1,10 @@
-import { Text, useApp } from "./context";
+import { useTranslation, Text } from "./context";
 import { useState } from "react";
 import { safeUrl, assetUrl } from "./api/client";
 import type { Receipt } from "./api/types";
 
 function ReceiptScreenshot({ src }: { src: string }) {
-  const { lang } = useApp();
+  const tr = useTranslation();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   return failed ? (
@@ -27,11 +27,7 @@ function ReceiptScreenshot({ src }: { src: string }) {
       <img
         key={attempt}
         src={src}
-        alt={
-          lang === "hi"
-            ? "आवेदन की रसीद की तस्वीर"
-            : "Application receipt screenshot"
-        }
+        alt={tr("Application receipt screenshot")}
         loading="lazy"
         onError={() => setFailed(true)}
       />
