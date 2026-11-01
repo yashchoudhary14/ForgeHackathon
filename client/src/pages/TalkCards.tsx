@@ -69,12 +69,12 @@ export default function CardView({
   onCapture?: (docType: string, reason: string) => void;
 }) {
   const box =
-    "flex w-full max-w-[92%] flex-col gap-2 self-start rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_#ede5da]";
-  const link = "inline-flex min-h-11 items-center font-semibold";
+    "flex w-full flex-col gap-2 self-start rounded-tile border border-line border-t-4 border-t-act bg-card p-4 text-ink";
+  const link = "inline-flex min-h-11 items-center gap-1 self-start rounded-full border-2 border-act px-4 text-sm font-semibold text-act no-underline hover:bg-act-soft";
   const l = labels[lang] || labels.en;
   const sources = (items: { url: string; title: string }[]) => (
     <div className="flex flex-col gap-1">
-      <strong>{l[5]}</strong>
+      <strong className="text-sm text-ink-soft">{l[5]}</strong>
       {items.map(
         (source, index) =>
           safeLink(source.url) && (
@@ -96,7 +96,7 @@ export default function CardView({
   if (card.kind === "service")
     return (
       <div className={box}>
-        <span className="font-serif text-xl">{card.service}</span>
+        <span className="font-serif text-xl font-bold leading-tight">{card.service}</span>
         {safeLink(card.official_portal_url) && (
           <a
             className={link}
@@ -109,7 +109,7 @@ export default function CardView({
         )}
         {card.steps.length > 0 && (
           <>
-            <strong>{l[1]}</strong>
+            <strong className="mt-1 text-sm text-ink-soft">{l[1]}</strong>
             <ol className="m-0 list-decimal pl-5">
               {card.steps.map((step, index) => (
                 <li key={index}>{step}</li>
@@ -119,7 +119,7 @@ export default function CardView({
         )}
         {card.documents.length > 0 && (
           <>
-            <strong>{l[2]}</strong>
+            <strong className="mt-1 text-sm text-ink-soft">{l[2]}</strong>
             <ul className="m-0 list-disc pl-5">
               {card.documents.map((doc, index) => (
                 <li key={index}>{doc}</li>
@@ -159,9 +159,9 @@ export default function CardView({
   if (card.kind === "scheme")
     return (
       <div className={box}>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <VerdictChip verdict={card.verdict} />
-          <span className="font-serif text-xl">{card.name}</span>
+          <span className="font-serif text-xl font-bold leading-tight">{card.name}</span>
         </div>
         {card.summary && <p className="m-0 text-[15px]">{card.summary}</p>}
         <Link className={link} to={"/schemes/" + encodeURIComponent(card.slug)}>
@@ -172,7 +172,7 @@ export default function CardView({
   if (card.kind === "run")
     return (
       <div className={box}>
-        <span className="font-serif text-xl">{card.title || "—"}</span>
+        <span className="font-serif text-xl font-bold leading-tight">{card.title || "—"}</span>
         <Link className={link} to={"/runs/" + encodeURIComponent(card.run_id)}>
           {tt(lang, "openRun")} →
         </Link>
@@ -181,7 +181,7 @@ export default function CardView({
   if (card.kind === "report")
     return (
       <div className={box}>
-        <span className="font-serif text-xl">{card.title || "—"}</span>
+        <span className="font-serif text-xl font-bold leading-tight">{card.title || "—"}</span>
         {card.report_id ? (
           <Link
             className={link}
@@ -206,7 +206,7 @@ export default function CardView({
               type="button"
               disabled={disabled}
               onClick={() => onAnswer(o)}
-              className="!bg-peach !text-saffron-text"
+              className="!min-h-12 !rounded-full !border-2 !border-act !bg-card !text-act hover:!bg-act-soft"
             >
               {o}
             </button>

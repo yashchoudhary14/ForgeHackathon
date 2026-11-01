@@ -46,7 +46,7 @@ export default function HumanStep({
       role="alert"
       tabIndex={-1}
       aria-label={title}
-      className="my-4"
+      className="my-5 scroll-mt-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-act"
     >
       <GuideCard
         title={title}
@@ -57,9 +57,9 @@ export default function HumanStep({
       >
         {human.message && <p className="m-0">{human.message}</p>}
         {human.kind === "confirm_upload" && doc && (
-          <div className="flex flex-col gap-1 rounded-[14px] bg-white p-3">
+          <div className="flex flex-col gap-1 rounded-tile border border-line bg-card p-3">
             <span className="text-sm text-ink-soft">{ui("attachDoc")}</span>
-            <strong className="font-serif text-xl font-normal capitalize">
+            <strong className="font-serif text-xl font-bold capitalize">
               {doc.title || <Text value={doc.doc_type.replaceAll("_", " ")} />}
             </strong>
             <span className="text-sm text-ink-soft">
@@ -70,7 +70,7 @@ export default function HumanStep({
           </div>
         )}
         {human.duplicate_warning && (
-          <p role="alert" className="m-0 rounded-[14px] bg-warn-soft p-3 text-warn">
+          <p role="alert" className="m-0 rounded-tile border border-warn/40 bg-warn-soft p-3 font-medium text-warn">
             {human.duplicate_warning}
           </p>
         )}
@@ -123,12 +123,12 @@ export default function HumanStep({
                   autoComplete={human.kind === "otp" ? "one-time-code" : "off"}
                   inputMode={human.kind === "otp" ? "numeric" : undefined}
                   required
-                  className="!m-0 min-w-0 basis-40 flex-1 !rounded-full !border-[#c9d6f2] !px-5"
+                  className="!m-0 !min-h-14 min-w-0 basis-40 flex-1 !rounded-tile !border-2 !border-act/40 !bg-card !px-5 text-center !text-xl font-semibold tracking-[0.2em] focus:!border-act"
                 />
                 <button
                   type="submit"
                   disabled={!answer.trim() || !connected}
-                  className="!bg-[#2a5fc4] !text-white"
+                  className="!min-h-14 !rounded-full !bg-act !px-6 !text-white"
                 >
                   {ui("sendAnswer")}
                 </button>

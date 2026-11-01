@@ -556,6 +556,14 @@ export default function BuddyDock() {
     : speech.speaking
       ? "speaking"
       : "idle";
+  const micRing =
+    orbState === "listening"
+      ? "ring-saffron"
+      : orbState === "speaking"
+        ? "ring-ok"
+        : busy
+          ? "ring-act/50 animate-pulse motion-reduce:animate-none"
+          : "ring-act";
   const starterItems = [
     { key: "starterSchemes", Icon: Sparkles },
     { key: "starterNotice", Icon: FileText },
@@ -611,15 +619,15 @@ export default function BuddyDock() {
             className={
               isTalkPage
                 ? "flex h-full w-full flex-col overflow-hidden bg-paper"
-                : "flex max-h-[min(68dvh,620px)] w-full flex-col overflow-hidden rounded-[28px] border border-[#e5dac8] bg-paper shadow-2xl md:w-[26rem]"
+                : "flex max-h-[min(68dvh,620px)] w-full flex-col overflow-hidden rounded-card border border-line bg-paper shadow-[0_18px_48px_-12px_rgba(20,27,52,0.35)] md:w-[26rem]"
             }
           >
-            <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-paper/95 px-4 py-2.5 backdrop-blur">
-              <div className="flex items-center gap-2">
-                <strong className="font-serif text-2xl font-normal tracking-[-0.02em] text-ink">
+            <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-card px-4 py-2.5">
+              <div className="flex flex-col items-start gap-1">
+                <strong className="font-serif text-2xl font-bold leading-none tracking-[-0.01em] text-act">
                   Buddy<span className="text-saffron">.</span>
                 </strong>
-                <span className="rounded-full border border-[#f3d2b8] bg-peach px-2.5 py-0.5 text-xs font-semibold text-saffron-text">
+                <span className="rounded-[8px] border border-saffron/50 bg-peach px-2 py-0.5 text-xs font-semibold text-saffron-text">
                   {tt(lang, "voiceCompanion")}
                 </span>
               </div>
@@ -669,8 +677,8 @@ export default function BuddyDock() {
               role="log"
             >
               {messages.length === 0 && (
-                <div className="my-auto flex flex-col items-center gap-4 py-4 text-center">
-                  <div className="relative flex flex-col items-center justify-center rounded-full bg-[radial-gradient(circle_at_center,rgba(247,163,92,0.24)_0%,transparent_70%)] p-5">
+                <div className="my-auto flex flex-col items-center gap-3 py-2 text-center">
+                  <div className="relative flex flex-col items-center justify-center rounded-full bg-act-soft p-4">
                     <button
                       type="button"
                       disabled={busy}
@@ -681,20 +689,20 @@ export default function BuddyDock() {
                       onPointerCancel={handleMicPointerCancel}
                       onClick={handleMicClick}
                       onContextMenu={(e) => e.preventDefault()}
-                      className="relative !h-[152px] !w-[152px] touch-none select-none !rounded-full !bg-transparent !p-0 shadow-2xl ring-4 ring-white"
+                      className={"relative !h-[128px] !w-[128px] touch-none select-none !rounded-full !bg-transparent !p-0 ring-[6px] ring-offset-4 ring-offset-act-soft " + micRing}
                     >
-                      <Orb size={152} state={orbState} />
-                      <Mic
-                        size={36}
-                        aria-hidden="true"
-                        className="absolute inset-0 m-auto text-ink"
-                      />
+                      <Orb size={128} state={orbState} />
+                      {orbState === "speaking" ? (
+                        <Volume2 size={40} aria-hidden="true" className="absolute inset-0 m-auto text-ink" />
+                      ) : (
+                        <Mic size={40} aria-hidden="true" className="absolute inset-0 m-auto text-ink" />
+                      )}
                     </button>
                     <button
                       type="button"
                       disabled={busy}
                       onClick={handleMicClick}
-                      className="-mt-4 z-10 !min-h-10 !rounded-full !bg-ink !px-4 !py-1.5 text-xs font-semibold !text-paper shadow-md"
+                      className={"-mt-3 z-10 inline-flex !min-h-11 items-center gap-2 !rounded-full !px-5 !py-1.5 text-sm font-semibold " + (recorder.recording ? "!bg-saffron !text-ink" : "!bg-act !text-white")}
                     >
                       {recorder.recording
                         ? tt(lang, "listening")
@@ -702,10 +710,10 @@ export default function BuddyDock() {
                     </button>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <h1 className="m-0 font-serif text-3xl font-normal text-ink sm:text-4xl">
+                    <h1 className="m-0 font-serif text-3xl font-bold leading-tight text-ink sm:text-4xl">
                       {onboarding ? ui("state") : tt(lang, "talkGreeting")}
                     </h1>
-                    <p className="m-0 max-w-md text-sm text-ink-soft sm:text-base">
+                    <p className="m-0 max-w-md text-base leading-relaxed text-ink-soft">
                       {onboarding ? ui("greeting") : tt(lang, "talkWelcome")}
                     </p>
                   </div>
@@ -722,15 +730,15 @@ export default function BuddyDock() {
                               speech.unlock();
                               void submit({ text: label });
                             }}
-                            className="secondary flex !min-h-12 w-full items-center justify-between gap-3 !rounded-2xl border border-line !bg-white !px-4 !py-3 text-left text-sm font-medium !text-ink shadow-xs transition-colors hover:border-saffron"
+                            className="secondary flex !min-h-13 w-full items-center justify-between gap-3 !rounded-tile border border-line !bg-card !px-4 !py-3 text-left text-base font-medium !text-ink !shadow-none hover:!border-act"
                           >
                             <span className="flex items-center gap-3">
-                              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-peach text-saffron-text">
-                                <Icon size={16} aria-hidden="true" />
+                              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-act-soft text-act">
+                                <Icon size={18} aria-hidden="true" />
                               </span>
                               <span>{label}</span>
                             </span>
-                            <span aria-hidden="true" className="text-saffron-text">
+                            <span aria-hidden="true" className="text-lg leading-none text-act">
                               →
                             </span>
                           </button>
@@ -745,8 +753,8 @@ export default function BuddyDock() {
                   key={message.id}
                   className={
                     message.from === "user"
-                      ? "ml-8 rounded-[22px_22px_6px_22px] bg-ink p-3.5 text-paper"
-                      : "mr-2 rounded-[22px_22px_22px_6px] bg-white p-3.5 text-ink shadow-[inset_0_0_0_1px_#ede5da]"
+                      ? "ml-10 self-end rounded-[18px_18px_4px_18px] bg-act px-4 py-3 text-base leading-relaxed text-white"
+                      : "mr-4 flex flex-col gap-2.5 self-start rounded-[18px_18px_18px_4px] border border-line bg-card px-4 py-3 text-base leading-relaxed text-ink"
                   }
                   lang={message.lang}
                 >
@@ -772,12 +780,12 @@ export default function BuddyDock() {
                 </div>
               ))}
               {notice && (
-                <p role="status" className="m-0 rounded-2xl bg-act-soft p-3 text-sm font-medium text-ink">
+                <p role="status" className="m-0 rounded-tile border border-act/20 bg-act-soft p-3 text-sm font-medium text-ink">
                   {notice}
                 </p>
               )}
               {recorder.recording && draftTranscript && (
-                <p role="status" className="m-0 rounded-2xl bg-peach p-3 text-sm">
+                <p role="status" className="m-0 ml-10 self-end rounded-[18px_18px_4px_18px] border border-dashed border-act/50 bg-act-soft px-4 py-3 text-base italic text-ink">
                   {draftTranscript}
                 </p>
               )}
@@ -785,7 +793,7 @@ export default function BuddyDock() {
                 <img
                   src={`data:image/jpeg;base64,${human.crop}`}
                   alt={ui("captcha")}
-                  className="max-h-48 w-full rounded-xl object-contain"
+                  className="max-h-56 w-full rounded-tile border-2 border-act bg-card object-contain p-2"
                 />
               )}
               {confirmation && (
@@ -822,7 +830,7 @@ export default function BuddyDock() {
             </div>
             <div
               className={
-                "flex shrink-0 flex-col gap-2.5 border-t border-line bg-paper p-3 " +
+                "flex shrink-0 flex-col gap-2.5 border-t border-line bg-card p-3 " +
                 (isTalkPage ? "mx-auto w-full max-w-2xl md:px-6 md:pb-5" : "")
               }
             >
@@ -862,9 +870,9 @@ export default function BuddyDock() {
                     onPointerCancel={handleMicPointerCancel}
                     onClick={handleMicClick}
                     onContextMenu={(e) => e.preventDefault()}
-                    className="inline-flex !min-h-11 items-center gap-2 !rounded-full !bg-saffron !px-4 !py-1.5 text-xs font-semibold !text-ink shadow-sm"
+                    className={"inline-flex !min-h-12 items-center gap-2 !rounded-full !px-5 !py-1.5 text-sm font-semibold ring-2 ring-offset-2 ring-offset-card " + micRing + (recorder.recording ? " !bg-saffron !text-ink" : " !bg-act !text-white")}
                   >
-                    <Mic size={16} aria-hidden="true" />
+                    <Mic size={18} aria-hidden="true" />
                     {recorder.recording
                       ? tt(lang, "listening")
                       : tt(lang, "holdToTalk")}
@@ -902,7 +910,7 @@ export default function BuddyDock() {
           </section>
         )}
         {!isTalkPage && (
-          <div ref={dockRef} className="flex w-fit max-w-full items-center gap-2 rounded-full border border-[#e5dac8] bg-white/95 px-2.5 py-1.5 shadow-lg backdrop-blur-md">
+          <div ref={dockRef} className="flex w-fit max-w-full items-center gap-1.5 rounded-full border border-line bg-card py-1.5 pl-2 pr-3 shadow-[0_12px_32px_-10px_rgba(20,27,52,0.4)]">
             <button
               type="button"
               disabled={busy}
@@ -913,11 +921,11 @@ export default function BuddyDock() {
               onPointerCancel={handleMicPointerCancel}
               onClick={handleMicClick}
               onContextMenu={(e) => e.preventDefault()}
-              className="relative !h-11 !w-11 shrink-0 touch-none select-none !rounded-full !bg-transparent !p-0 shadow-sm ring-2 ring-peach"
+              className={"relative !h-12 !w-12 shrink-0 touch-none select-none !rounded-full !bg-transparent !p-0 ring-[3px] ring-offset-2 ring-offset-card " + micRing}
             >
-              <Orb size={44} state={orbState} />
+              <Orb size={48} state={orbState} />
               <Mic
-                size={18}
+                size={20}
                 aria-hidden="true"
                 className="absolute inset-0 m-auto text-ink"
               />
@@ -933,7 +941,7 @@ export default function BuddyDock() {
                 if (!open && !messages.length && !onboarding)
                   narrate(ui("greeting"));
               }}
-              className="flex !min-h-11 min-w-0 items-center justify-center !rounded-full !bg-transparent !px-2 !py-1 text-sm font-semibold !text-ink shadow-none"
+              className="flex !min-h-11 min-w-0 items-center justify-center !rounded-full !bg-transparent !px-2 !py-1 font-serif text-base font-bold !text-act !shadow-none"
             >
               <span>{recorder.recording ? tt(lang, "listening") : tt(lang, "talkMode")}</span>
             </button>

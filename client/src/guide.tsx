@@ -26,23 +26,23 @@ export function GuideCard({
   return (
     <div
       lang={lang}
-      className="flex flex-col gap-4 rounded-[22px] border-2 border-act/30 bg-act-soft p-4 shadow-md sm:p-5"
+      className="flex flex-col gap-4 rounded-card border-2 border-act bg-card p-4 shadow-[0_0_0_4px_var(--color-act-soft)] sm:p-5"
     >
-      <div className="flex items-center gap-3">
+      <div className="-mx-4 -mt-4 flex items-center gap-3 rounded-t-[16px] bg-act px-4 py-3 text-white sm:-mx-5 sm:-mt-5 sm:px-5">
         <span
           aria-hidden="true"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#2a5fc4] text-white"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-saffron text-ink"
         >
           <ShieldAlert size={20} aria-hidden="true" className="shrink-0" />
         </span>
-        <strong className="flex-1">{title}</strong>
+        <strong className="flex-1 font-serif text-xl font-bold leading-tight">{title}</strong>
         {src && (
           <>
             <button
               type="button"
               aria-label={tt(uiLang, "playAudio")}
               onClick={() => void audio.current?.play().catch(() => {})}
-              className="!min-h-12 grid h-12 w-12 place-items-center rounded-full !bg-white !p-0 !text-[#1f4fa8]"
+              className="!min-h-12 grid h-12 w-12 shrink-0 place-items-center rounded-full !bg-white !p-0 !text-act ring-2 ring-white/40 ring-offset-2 ring-offset-act"
             >
               <Volume2 size={20} aria-hidden="true" />
             </button>
@@ -51,16 +51,16 @@ export function GuideCard({
         )}
       </div>
       {crop && (
-        <div className="rounded-2xl border border-line bg-white p-3"><img
+        <div className="rounded-tile border-2 border-dashed border-act/50 bg-paper p-3"><img
           alt={tt(uiLang, "cropAlt")}
           src={`data:image/jpeg;base64,${crop}`}
-          className="max-h-56 min-h-24 w-full rounded-xl object-contain"
+          className="max-h-72 min-h-28 w-full rounded-[8px] bg-white object-contain [image-rendering:auto]"
         /></div>
       )}
       {steps.length > 0 && (
-        <ol className="m-0 list-decimal pl-5 text-base">
+        <ol className="m-0 flex list-none flex-col gap-2 p-0 text-base leading-snug">
           {steps.map((s, i) => (
-            <li key={i}>{s}</li>
+            <li key={i} className="flex items-start gap-3"><span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-act font-serif text-base font-bold text-act">{i + 1}</span><span className="pt-1">{s}</span></li>
           ))}
         </ol>
       )}
@@ -104,14 +104,14 @@ export function SwipeToConfirm({
   return (
     <div
       ref={track}
-      className="swipe-track relative min-h-16 select-none overflow-hidden rounded-full bg-ink"
+      className="swipe-track relative min-h-16 select-none overflow-hidden rounded-full border-2 border-ok bg-ok-soft data-[disabled=true]:border-line data-[disabled=true]:bg-paper data-[disabled=true]:opacity-70"
       data-disabled={disabled ? "true" : "false"}
     >
-      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-lime/25" style={{ width: x + HANDLE }} />
-      <span className="swipe-label relative flex min-h-16 items-center justify-center py-3 pl-16 pr-10 text-center text-sm font-semibold text-paper">
+      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-ok/20" style={{ width: x + HANDLE }} />
+      <span className="swipe-label relative flex min-h-16 items-center justify-center py-3 pl-16 pr-10 text-center text-base font-semibold text-ok">
         {label}
       </span>
-      <ChevronsRight size={22} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lime animate-pulse motion-reduce:animate-none" />
+      <ChevronsRight size={22} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ok" />
       <div
         role="slider"
         tabIndex={disabled || done ? -1 : 0}
@@ -142,7 +142,7 @@ export function SwipeToConfirm({
           setDragging(false);
           setX(0);
         }}
-        className="swipe-handle absolute grid cursor-grab place-items-center rounded-full bg-lime text-ink"
+        className="swipe-handle absolute grid cursor-grab touch-none place-items-center rounded-full bg-ok text-white shadow-[0_2px_6px_rgba(20,27,52,0.25)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-act active:cursor-grabbing"
         style={{
           width: HANDLE,
           height: HANDLE,
