@@ -39,7 +39,8 @@ def database_options(database_url: str, transport: str = "auto") -> tuple:
 
 settings = get_settings()
 url, options = database_options(settings.database_url, settings.database_transport)
-engine = create_async_engine(url, pool_pre_ping=True, pool_size=3, max_overflow=2, **options)
+# a match runs ~60 db calls at once (scheme loads, llm cache); a tiny pool serialises them over a remote db
+engine = create_async_engine(url, pool_pre_ping=True, pool_size=20, max_overflow=20, **options)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
