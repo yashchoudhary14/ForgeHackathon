@@ -232,9 +232,13 @@ def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
         key = d.value_from or el.get("formcontrolname") or el.get("name")
     else:
         return d
+    # A bare option ("No", "Yes") is the model's guess, not the question; never show it as the ask.
+    bare_option = not el.get("field_label") and re.fullmatch(r"yes|no|true|false|हाँ|हां|नहीं|হ্যাঁ|না", label.strip(), re.I)
+    message = ("Please answer the question shown in the picture; it is not in the supplied profile. "
+               "You can also fill it in the browser." if bare_option else
+               f"Please provide {label}; it is not in the supplied profile. You can also fill it in the browser.")
     return Decision(thought="This answer was not supplied by the citizen.", action="ask_human",
-        kind="missing_field", value_from=key, element_id=d.element_id,
-        message=f"Please provide {label}; it is not in the supplied profile. You can also fill it in the browser.")
+        kind="missing_field", value_from=key, element_id=d.element_id, message=message)
 
 
 class RunAborted(Aborted):

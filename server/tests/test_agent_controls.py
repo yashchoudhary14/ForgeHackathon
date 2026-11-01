@@ -64,6 +64,13 @@ def test_unsupplied_answer_is_sent_to_human():
     assert got.action == "ask_human" and got.value_from == "single_child"
 
 
+def test_bare_option_label_is_not_shown_as_the_question():
+    d = Decision(thought="Guess No", action="click", element_id=1, value_from="goal")
+    got = require_source(d, {"role": "radio", "label": "No"}, {})
+    assert got.action == "ask_human" and "Please provide No" not in got.message
+    assert "question shown in the picture" in got.message
+
+
 def test_age_does_not_authorize_entering_birth_date():
     d = Decision(thought="Open calendar", action="click", element_id=1)
     got = require_source(d, {"label": "Open calendar", "field_label": "Date of Birth"}, {"age": 19})
