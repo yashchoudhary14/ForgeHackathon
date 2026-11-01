@@ -42,8 +42,8 @@ export function ReceiptView({ receipt }: { receipt: Receipt }) {
     ? assetUrl(receipt.screenshot)
     : undefined;
   return (
-    <div className="receipt">
-      <h2>
+    <div className="receipt relative overflow-hidden rounded-card border border-line bg-card p-5 sm:p-6">
+      <h2 className="stamp !mb-4 !text-xl text-ok">
         <Text value={"Application receipt"} />
       </h2>
       <ol className="citations receipt-citations">
