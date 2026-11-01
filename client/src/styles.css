@@ -1,13 +1,12 @@
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Mukta:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@500;700&display=swap");
 @import "tailwindcss";
 @import "./theme.css";
 
 /* Legacy defaults stay below Dawn components and Tailwind utilities. */
 @layer base {
 :root {
-  font-family: "Noto Sans", "Noto Sans Devanagari", system-ui, sans-serif;
-  color: #202c39;
-  background: #f7f5ef;
+  font-family: "Hind", "Hind Siliguri", system-ui, sans-serif;
+  color: #141b34;
+  background: #f4f6fa;
   font-synthesis: none;
   line-height: 1.6;
 }
@@ -161,10 +160,10 @@ button {
   justify-content: center;
   gap: 0.6rem;
   border: 1px solid transparent;
-  background: #a94d15;
+  background: #141b34;
   color: white;
   font-weight: 700;
-  border-radius: 10px;
+  border-radius: 999px;
   min-height: 48px;
   padding: 0.7rem 1.1rem;
   cursor: pointer;
@@ -173,8 +172,8 @@ button:hover {
   filter: brightness(0.94);
 }
 button:disabled {
-  background: #e6dec8;
-  color: #5c5346;
+  background: #e3e7f0;
+  color: #5b6380;
   opacity: 1;
   cursor: not-allowed;
 }
@@ -184,15 +183,15 @@ button.secondary {
   color: #283b45;
 }
 a {
-  color: #275d62;
+  color: #2b3fb5;
   text-underline-offset: 4px;
 }
 a:hover {
   text-decoration: underline;
 }
 *:focus-visible {
-  outline: 3px solid #187c8b;
-  outline-offset: 3px;
+  outline: 2px solid #2b3fb5;
+  outline-offset: 2px;
 }
 h1,
 h2,
@@ -202,9 +201,10 @@ p {
 }
 h1 {
   font-size: clamp(2rem, 4vw, 3.4rem);
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.05em;
+  font-family: "Baloo 2", "Baloo Da 2", system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   max-width: 740px;
 }
 h2 {
@@ -234,7 +234,7 @@ h3 svg {
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   font-weight: 800;
-  color: #9b4b22;
+  color: #4a5372;
   margin-bottom: 1rem;
 }
 .trust {
@@ -245,9 +245,9 @@ h3 svg {
   color: #526358;
 }
 .panel {
-  background: #fffefb;
-  border: 1px solid #e0e1d5;
-  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #dce1ec;
+  border-radius: 18px;
   padding: 1.6rem;
   margin-bottom: 1.3rem;
   box-shadow: 0 3px 10px #28372004;
@@ -260,7 +260,7 @@ h3 svg {
 }
 .muted,
 small {
-  color: #637068;
+  color: #4a5372;
 }
 .muted {
   font-size: 0.88rem;
@@ -293,8 +293,8 @@ textarea {
   display: block;
   width: 100%;
   background: white;
-  color: #263731;
-  border: 1px solid #bfc8bc;
+  color: #141b34;
+  border: 1px solid #b9c1d4;
   border-radius: 8px;
   padding: 0.7rem;
   min-height: 46px;
@@ -332,9 +332,9 @@ form button {
   margin-top: 1rem;
 }
 .error {
-  background: #fff0ec;
-  border: 1px solid #e7b9ae;
-  color: #8b2f20;
+  background: #fce8e6;
+  border: 1px solid #f2c4bf;
+  color: #b3261e;
   border-radius: 10px;
   padding: 1rem;
   margin: 1rem 0;
@@ -413,7 +413,7 @@ form button {
 progress {
   width: 100%;
   height: 7px;
-  accent-color: #48815b;
+  accent-color: #1e7b4f;
 }
 details {
   margin: 1rem 0;
@@ -433,9 +433,9 @@ summary {
   padding: 0.6rem 0;
 }
 blockquote {
-  border-left: 3px solid #d9bf92;
+  border-left: 3px solid #f2a007;
   padding-left: 0.8rem;
-  color: #536358;
+  color: #4a5372;
   margin: 0.5rem 0;
 }
 .prose p {
@@ -546,7 +546,7 @@ audio {
   align-items: start;
 }
 .browser {
-  background: #162c30;
+  background: #141b34;
   border-radius: 12px;
   overflow: hidden;
   min-height: 280px;

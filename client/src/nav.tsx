@@ -43,12 +43,13 @@ export function PillLink({
 }
 
 const toneText: Record<PillTone, string> = {
-  dark: "#fbf6ee",
-  saffron: "#17140f",
+  dark: "#f4f6fa",
+  saffron: "#141b34",
   act: "#ffffff",
-  lime: "#17140f",
-  light: "#17140f",
-  ghost: "#17140f",
+  lime: "#141b34",
+  light: "#141b34",
+  ghost: "#141b34",
+  inverse: "#ffffff",
 };
 
 export function PersonIcon({ size = 20, className }: { size?: number; className?: string }) {
@@ -65,14 +66,14 @@ export function BrandWordmark({ compact = false }: { compact?: boolean }) {
     >
       <span
         className={cx(
-          "font-serif font-normal leading-none tracking-[-0.02em] text-ink",
-          compact ? "text-[26px]" : "text-[26px] md:text-[30px]",
+          "font-serif font-bold leading-none tracking-[-0.02em] text-ink",
+          compact ? "text-[25px]" : "text-[27px] lg:text-[30px]",
         )}
       >
         Buddy<span className="text-saffron">.</span>
       </span>
       {lang !== "en" && ["hi", "bn", "as"].includes(lang) && (
-        <span className="rounded-full border border-[#f3d2b8] bg-peach px-2.5 py-0.5 text-xs font-semibold text-saffron-text">
+        <span className="stamp !border-[3px] text-xs text-act">
           {tt(lang, "brandName")}
         </span>
       )}
@@ -115,15 +116,15 @@ export function MobileHeader({ unread = 0 }: { unread?: number }) {
   const { lang, setLang, profileId } = useApp();
   const profileSummary = useNavProfileSummary(profileId);
   return (
-    <header className="sticky top-0 z-30 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line/60 bg-paper/95 px-4 pb-2 pt-3 backdrop-blur-md md:hidden">
+    <header className="sticky top-0 z-30 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-card px-4 pb-2 pt-2.5 md:hidden">
       <BrandWordmark compact />
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <label className="m-0">
           <span className="sr-only">{tt(lang, "profileLanguage")}</span>
           <select
             value={lang}
             onChange={(e) => setLang(e.target.value as Lang)}
-            className="!m-0 !min-h-11 !w-auto !max-w-28 !rounded-full !px-2.5 !py-1 text-xs font-semibold"
+            className="!m-0 !min-h-11 !w-auto !max-w-[6.5rem] !rounded-full !border-[#b9c1d4] !bg-white !px-2.5 !py-1 text-sm font-semibold"
           >
             {Object.entries(languages).map(([value, name]) => (
               <option key={value} value={value}>
@@ -136,15 +137,15 @@ export function MobileHeader({ unread = 0 }: { unread?: number }) {
         <Link
           to="/profile"
           aria-label={tt(lang, "navProfile")}
-          style={{ color: "#17140f" }}
-          className="relative inline-flex min-h-11 items-center gap-1.5 rounded-full border border-line bg-white px-3 text-xs font-semibold text-ink no-underline shadow-xs"
+          style={{ color: "#141b34" }}
+          className="relative inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#b9c1d4] bg-white px-2.5 text-xs font-semibold text-ink no-underline"
         >
           {profileId ? (
-            <span className="grid h-6 w-6 place-items-center rounded-full bg-peach text-[11px] font-bold text-saffron-text">
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-act text-[11px] font-bold text-white">
               {profileSummary.initials || <UserCheck size={14} aria-hidden="true" />}
             </span>
           ) : (
-            <UserPlus size={15} aria-hidden="true" className="text-saffron-text" />
+            <UserPlus size={16} aria-hidden="true" className="text-act" />
           )}
           <span className="max-w-[76px] truncate">
             {profileId
@@ -174,25 +175,25 @@ export function BottomNav({ unread = 0 }: { unread?: number }) {
     <nav
       ref={navRef}
       aria-label={tt(lang, "mainNav")}
-      className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 justify-between rounded-full bg-ink px-2 py-1.5 text-paper shadow-xl md:hidden"
+      className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 justify-between gap-0.5 rounded-[20px] border border-line bg-card px-1.5 py-1.5 text-ink shadow-[0_8px_28px_rgb(20_27_52/0.14)] md:hidden"
     >
       {phoneItems.map(({ to, key, Icon }) => (
         <NavLink
           key={to}
           to={to}
           aria-label={tt(lang, key)}
-          style={({ isActive }) => ({ color: isActive ? "#17140f" : "#fbf6ee" })}
+          style={({ isActive }) => ({ color: isActive ? "#2b3fb5" : "#4a5372" })}
           className={({ isActive }) =>
             cx(
-              "relative flex min-h-12 min-w-[44px] flex-1 flex-col items-center justify-center gap-1 rounded-full px-1 py-1.5 no-underline transition-transform active:scale-[0.98] motion-reduce:transition-none",
-              isActive ? "bg-lime" : "hover:bg-white/10",
+              "relative flex min-h-12 min-w-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 py-1.5 no-underline transition-transform active:scale-[0.98] motion-reduce:transition-none",
+              isActive ? "bg-act-soft font-bold" : "hover:bg-paper",
             )
           }
         >
-          <Icon size={18} aria-hidden="true" className="shrink-0" />
-          <span className="text-[0.68rem] font-semibold leading-snug">{tt(lang, key)}</span>
+          <Icon size={20} strokeWidth={2.1} aria-hidden="true" className="shrink-0" />
+          <span className="text-[0.72rem] font-semibold leading-snug">{tt(lang, key)}</span>
           {key === "navProfile" && unread > 0 && (
-            <span className="absolute right-1.5 top-0.5 rounded-full bg-saffron px-1.5 text-[10px] font-bold text-ink">
+            <span className="absolute right-1.5 top-0.5 rounded-full bg-bad px-1.5 text-[10px] font-bold text-white">
               {unread}
             </span>
           )}
@@ -216,21 +217,21 @@ export function PillNav({ unread = 0 }: { unread?: number }) {
   const { lang, setLang, profileId } = useApp();
   const profileSummary = useNavProfileSummary(profileId);
   return (
-    <header className="sticky top-0 z-30 hidden shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line/50 bg-paper/95 px-8 py-3 backdrop-blur md:flex">
+    <header className="sticky top-0 z-30 hidden shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-card px-6 py-2.5 md:flex">
       <BrandWordmark />
       <nav
         aria-label={tt(lang, "mainNav")}
-        className="flex max-w-full flex-wrap gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_#ede5da]"
+        className="flex max-w-full flex-wrap gap-0.5"
       >
         {desktopItems.map(({ to, key }) => (
           <NavLink
             key={to}
             to={to}
-            style={({ isActive }) => ({ color: isActive ? "#fbf6ee" : "#17140f" })}
+            style={({ isActive }) => ({ color: isActive ? "#2b3fb5" : "#141b34" })}
             className={({ isActive }) =>
               cx(
-                "flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold no-underline",
-                isActive ? "bg-ink text-paper" : "text-ink hover:bg-paper",
+                "relative flex min-h-11 items-center gap-1.5 rounded-full px-2.5 text-[0.95rem] font-semibold no-underline",
+                isActive ? "bg-act-soft" : "hover:bg-paper",
               )
             }
           >
@@ -242,19 +243,19 @@ export function PillNav({ unread = 0 }: { unread?: number }) {
       <div className="flex items-center gap-2">
         <label className="m-0">
           <span className="sr-only">{tt(lang, "profileLanguage")}</span>
-          <select value={lang} onChange={(e) => setLang(e.target.value as Lang)} className="!m-0 !min-h-11 !w-auto !max-w-32 !rounded-full !px-3 !py-1 text-sm">
+          <select value={lang} onChange={(e) => setLang(e.target.value as Lang)} className="!m-0 !min-h-11 !w-auto !max-w-32 !rounded-full !border-[#b9c1d4] !bg-white !px-3 !py-1 text-sm font-semibold">
             {Object.entries(languages).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
           </select>
         </label>
         <TextSizeToggle />
         <Link
           to="/profile"
-          style={{ color: "#17140f" }}
-          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-ink no-underline shadow-[inset_0_0_0_1px_#ede5da]"
+          style={{ color: "#141b34" }}
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#b9c1d4] bg-white px-3 py-1.5 text-sm font-semibold text-ink no-underline"
         >
           {profileId ? (
             <>
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-peach text-xs font-bold text-saffron-text">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-act text-xs font-bold text-white">
                 {profileSummary.initials || <PersonIcon size={15} />}
               </span>
               <span className="max-w-36 truncate">
@@ -263,7 +264,7 @@ export function PillNav({ unread = 0 }: { unread?: number }) {
             </>
           ) : (
             <>
-              <UserPlus size={16} aria-hidden="true" className="text-saffron-text" />
+              <UserPlus size={16} aria-hidden="true" className="text-act" />
               <span>{tt(lang, "setProfile")}</span>
             </>
           )}
@@ -271,12 +272,12 @@ export function PillNav({ unread = 0 }: { unread?: number }) {
         <Link
           to="/alerts"
           aria-label={tt(lang, "navAlerts")}
-          className="relative grid h-11 w-11 place-items-center rounded-full bg-white shadow-[inset_0_0_0_1px_#ede5da]"
+          className="relative grid h-11 w-11 place-items-center rounded-full border border-[#b9c1d4] bg-white"
           style={{ color: "inherit" }}
         >
           <Bell size={19} aria-hidden="true" />
           {unread > 0 && (
-            <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-saffron" />
+            <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-bad ring-2 ring-white" />
           )}
         </Link>
         {!home && <PillLink to="/talk" tone="saffron">
