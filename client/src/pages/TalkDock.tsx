@@ -33,7 +33,7 @@ export default function TalkDock({
     onSend(v);
   };
   return (
-    <div className="sticky bottom-0 flex flex-col items-center gap-3 bg-gradient-to-t from-paper via-paper/95 to-transparent px-4 pb-6 pt-3">
+    <div className="sticky bottom-0 flex shrink-0 flex-col items-center gap-3 bg-gradient-to-t from-paper via-paper/95 to-transparent px-4 pb-6 pt-3">
       {quick.length > 0 && (
         <div className="flex max-w-xl flex-wrap justify-center gap-2">
           {quick.map((q) => (
@@ -98,13 +98,13 @@ export default function TalkDock({
           onChange={(e) => setText(e.target.value)}
           placeholder={tt(lang, "typePlaceholder")}
           autoComplete="off"
-          className="!m-0 flex-1 !rounded-full !px-5 !text-base"
+          className="!m-0 min-w-0 flex-1 !rounded-full !px-5 !text-base"
         />
         <button
           type="submit"
           aria-label={tt(lang, "send")}
           disabled={!text.trim() || busy}
-          className="!min-h-12 !w-12 !rounded-full !p-0"
+          className="!min-h-12 !w-12 shrink-0 !rounded-full !p-0"
         >
           <Send size={18} />
         </button>

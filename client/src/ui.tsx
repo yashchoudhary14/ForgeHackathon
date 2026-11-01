@@ -9,7 +9,7 @@ export type PillTone = "dark" | "saffron" | "act" | "lime" | "light" | "ghost";
 export const tones: Record<PillTone, string> = {
   dark: "bg-ink text-paper",
   saffron: "bg-saffron text-ink",
-  act: "bg-act text-white",
+  act: "bg-[#2a5fc4] text-white",
   lime: "bg-lime text-ink",
   light: "bg-white text-ink shadow-[inset_0_0_0_1px_#d9cfc0]",
   ghost: "bg-transparent text-ink shadow-[inset_0_0_0_1px_#17140f]",

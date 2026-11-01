@@ -100,7 +100,7 @@ export default function HumanStep({
           <>
             {typed && human.kind !== "login" && (
               <form
-                className="flex gap-2"
+                className="flex flex-wrap gap-2"
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (answer.trim() && send({ type: "human_input", value: answer }))
@@ -119,12 +119,12 @@ export default function HumanStep({
                   autoComplete={human.kind === "otp" ? "one-time-code" : "off"}
                   inputMode={human.kind === "otp" ? "numeric" : undefined}
                   required
-                  className="!m-0 flex-1 !rounded-full !border-[#c9d6f2] !px-5"
+                  className="!m-0 min-w-0 basis-40 flex-1 !rounded-full !border-[#c9d6f2] !px-5"
                 />
                 <button
                   type="submit"
                   disabled={!answer.trim() || !connected}
-                  className="!bg-act !text-white"
+                  className="!bg-[#2a5fc4] !text-white"
                 >
                   {ui("sendAnswer")}
                 </button>

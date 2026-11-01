@@ -28,6 +28,7 @@ export default function CivicMap({
   const mapRef = useRef<import("leaflet").Map | null>(null);
   const layerRef = useRef<import("leaflet").LayerGroup | null>(null);
   const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +40,9 @@ export default function CivicMap({
         center: INDIA_CENTER,
         zoom: 5,
         scrollWheelZoom: false,
+        zoomControl: false,
       });
+      L.control.zoom({ position: "bottomright" }).addTo(map);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "&copy; OpenStreetMap contributors",
         maxZoom: 19,
@@ -70,6 +73,7 @@ export default function CivicMap({
   function locateUser() {
     if (!navigator.geolocation) return;
     setLocating(true);
+    setLocationError("");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
@@ -77,7 +81,12 @@ export default function CivicMap({
         mapRef.current?.setView([latitude, longitude], 13);
         onNearMe?.(latitude, longitude);
       },
-      () => setLocating(false),
+      () => {
+        setLocating(false);
+        setLocationError(
+          "Could not read your location. Allow location access and try again.",
+        );
+      },
       { enableHighAccuracy: true, timeout: 10000 },
     );
   }
@@ -91,7 +100,9 @@ export default function CivicMap({
       />
       <div className="pointer-events-none absolute inset-x-3.5 top-3.5 z-[400] flex flex-wrap items-center justify-between gap-2">
         <span className="rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-sm">
-          OpenStreetMap · {reports.filter((r) => r.lat != null && r.lng != null).length} geotagged reports
+          OpenStreetMap ·{" "}
+          {reports.filter((r) => r.lat != null && r.lng != null).length}{" "}
+          geotagged reports
         </span>
         {typeof navigator !== "undefined" && !!navigator.geolocation && (
           <button
@@ -105,7 +116,15 @@ export default function CivicMap({
           </button>
         )}
       </div>
-      <div className="pointer-events-none absolute bottom-3.5 left-3.5 z-[400] flex flex-wrap gap-3 rounded-2xl bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-sm">
+      {locationError && (
+        <p
+          role="alert"
+          className="absolute inset-x-3.5 top-32 z-[400] m-0 rounded-2xl bg-white p-3 text-sm text-bad"
+        >
+          {locationError}
+        </p>
+      )}
+      <div className="pointer-events-none absolute bottom-3.5 left-3.5 right-16 z-[400] flex flex-wrap gap-3 rounded-2xl bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-sm">
         <span className="inline-flex items-center gap-1.5">
           <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#9A4A12]" />
           Open
@@ -138,9 +157,9 @@ function renderPins(
     const { bg, fg } = pinColor(r.status);
     const icon = L.divIcon({
       className: "civic-pin",
-      html: `<div style="background:${bg};color:${fg};min-width:34px;height:34px;padding:0 8px;border-radius:999px;display:grid;place-items:center;font-weight:700;font-size:13px;border:3px solid #fff;box-shadow:0 6px 14px rgba(0,0,0,0.22);">${r.supporters}</div>`,
-      iconSize: [34, 34],
-      iconAnchor: [17, 17],
+      html: `<div style="background:${bg};color:${fg};min-width:44px;height:44px;padding:0 8px;border-radius:999px;display:grid;place-items:center;font-weight:700;font-size:13px;border:3px solid #fff;box-shadow:0 6px 14px rgba(0,0,0,0.22);">${r.supporters}</div>`,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
     });
     const marker = L.marker([r.lat, r.lng], { icon });
     marker.bindPopup(

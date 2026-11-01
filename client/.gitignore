@@ -3,3 +3,6 @@ dist/
 *.tsbuildinfo
 .env
 .env.local
+
+# Local visual QA scripts and viewport captures
+.qa/

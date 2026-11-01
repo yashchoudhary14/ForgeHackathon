@@ -29,6 +29,8 @@
     #e5d8fa 100%
   );
 }
+/* Components override legacy base styles; utilities retain the final say. */
+@layer components {
 :root {
   --paper: #fbf6ee;
   --ink: #17140f;
@@ -173,9 +175,10 @@ progress {
   background: radial-gradient(
     circle at 35% 30%,
     #fff 0%,
-    #ffd9b3 30%,
-    #f7a35c 65%,
-    #e8731c 100%
+    #ffe3ee 18%,
+    #d8c6ff 45%,
+    #9fc2ff 68%,
+    #ff9a4d 100%
   );
   box-shadow: 0 20px 50px #e8731c40;
 }
@@ -212,4 +215,31 @@ progress {
   .orb::after {
     animation: none !important;
   }
+}
+
+/* Flex controls may shrink inside narrow cards without widening the page. */
+input,
+select,
+textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+button {
+  max-width: 100%;
+}
+.panel {
+  min-width: 0;
+}
+.page-heading > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+}
+
+/* Leaflet ships unlayered CSS, so keep its touch-size override unlayered too. */
+.leaflet-container .leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
 }
