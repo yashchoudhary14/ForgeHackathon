@@ -296,12 +296,18 @@ class TalkContext(BaseModel):
     onboarding: bool = False
 
 
+class TalkApplicationAction(BaseModel):
+    type: Literal["start_application"]
+    service: str = Field(min_length=1, max_length=200, pattern=r"^[\w-]+$")
+
+
 class TalkIn(BaseModel):
     profile_id: str = Field(min_length=1, max_length=32)
     text: str | None = Field(default=None, max_length=12000)
     lang: Lang | None = None
     context: TalkContext | None = None
     stream_audio: bool = False
+    action: TalkApplicationAction | None = None
 
 
 class TalkReply(BaseModel):

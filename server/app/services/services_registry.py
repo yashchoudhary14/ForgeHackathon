@@ -29,18 +29,19 @@ class Service:
     portal: str
     aliases: tuple[str, ...]
     verification_url: str
+    requires_state: bool = False
 
 
 REGISTRY = (
     Service("driving_licence", "Driving licence", "https://sarathi.parivahan.gov.in",
             ("driving licence", "driving license", "driver licence", "driver's license", "ड्राइविंग लाइसेंस", "ड्राइविंग लाइसेन्स", "ড্রাইভিং লাইসেন্স"),
-            "https://sarathi.parivahan.gov.in"),
+            "https://sarathi.parivahan.gov.in", requires_state=True),
     Service("learner_licence", "Learner licence", "https://sarathi.parivahan.gov.in",
             ("learner licence", "learner license", "learner's licence", "learners licence", "learning licence", "लर्निंग लाइसेंस"),
-            "https://sarathi.parivahan.gov.in"),
+            "https://sarathi.parivahan.gov.in", requires_state=True),
     Service("vehicle_rc", "Vehicle registration certificate", "https://vahan.parivahan.gov.in",
             ("vehicle rc", "vehicle registration", "registration certificate", "vahan", "rc transfer"),
-            "https://parivahan.gov.in"),
+            "https://parivahan.gov.in", requires_state=True),
     Service("epan", "Instant e-PAN", "https://www.incometax.gov.in",
             ("e-pan", "epan", "e pan", "instant pan"),
             "https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/instant-e-pan"),
@@ -58,7 +59,7 @@ REGISTRY = (
             ("voter", "electoral", "मतदाता", "ভোটার"), "https://voters.eci.gov.in"),
     Service("birth_death", "Birth / death certificate", "https://crsorgi.gov.in",
             ("birth certificate", "death certificate", "जन्म प्रमाण", "मृत्यु प्रमाण", "জন্ম সনদ"),
-            "https://services.india.gov.in/service/detail/civil-registration-system-birth-and-death-certificate"),
+            "https://services.india.gov.in/service/detail/civil-registration-system-birth-and-death-certificate", requires_state=True),
     Service("ayushman", "Ayushman card", "https://beneficiary.nha.gov.in",
             ("ayushman", "आयुष्मान", "আয়ুষ্মান"), "https://health.delhi.gov.in/health/ab-pm-jay-scheme"),
     Service("pmkisan", "PM-KISAN", "https://pmkisan.gov.in",

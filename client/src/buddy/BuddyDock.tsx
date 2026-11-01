@@ -364,7 +364,11 @@ export default function BuddyDock() {
       signal,
     });
   }
-  async function submit(input: { text?: string; audio?: Blob }) {
+  async function submit(input: {
+    text?: string;
+    audio?: Blob;
+    action?: { type: "start_application"; service: string };
+  }) {
     if (sending.current) return;
     sending.current = true;
     setBusy(true);
@@ -383,7 +387,7 @@ export default function BuddyDock() {
       // Voice started on a human step is never rerouted to Talk if that step ends.
       const target = voiceTarget.current;
       voiceTarget.current = null;
-      if (human || (input.audio && target)) {
+      if (!input.action && (human || (input.audio && target))) {
         if (
           !human ||
           (input.audio &&
@@ -420,6 +424,7 @@ export default function BuddyDock() {
           { id: botId, from: "bot" as const, text: "", cards: [] },
         ].slice(-40),
       );
+      let applicationStarted = false;
       await streamTalk(
         {
           profile_id: pid,
@@ -453,8 +458,11 @@ export default function BuddyDock() {
                 : ui("thinking"),
             );
           }
-          if (event.type === "action")
+          if (event.type === "action") {
+            if (event.action.type === "start_application")
+              applicationStarted = true;
             void execute(event.action).catch((e: Error) => setError(e.message));
+          }
           if (event.type === "audio") speech.enqueue(event.audio_url);
           if (event.type === "done") {
             setNotice("");
@@ -462,7 +470,7 @@ export default function BuddyDock() {
             if (event.audio_url) speech.enqueue(event.audio_url);
             if (onboarding && event.profile && profileComplete(event.profile)) {
               setOnboarding(false);
-              navigate("/schemes");
+              if (!applicationStarted) navigate("/schemes");
             }
           }
           setMessages((all) => applyTalkEvent(all, event, botId));
@@ -773,6 +781,12 @@ export default function BuddyDock() {
                       lang={lang}
                       disabled={busy}
                       onAnswer={(value) => void submit({ text: value })}
+                      onApply={(service, text) =>
+                        void submit({
+                          text,
+                          action: { type: "start_application", service },
+                        })
+                      }
                       onCapture={(docType, reason) =>
                         openCamera(docType, reason)
                       }

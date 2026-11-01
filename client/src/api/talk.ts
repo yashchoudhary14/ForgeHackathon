@@ -86,6 +86,7 @@ export interface TalkInput {
     onboarding?: boolean;
   };
   stream_audio?: boolean;
+  action?: { type: "start_application"; service: string };
 }
 
 /** Builds the request body: multipart when audio is present, JSON otherwise. */
@@ -108,6 +109,7 @@ export function talkBody(input: TalkInput): {
     if (lang) form.set("lang", lang);
     if (input.context) form.set("context", JSON.stringify(input.context));
     if (input.stream_audio) form.set("stream_audio", "true");
+    if (input.action) form.set("action", JSON.stringify(input.action));
     return { body: form, headers: {} };
   }
   return {
@@ -117,6 +119,7 @@ export function talkBody(input: TalkInput): {
       ...(lang ? { lang } : {}),
       ...(input.context ? { context: input.context } : {}),
       ...(input.stream_audio ? { stream_audio: true } : {}),
+      ...(input.action ? { action: input.action } : {}),
     }),
     headers: { "Content-Type": "application/json" },
   };

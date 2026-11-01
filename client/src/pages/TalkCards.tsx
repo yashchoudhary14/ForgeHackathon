@@ -58,12 +58,14 @@ export default function CardView({
   lang,
   disabled,
   onAnswer,
+  onApply,
   onCapture,
 }: {
   card: TalkCard;
   lang: string;
   disabled: boolean;
   onAnswer: (value: string) => void;
+  onApply: (service: string, text: string) => void;
   onCapture?: (docType: string, reason: string) => void;
 }) {
   const box =
@@ -147,7 +149,7 @@ export default function CardView({
           <button
             type="button"
             disabled={disabled}
-            onClick={() => onAnswer(`${l[6]}: ${card.service}`)}
+            onClick={() => onApply(card.service_id, `${l[6]}: ${card.service}`)}
           >
             {l[6]}
           </button>

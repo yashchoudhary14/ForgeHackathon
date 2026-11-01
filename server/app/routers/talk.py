@@ -124,15 +124,19 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
     history = [{"role": r.role, "content": safe_text(r.content, sensitive),
                 "offer_slug": next((c.get("talk_offer_slug") for c in (r.citations or []) if "talk_offer_slug" in c), None),
                 "offer_service": next((c.get("talk_offer_service") for c in (r.citations or []) if "talk_offer_service" in c), None),
+                "pending_service": next((c.get("talk_pending_service") for c in (r.citations or []) if "talk_pending_service" in c), None),
                 "services": next((c.get("talk_services", []) for c in (r.citations or []) if "talk_services" in c), [])}
                for r in reversed(rows)]
     db.add(ChatMessage(session_id=session_id, role="user", content=message))
     await db.commit()
     tools = TalkTools(db, profile, message, history)
+    if body.action:
+        tools.requested_service = body.action.service
     if body.context:
         page = body.context.page
         tools.context = {"page": page if page in UI_ROUTES else "/runs/:id" if re.fullmatch(r"/runs/[\w-]+", page) else "/schemes/:slug" if re.fullmatch(r"/schemes/[\w-]+", page) else "/",
-                         "onboarding": body.context.onboarding and not asks_for_help(message)}
+                         "onboarding": body.context.onboarding and not asks_for_help(message)
+                                       and not body.action and not tools.pending_service and not tools.offered_service}
         current_scheme = re.fullmatch(r"/schemes/([A-Za-z0-9_-]{1,200})", page)
         if current_scheme:
             try:
@@ -179,6 +183,8 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
         metadata.append({"talk_offer_service": reply["application_offer_service"]})
     if tools.services:
         metadata.append({"talk_services": list(tools.services.values())})
+    if tools.pending_service:
+        metadata.append({"talk_pending_service": tools.pending_service})
     db.add(ChatMessage(session_id=session_id, role="assistant", content=content,
                        citations=metadata))
     await db.commit()
@@ -236,6 +242,8 @@ async def talk(request: Request):
         if request.headers.get("content-type", "").startswith("multipart/form-data"):
             async with request.form(max_files=1, max_fields=5) as form:
                 values = {k: form[k] for k in ("profile_id", "text", "lang") if k in form}
+                if "action" in form:
+                    values["action"] = json.loads(str(form["action"]))
                 if "context" in form:
                     values["context"] = json.loads(str(form["context"]))
                 if "stream_audio" in form:

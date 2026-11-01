@@ -1,9 +1,12 @@
 """Offline service routing, search evidence and consent-bound browser handoffs."""
+import asyncio
 import json
 from types import SimpleNamespace as NS
 from unittest.mock import AsyncMock, Mock
 
+import httpx
 import pytest
+from fastapi import FastAPI
 from sqlalchemy import select
 
 from app.agents import executor, talk
@@ -11,8 +14,17 @@ from app.models import AgentRun, Profile
 from app.routers import talk as route
 from app.schemas import TalkContext, TalkIn, TalkReply
 from app.services import government
+from app.services.service_copy import COPY, service_copy
 from app.services.services_registry import REGISTRY, https_url, match_service, official_url
-from test_talk import db, model_response
+from test_talk import db as talk_db, model_response
+
+
+@pytest.fixture
+def db(talk_db):
+    row = talk_db.session.get(Profile, "farmer")
+    row.data = {**row.data, "state": "Uttar Pradesh"}
+    talk_db.session.commit()
+    return talk_db
 
 
 def service(key="driving_licence", steps=True):
@@ -77,7 +89,7 @@ async def test_driving_request_routes_to_service_and_builds_guarded_run(db, monk
     monkeypatch.setattr(executor.manager, "start", start)
     tools = talk.TalkTools(db, await db.get(Profile, "farmer"), "apply for a driving licence")
     events = [event async for event in talk.respond(tools.message, "en", [], tools)]
-    finder.assert_awaited_once_with(tools.message, "en", None)
+    finder.assert_awaited_once_with(tools.message, "en", "Uttar Pradesh")
     schemes.assert_not_awaited()
     planner.assert_not_awaited()
     run = db.session.execute(select(AgentRun)).scalars().one()
@@ -151,12 +163,13 @@ async def test_pan_provider_is_guide_only_and_opens_verified_link(db, monkeypatc
     start.assert_not_called()
 
 
-async def test_start_rejects_unretrieved_service_and_missing_grounded_steps(db, monkeypatch):
+async def test_start_rejects_unretrieved_service_and_search_only_service_without_steps(db, monkeypatch):
     tools = talk.TalkTools(db, await db.get(Profile, "farmer"), "apply for a driving licence")
     assert "error" in await tools.call("start_application", {"service": "https://evil.com"})
     assert "error" in await tools.call("start_application", {"slug": "s", "service": "driving_licence"})
-    tools.services["driving_licence"] = service(steps=False)
-    assert "verified" in (await tools.call("start_application", {"service": "driving_licence"}))["error"]
+    tools.message = "apply for a municipal permit"
+    tools.services["search_only"] = {**service(steps=False), "service_id": "search_only", "service": "municipal permit"}
+    assert "verified" in (await tools.call("start_application", {"service": "search_only"}))["error"]
     assert not db.session.execute(select(AgentRun)).scalars().all()
 
 
@@ -220,6 +233,177 @@ async def test_registry_still_works_without_live_search_and_does_not_invent_deta
     assert result["official_portal_url"] == "https://sarathi.parivahan.gov.in"
     assert not result["steps"] and not result["documents"] and result["fees"] is None
     assert "provider secret" not in str(result)
+
+
+@pytest.mark.parametrize("failure", ["empty", "exception", "timeout", "extraction"])
+async def test_failed_verification_still_starts_curated_portal_run(db, monkeypatch, failure):
+    async def search(*args, **kwargs):
+        if failure == "exception":
+            raise RuntimeError("provider secret")
+        if failure == "timeout":
+            await asyncio.Event().wait()
+        return {"text": "पोर्टल पर जाएँ।" if failure == "extraction" else "", "sources": []}
+
+    monkeypatch.setattr(government, "grounded_answer", search)
+    monkeypatch.setattr(government, "GUIDANCE_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(government.llm, "generate_json", AsyncMock(side_effect=RuntimeError("extraction failed")))
+    monkeypatch.setattr(talk.llm, "generate_content", Mock(side_effect=AssertionError("No planner needed")))
+    monkeypatch.setattr(talk.llm, "stream_content", Mock(side_effect=AssertionError("No reply model needed")))
+    row = await db.get(Profile, "farmer")
+    row.language = "hi"
+    start = Mock()
+    monkeypatch.setattr(executor.manager, "start", start)
+    tools = talk.TalkTools(db, row, "मुझे ड्राइविंग लाइसेंस के लिए आवेदन करना है।")
+    events = [e async for e in talk.respond(tools.message, "hi", [], tools)]
+    run = db.session.execute(select(AgentRun)).scalars().one()
+    assert run.portal_url == "https://sarathi.parivahan.gov.in"
+    assert "curated registry verifies only the portal URL" in run.goal
+    assert "documents, fees, eligibility or processing times" in run.goal
+    assert "final submit" in run.goal and "CAPTCHA" in run.goal
+    assert start.call_args.args[0].profile["state"] == "Uttar Pradesh"
+    assert any(e.get("action", {}).get("service") == "driving_licence" for e in events)
+    assert "आवेदन में मदद शुरू है" in events[-1]["text"]
+
+
+@pytest.mark.parametrize("language", list(COPY))
+@pytest.mark.parametrize("outage", [False, True])
+async def test_fallback_and_provider_copy_use_session_language(monkeypatch, language, outage):
+    monkeypatch.setattr(government, "grounded_answer", AsyncMock(
+        side_effect=RuntimeError("secret") if outage else None, return_value={"text": "", "sources": []}))
+    result = await government.find_service("PAN card", language)
+    assert result["notes"] == list(service_copy(language)[:2])
+    assert result["sources"][0]["title"] == service_copy(language)[2]
+    if language == "hi":
+        assert result["service"] == "पैन"
+        assert not any(c.isascii() and c.isalpha() for c in " ".join(result["notes"]))
+
+
+async def service_conversation(db, text, action=None, audio=None):
+    return [e async for e in route.conversation(TalkIn(profile_id="farmer", text=text,
+        lang="hi", action=action, context=TalkContext(onboarding=True)), audio, "audio/wav", db)]
+
+
+@pytest.mark.parametrize("consent", ["button", "voice"])
+async def test_fallback_offer_then_button_or_spoken_yes_emits_start_action(db, monkeypatch, consent):
+    monkeypatch.setattr(government, "grounded_answer", AsyncMock(side_effect=RuntimeError("offline")))
+    monkeypatch.setattr(route.sarvam, "tts_to_file", AsyncMock(return_value=None))
+    monkeypatch.setattr(route.sarvam, "stt", AsyncMock(return_value=NS(text="हाँ", language="hi")))
+    monkeypatch.setattr(talk.llm, "generate_content", Mock(side_effect=AssertionError("No planner needed")))
+    monkeypatch.setattr(talk.llm, "stream_content", Mock(side_effect=AssertionError("No reply model needed")))
+    start = Mock()
+    monkeypatch.setattr(executor.manager, "start", start)
+    first = await service_conversation(db, "ड्राइविंग लाइसेंस कैसे बनवाएँ?")
+    start.assert_not_called()
+    assert first[-1]["quick_replies"] == ["हाँ", "नहीं"]
+    card = next(e["card"] for e in first if e.get("card", {}).get("kind") == "service")
+    assert card["steps"] == [] and card["service"] == "ड्राइविंग लाइसेंस"
+    assert "पुष्टि नहीं हो सकी" in card["notes"][0]
+    if consent == "button":
+        second = await service_conversation(db, "आवेदन में मदद करें: ड्राइविंग लाइसेंस",
+            {"type": "start_application", "service": card["service_id"]})
+    else:
+        second = await service_conversation(db, None, audio=b"spoken yes")
+    action = next(e["action"] for e in second if e["type"] == "action")
+    run = db.session.execute(select(AgentRun)).scalars().one()
+    assert action == {"type": "start_application", "service": "driving_licence", "run_id": run.id}
+    start.assert_called_once()
+
+
+async def test_missing_state_is_spoken_then_saved_before_starting_consented_service(db, monkeypatch):
+    row = await db.get(Profile, "farmer")
+    row.data = {"age": 46}
+    await db.commit()
+    monkeypatch.setattr(government, "grounded_answer", AsyncMock(side_effect=RuntimeError("offline")))
+    tts = AsyncMock(return_value="/files/audio/state.wav")
+    monkeypatch.setattr(route.sarvam, "tts_to_file", tts)
+    monkeypatch.setattr(route.sarvam, "stt", AsyncMock(return_value=NS(text="उत्तर प्रदेश", language="hi")))
+    start = Mock()
+    monkeypatch.setattr(executor.manager, "start", start)
+    first = await service_conversation(db, "ड्राइविंग लाइसेंस के लिए आवेदन करें")
+    assert first[-1]["text"] == service_copy("hi")[3]
+    assert first[-1]["audio_url"] == "/files/audio/state.wav"
+    tts.assert_awaited_with(service_copy("hi")[3], "hi")
+    start.assert_not_called()
+    extract = AsyncMock(return_value=(talk.ProfileData(state="Uttar Pradesh", age=46), talk.SensitiveData()))
+    monkeypatch.setattr(talk.intake, "extract", extract)
+    second = await service_conversation(db, None, audio=b"spoken state")
+    assert "उत्तर प्रदेश" in extract.await_args.args[0]
+    assert any(e.get("action", {}).get("type") == "start_application" for e in second)
+    assert start.call_args.args[0].profile["state"] == "Uttar Pradesh"
+    assert (await db.get(Profile, "farmer")).data["state"] == "Uttar Pradesh"
+
+
+@pytest.mark.parametrize("extraction_fails", [False, True])
+async def test_unresolved_state_keeps_localized_voice_question_and_never_starts(db, monkeypatch, extraction_fails):
+    row = await db.get(Profile, "farmer")
+    row.data = {"age": 46}
+    await db.commit()
+    monkeypatch.setattr(government, "grounded_answer", AsyncMock(side_effect=RuntimeError("offline")))
+    monkeypatch.setattr(route.sarvam, "tts_to_file", AsyncMock(return_value="/files/audio/state.wav"))
+    monkeypatch.setattr(talk.intake, "extract", AsyncMock(
+        side_effect=RuntimeError("provider secret") if extraction_fails else None,
+        return_value=(talk.ProfileData(age=46), talk.SensitiveData())))
+    start = Mock()
+    monkeypatch.setattr(executor.manager, "start", start)
+    await service_conversation(db, "ड्राइविंग लाइसेंस के लिए आवेदन करें")
+    events = await service_conversation(db, "पता नहीं")
+    assert events[-1]["text"] == service_copy("hi")[3]
+    assert events[-1]["audio_url"] == "/files/audio/state.wav"
+    start.assert_not_called()
+
+
+async def test_explicit_card_action_cannot_start_an_unreturned_service(db, monkeypatch):
+    start = Mock()
+    monkeypatch.setattr(executor.manager, "start", start)
+    monkeypatch.setattr(route.sarvam, "tts_to_file", AsyncMock(return_value=None))
+    events = await service_conversation(db, "आवेदन में मदद करें",
+        {"type": "start_application", "service": "driving_licence"})
+    assert not any(e["type"] == "action" for e in events)
+    assert "शुरू नहीं हो सकी" in events[-1]["text"]
+    start.assert_not_called()
+
+
+@pytest.mark.parametrize("multipart", [False, True])
+async def test_http_card_action_reaches_start_application(db, monkeypatch, multipart):
+    monkeypatch.setattr(government, "grounded_answer", AsyncMock(side_effect=RuntimeError("offline")))
+    monkeypatch.setattr(route.sarvam, "tts_to_file", AsyncMock(return_value=None))
+    start = Mock()
+    monkeypatch.setattr(executor.manager, "start", start)
+    await service_conversation(db, "ड्राइविंग लाइसेंस कैसे बनवाएँ?")
+    app = FastAPI()
+    app.include_router(route.router, prefix="/api")
+    action = {"type": "start_application", "service": "driving_licence"}
+    payload = {"profile_id": "farmer", "lang": "hi", "text": "आवेदन में मदद करें", "action": action}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        if multipart:
+            response = await client.post("/api/talk", files={k: (None, json.dumps(v) if k == "action" else v)
+                                                         for k, v in payload.items()})
+        else:
+            response = await client.post("/api/talk", json=payload)
+    assert response.status_code == 200
+    events = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
+    assert any(e.get("action", {}).get("service") == "driving_licence" for e in events)
+    start.assert_called_once()
+
+
+@pytest.mark.parametrize("answer", ["नहीं", "Actually, I want an e-PAN in Uttar Pradesh"])
+async def test_missing_state_consent_is_cancelled_by_refusal_or_different_service(db, monkeypatch, answer):
+    row = await db.get(Profile, "farmer")
+    row.data = {"age": 46}
+    await db.commit()
+    monkeypatch.setattr(government, "grounded_answer", AsyncMock(side_effect=RuntimeError("offline")))
+    monkeypatch.setattr(route.sarvam, "tts_to_file", AsyncMock(return_value=None))
+    monkeypatch.setattr(talk.llm, "generate_content", AsyncMock(return_value=model_response()))
+    monkeypatch.setattr(talk.llm, "stream_content", final_stream(TalkReply(text="ठीक है।")))
+    intake = AsyncMock(side_effect=AssertionError("Do not extract state or carry application consent"))
+    monkeypatch.setattr(talk.intake, "extract", intake)
+    start = Mock()
+    monkeypatch.setattr(executor.manager, "start", start)
+    await service_conversation(db, "ड्राइविंग लाइसेंस के लिए आवेदन करें")
+    events = await service_conversation(db, answer)
+    start.assert_not_called()
+    intake.assert_not_awaited()
+    assert not any(e["type"] == "action" for e in events)
 
 
 async def test_general_question_falls_back_to_grounded_answer_and_links(db, monkeypatch):

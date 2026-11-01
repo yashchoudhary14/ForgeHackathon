@@ -15,6 +15,7 @@ from ..models import AgentRun
 from ..schemas import ExplainIn, ExplainSource, ProfileData, SensitiveData, TalkReply
 from ..services import crypto, government, llm, myscheme
 from ..services.services_registry import match_service, official_url
+from ..services.service_copy import service_copy
 from . import explainer, intake, matcher
 from .chat import MAX_TOOL_ROUNDS, _function
 
@@ -211,9 +212,12 @@ class TalkTools:
         self.service_result: dict | None = None
         self.grounded_text = ""
         self.application_error = False
+        self.requested_service: str | None = None  # citizen's explicit card action
+        self.continuing_service: str | None = None
         assistants = [h for h in (history or []) if h["role"] == "assistant"]
         self.offered_slug = assistants[-1].get("offer_slug") if assistants else None
         self.offered_service = assistants[-1].get("offer_service") if assistants else None
+        self.pending_service = assistants[-1].get("pending_service") if assistants else None
         if assistants:
             self.services.update({s["service_id"]: s for s in assistants[-1].get("services", [])})
 
@@ -321,13 +325,20 @@ class TalkTools:
             # Never accept a URL or procedural data supplied as tool arguments.
             return {"error": "Find this service first and use its returned service_id."}
         self.grounded_text = details.get("guidance", "")
+        self.service_result = details
         self.sources.update({s["url"]: s for s in details["sources"]})
         if key in self.started:
             return self.started[key]
         named = bool(entry and match_service(self.message) == entry) or details["service"].casefold() in self.message.casefold()
-        if not application_consent(self.message, named, self.offered_service == key):
+        if (self.requested_service != key and self.continuing_service != key
+                and not application_consent(self.message, named, self.offered_service == key)):
             return {"error": "Ask the citizen for consent to apply to this specific service first.", "service": details["service"]}
-        url = details["official_portal_url"]
+        # The registry independently verifies this URL, even when live step
+        # verification failed. Never loosen the gate for search-only services.
+        url = entry.portal if entry else details["official_portal_url"]
+        if entry and entry.requires_state and not self.profile.state:
+            self.pending_service = key
+            return {"status": "needs_state", "question": service_copy(self.row.language)[3]}
         if not url:
             return {"error": "The official portal has not been verified. Ask for the state and exact service."}
         if not official_url(url):
@@ -342,7 +353,7 @@ class TalkTools:
         from .browser import allowed
         if not allowed(url):
             return {"error": "This portal is outside the agent allow-list."}
-        if not details["steps"]:
+        if not details["steps"] and not entry:
             return {"error": "Current application steps could not be verified. Open the official portal or retry before starting an agent."}
         from .executor import RunSession, manager
         goal = government.application_goal(details)
@@ -353,6 +364,7 @@ class TalkTools:
         session = RunSession(run.id, goal, url, self.profile.model_dump(exclude_none=True),
                              crypto.decrypt_json(self.row.sensitive), profile_id=self.row.id, language=self.row.language)
         manager.start(session)
+        self.pending_service = None
         card = {"kind": "run", "run_id": run.id, "title": details["service"]}
         self.cards.append(card)
         self.actions.append({"type": "start_application", "service": key, "run_id": run.id})
@@ -481,7 +493,21 @@ async def respond(message: str, language: str, history: list[dict], tools: TalkT
     yield {"type": "progress", "stage": "planning"}
     progress_prefix = ""
     force_service = service_request(message) and not direct_task(message)
-    if tools.offered_service in tools.services and application_consent(message, False, True):
+    # Carry consent across ONE missing-state question, using only extracted
+    # citizen facts. A question, refusal or different service cancels this handoff.
+    pending = tools.pending_service
+    tools.pending_service = None
+    if (pending in tools.services and not asks_for_help(message)
+            and not re.search(r"\b(no|cancel|stop|later)\b|नहीं|मत|না|வேண்டாம்|వద్దు|ಬೇಡ|വേണ്ട|નહીં|ਨਹੀਂ|नको|ନାହିଁ", message, re.I)):
+        tools.profile_question = "state"
+        yield {"type": "progress", "stage": "saving_profile"}
+        await tools.call("save_profile_facts", {})
+        tools.pending_service = pending
+        tools.continuing_service = pending
+        first_call = ("start_application", {"service": pending})
+    elif tools.requested_service:
+        first_call = ("start_application", {"service": tools.requested_service})
+    elif tools.offered_service in tools.services and application_consent(message, False, True):
         first_call = ("start_application", {"service": tools.offered_service})
     else:
         first_call = ("find_service", {"query": message}) if force_service else None
@@ -535,21 +561,27 @@ async def respond(message: str, language: str, history: list[dict], tools: TalkT
         # Another planning round usually just says 'ready' before the JSON call.
         if any(call.name != "save_profile_facts" for call in calls):
             break
-    if tools.grounded_text:
+    if tools.grounded_text or tools.service_result or tools.application_error:
         # The spoken factual answer uses only Google-supported passages. Structured
         # service fields are also exact excerpts, as enforced by government.py.
         yield {"type": "progress", "stage": "preparing_reply"}
         if tools.sources:
             yield {"type": "card", "card": {"kind": "sources", "sources": list(tools.sources.values())}}
-        reply = TalkReply(text=tools.grounded_text)
+        details = tools.service_result
+        reply = TalkReply(text=tools.grounded_text or service_copy(tools.row.language)[0])
+        if tools.grounded_text and details and not details["steps"]:
+            reply.text += "\n\n" + service_copy(tools.row.language)[0]
         speech = APPLICATION_SPEECH.get(tools.row.language, APPLICATION_SPEECH["en"])
-        if tools.application_error:
+        if tools.pending_service:
+            reply.text = service_copy(tools.row.language)[3]
+        elif tools.application_error:
             reply.text += "\n\n" + speech[5]
         elif tools.started:
             guided = any(item.get("status", "").startswith("started;") for item in tools.started.values())
             reply.text += "\n\n" + speech[3 if guided else 4]
-        elif (tools.service_result and tools.service_result.get("official_portal_url")
-              and tools.service_result["steps"] and not re.search(r"[?？]", tools.grounded_text)):
+        elif (details and details.get("official_portal_url")
+              and (details["steps"] or match_service(details["service_id"]))
+              and not re.search(r"[?？]", tools.grounded_text)):
             reply.text += "\n\n" + speech[0]
             reply.quick_replies = [speech[1], speech[2]]
             reply.application_offer_service = tools.service_result["service_id"]
