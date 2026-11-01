@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Bot, MapPin } from "lucide-react";
+import { Bell, Bot, MapPin, ThumbsUp } from "lucide-react";
 import { getActivity } from "../api/alerts";
 import { listReports, statusMeta } from "../api/civic";
 import type { ReportOut } from "../api/civic";
@@ -102,7 +102,7 @@ function ReportCards({ reports }: { reports: ReportOut[] }) {
             {c.official_ref && <small className="break-all font-mono font-bold">CPGRAMS: {c.official_ref}</small>}
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-ink-soft">👍 {c.supporters}</span>
+            <span className="inline-flex items-center gap-1.5 text-ink-soft"><ThumbsUp size={15} aria-hidden="true" className="shrink-0" />{c.supporters}</span>
             <Link to={"/civic/" + encodeURIComponent(c.id)} className="inline-flex min-h-11 items-center font-semibold">Track timeline →</Link>
           </div>
         </Card>

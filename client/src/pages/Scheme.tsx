@@ -5,6 +5,8 @@ import { request, post, safeUrl } from "../api/client";
 import type { ExplainOut, RunOut, SchemeDetail } from "../api/types";
 import { useApp } from "../context";
 import { ErrorBox, Explanation, Loading, Markdown } from "../components";
+import { Bot, Landmark, Volume2 } from "lucide-react";
+import { Card, PillButton, SourceLink } from "../ui";
 export default function Scheme() {
   const { slug = "" } = useParams(),
     { lang, profileId } = useApp(),
@@ -89,37 +91,37 @@ export default function Scheme() {
       {error && <ErrorBox error={error} retry={() => retryAction.current()} />}{" "}
       {scheme && (
         <>
-          <div className="page-heading">
-            <Link to="/schemes">
+          <Card tint="peach" className="mb-6 flex flex-col gap-3">
+            <Link to="/schemes" className="inline-flex min-h-11 items-center self-start font-semibold">
               <Text value={"← My schemes"} />
             </Link>
-            <p className="eyebrow">
+            <p className="m-0 inline-flex items-center gap-1.5 self-start rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink-soft">
+              <Landmark size={14} aria-hidden="true" className="shrink-0" />
               {scheme.ministry || scheme.state || "GOVERNMENT SCHEME"}
             </p>
             <h1>{scheme.name}</h1>
-            <p>{scheme.brief}</p>
-            <a
-              href={safeUrl(scheme.source_url)}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <p className="m-0 max-w-[65ch]">{scheme.brief}</p>
+            <div><SourceLink url={scheme.source_url}>
               <Text value={"Read official source ↗"} />
-            </a>
+            </SourceLink></div>
             <div className="actions">
-              <button disabled={!!busy} onClick={explain}>
+              <PillButton disabled={!!busy} onClick={explain}>
+                <Volume2 size={18} aria-hidden="true" className="shrink-0" />
                 <Text
                   value={busy === "explain" ? "Explaining…" : "Explain to me"}
                 />
-              </button>
-              <button
-                className="secondary"
+              </PillButton>
+              <PillButton
+                tone="saffron"
                 onClick={() => setApply(!apply)}
                 disabled={!!busy}
+                aria-expanded={apply}
               >
+                <Bot size={18} aria-hidden="true" className="shrink-0" />
                 <Text value={"Apply for me"} />
-              </button>
+              </PillButton>
             </div>
-          </div>
+          </Card>
           {busy === "explain" && (
             <Loading message="Reading the official scheme and preparing your explanation…" />
           )}
@@ -140,7 +142,7 @@ export default function Scheme() {
               </p>
               {!profileId ? (
                 <p>
-                  <Link to="/">
+                  <Link to="/" className="inline-flex min-h-11 items-center font-semibold">
                     <Text value={"Create a profile first →"} />
                   </Link>
                 </p>
@@ -247,12 +249,8 @@ export default function Scheme() {
               </button>
             ))}
           </div>
-          <section
-            className="panel"
-            role="tabpanel"
-            id="scheme-tab"
-            aria-labelledby={"tab-" + tab.replaceAll(" ", "-")}
-          >
+          <div role="tabpanel" id="scheme-tab" aria-labelledby={"tab-" + tab.replaceAll(" ", "-")}>
+          <Card className="mb-6">
             {tab === "Benefits" ? (
               <>
                 <Markdown text={scheme.details_md} />
@@ -282,9 +280,9 @@ export default function Scheme() {
                     <h2>{a.mode}</h2>
                     <Markdown text={a.steps_md} />
                     {a.url && (
-                      <a href={safeUrl(a.url)} target="_blank" rel="noreferrer">
+                      <SourceLink url={a.url}>
                         <Text value={"Open application portal ↗"} />
-                      </a>
+                      </SourceLink>
                     )}
                   </section>
                 ))
@@ -309,7 +307,8 @@ export default function Scheme() {
                 <Text value={"No frequently asked questions available."} />
               </p>
             )}
-          </section>
+          </Card>
+          </div>
           {explanation && <Explanation data={explanation} />}
         </>
       )}

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Camera, LocateFixed, Mic, Sparkles, ThumbsUp, Upload } from "lucide-react";
+import { Camera, CheckCircle2, LocateFixed, MapPin, Mic, Sparkles, ThumbsUp, Upload } from "lucide-react";
 import { createReport, triageReport, voteReport } from "../api/civic";
 import type { CivicTriage, SubmissionInput, TriageOut } from "../api/civic";
 import { ErrorBox, Loading } from "../components";
@@ -14,6 +14,13 @@ export default function CivicNew() {
   const { profileId } = useApp();
   const navigate = useNavigate();
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState("");
+  useEffect(() => {
+    if (!photo) { setPhotoPreview(""); return; }
+    const url = URL.createObjectURL(photo);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
   const [audio, setAudio] = useState<Blob | null>(null);
   const [text, setText] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -130,6 +137,8 @@ export default function CivicNew() {
       </div>
 
       <Card className="flex flex-col gap-4">
+        <h2 className="m-0 flex items-center gap-2 text-2xl"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-peach font-sans text-sm font-semibold text-saffron-text">1</span> Photo or voice · <span lang="hi">सबूत</span></h2>
+        {photoPreview && <div className="flex items-center gap-3"><img src={photoPreview} alt="Your attached evidence photo" className="h-20 w-20 rounded-2xl border border-line object-cover" /><span className="text-sm text-ink-soft">Photo attached</span></div>}
         <div className="flex flex-wrap gap-2.5">
           {typeof navigator !== "undefined" && !!navigator.mediaDevices && (
             <button type="button" disabled={busy} onClick={() => setCamera(true)}>
@@ -149,7 +158,8 @@ export default function CivicNew() {
             className={recorder.recording ? "!bg-bad !text-white" : "!bg-peach !text-saffron-text"}
           >
             <Mic size={18} aria-hidden="true" />
-            {recorder.recording ? "Stop recording" : audio ? "Voice note attached ✓" : "Record voice"}
+            {audio && !recorder.recording && <CheckCircle2 size={16} aria-hidden="true" className="shrink-0" />}
+            {recorder.recording ? "Stop recording" : audio ? "Voice note attached" : "Record voice"}
           </button>
         </div>
 
@@ -159,17 +169,19 @@ export default function CivicNew() {
         </label>
 
         <div className="flex flex-col gap-1.5 rounded-2xl bg-paper p-3.5">
+          <h2 className="m-0 mb-2 flex items-center gap-2 text-2xl"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white font-sans text-sm font-semibold text-saffron-text">2</span> Location · <span lang="hi">जगह</span></h2>
           <button type="button" disabled={busy || locating} onClick={detectLocation} className="secondary self-start">
             <LocateFixed size={18} aria-hidden="true" />
             {locating ? "Locating…" : coords ? "Update location" : "Use my location"}
           </button>
           <p className="m-0 text-sm text-ink-soft">
             {coords
-              ? `📍 ${coords.lat}, ${coords.lng} — the address is looked up from OpenStreetMap.`
+              ? <><MapPin size={16} aria-hidden="true" className="mr-1 inline shrink-0 text-saffron-text" />{coords.lat}, {coords.lng} — the address is looked up from OpenStreetMap.</>
               : "Location is needed to place the issue on the map and find nearby reports."}
           </p>
         </div>
 
+        <h2 className="m-0 flex items-center gap-2 text-2xl"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-peach font-sans text-sm font-semibold text-saffron-text">3</span> AI check · <span lang="hi">जाँचें</span></h2>
         <button type="button" disabled={busy || !hasEvidence || !coords} onClick={() => void runTriage()} className="!bg-saffron-text !text-white">
           <Sparkles size={18} aria-hidden="true" />
           Preview AI triage · AI से जाँचें
@@ -188,7 +200,7 @@ export default function CivicNew() {
             </span>
           </div>
           <p className="m-0 text-sm text-ink-soft">{triage.severity_reason}</p>
-          {triage.address && <p className="m-0 text-sm">📍 {triage.address}</p>}
+          {triage.address && <p className="m-0 text-sm"><MapPin size={16} aria-hidden="true" className="mr-1 inline shrink-0 text-saffron-text" />{triage.address}</p>}
           <label className="m-0">
             Report title
             <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />
@@ -210,7 +222,7 @@ export default function CivicNew() {
                     <div className="min-w-0 flex-1">
                       <Link to={"/civic/" + encodeURIComponent(d.id)} className="block break-words text-sm font-semibold">{d.title}</Link>
                       <small>
-                        {d.distance_m != null ? `${Math.round(d.distance_m)} m away · ` : ""}👍 {d.supporters}
+                        {d.distance_m != null ? `${Math.round(d.distance_m)} m away · ` : ""}<ThumbsUp size={14} aria-hidden="true" className="mr-1 inline shrink-0" />{d.supporters}
                       </small>
                     </div>
                     <button type="button" disabled={busy} onClick={() => void supportDuplicate(d.id)} className="!min-h-11 !bg-saffron-text !px-4 !py-1.5 text-sm !text-white">

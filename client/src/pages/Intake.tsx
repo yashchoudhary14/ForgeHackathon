@@ -17,6 +17,7 @@ import type {
   SensitiveData,
 } from "../api/types";
 import { ErrorBox, Loading, MicButton } from "../components";
+import { Card, EmptyState, PillButton } from "../ui";
 const fields: (keyof ProfileData)[] = [
   "age",
   "gender",
@@ -166,12 +167,12 @@ export default function Intake() {
   return (
     <>
       <div className="intake-grid">
-        <section className="panel">
+        <Card className="flex flex-col gap-3.5">
           <span className="step-label">
             <Text value={"01 / ABOUT YOU"} />
           </span>
-          <h2>{t.start}</h2>
-          <p className="muted">{t.hint}</p>
+          <h2 className="m-0">{t.start}</h2>
+          <p className="muted m-0">{t.hint}</p>
           <MicButton
             onText={(v) => {
               setText(v);
@@ -181,7 +182,7 @@ export default function Intake() {
           />
           {!profile && (
             <button
-              className="secondary"
+              className="secondary self-start"
               disabled={busy || loading}
               onClick={() => void save()}
             >
@@ -189,6 +190,7 @@ export default function Intake() {
             </button>
           )}
           <form
+            className="mt-2 flex flex-col gap-3"
             onSubmit={(e) => {
               e.preventDefault();
               void extract();
@@ -197,6 +199,7 @@ export default function Intake() {
             <label htmlFor="intake-text">{t.start}</label>
             <textarea
               id="intake-text"
+              className="!m-0"
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={4}
@@ -208,10 +211,17 @@ export default function Intake() {
               required
               disabled={busy}
             />
-            <button disabled={busy || !text.trim()}>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Example details to try">
+              {["मैं 45 साल का किसान हूँ, बिहार से", "20 year old student in Assam", "আমি পশ্চিমবঙ্গের একজন শ্রমিক"].map((example, i) => (
+                <PillButton key={example} tone="light" lang={i === 0 ? "hi" : i === 2 ? "bn" : "en"} className="!px-4 !py-2 text-left !text-sm" disabled={busy || loading} onClick={() => { setText(example); document.getElementById("intake-text")?.focus(); }}>
+                  {example}
+                </PillButton>
+              ))}
+            </div>
+            <PillButton type="submit" className="self-start" disabled={busy || !text.trim()}>
               {busy ? <Text value={operation} /> : t.send}
-              <ArrowRight size={18} />
-            </button>
+              <ArrowRight size={18} aria-hidden="true" />
+            </PillButton>
           </form>
           {question && (
             <div className="bubble" aria-live="polite">
@@ -242,17 +252,17 @@ export default function Intake() {
             <ErrorBox error={error} retry={() => retryAction.current()} />
           )}
           {busy && <Loading message={operation} />}
-        </section>
-        <section className="panel">
+        </Card>
+        <Card className="flex flex-col gap-3.5">
           <span className="step-label">
             <Text value={"02 / YOUR PROFILE"} />
           </span>
-          <h2>
+          <h2 className="m-0">
             <Text
               value={lang === "hi" ? "आपकी जानकारी" : "A little about you"}
             />
           </h2>
-          <p className="muted">
+          <p className="muted m-0">
             <Text
               value={
                 "Review and edit before finding schemes. Share only what you are comfortable sharing."
@@ -306,13 +316,13 @@ export default function Intake() {
               ))}
             </div>
           ) : (
-            <div className="empty">
+            <EmptyState>
               <Text
                 value={
                   "Your profile will appear here after you tell us about yourself."
                 }
               />
-            </div>
+            </EmptyState>
           )}
           {profile && (
             <details>
@@ -369,7 +379,7 @@ export default function Intake() {
               <ArrowRight size={18} />
             </button>
           </div>
-        </section>
+        </Card>
       </div>
     </>
   );

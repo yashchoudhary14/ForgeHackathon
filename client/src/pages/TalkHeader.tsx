@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import { languages } from "../context";
 import { tt } from "../ui-strings";
+import { TextSizeToggle } from "../ui";
 
 // Assamese is not an interface language elsewhere but Talk mode supports it.
 export const langNames: Record<string, string> = {
@@ -30,11 +31,12 @@ export default function TalkHeader({
         onClick={() => navigate("/")}
         className="!min-h-11 !w-11 shrink-0 !rounded-full !bg-white/80 !p-0 !text-ink"
       >
-        <X size={20} />
+        <X size={20} aria-hidden="true" />
       </button>
       <strong className="font-serif text-2xl font-normal">
         {tt(lang, "talkTitle")}
       </strong>
+      <TextSizeToggle />
       <span className="flex max-w-full flex-wrap items-center gap-1 rounded-full bg-white/90 py-0.5 pl-3 pr-0.5 text-sm font-semibold">
         {changing ? (
           <select

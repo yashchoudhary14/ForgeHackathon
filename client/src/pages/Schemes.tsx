@@ -9,7 +9,8 @@ import { useApp } from "../context";
 import { Empty, ErrorBox, Loading } from "../components";
 import { MatchCards, MatchStats } from "./SchemeCards";
 import { AlertsPanel } from "./Alerts";
-import { Card, Eyebrow } from "../ui";
+import { Card, EmptyState, Eyebrow } from "../ui";
+import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
 export default function Schemes() {
   const { profileId, t, lang } = useApp();
@@ -96,12 +97,12 @@ export default function Schemes() {
           />
         </p>
       </div>
-      <div className="mb-6 grid items-start gap-4 lg:grid-cols-[1fr_340px]">
+      <div className={"mb-6 grid items-start gap-4 " + (profileId || matches.length ? "lg:grid-cols-[1fr_340px]" : "")}>
         <MatchStats matches={matches} />
-        <Card>
+        {(profileId || matches.length > 0) && <Card>
           <h2 className="mb-2">{tt(lang, "alertsTitle")}</h2>
           <AlertsPanel compact />
-        </Card>
+        </Card>}
       </div>
       <section className="panel">
         <form
@@ -235,16 +236,11 @@ export function MatchResults({
         </p>
       )}
       {!profileId ? (
-        <Empty>
-          <p>
-            <Text
-              value={"Tell us about yourself to see schemes matched to you."}
-            />
-          </p>
-          <Link to="/">
+        <EmptyState title={<Text value="See schemes matched to you" />} action={<PillLink to="/" tone="saffron">
             <Text value={"Create your profile →"} />
-          </Link>
-        </Empty>
+          </PillLink>}>
+          <Text value="Tell Sahayak about yourself by voice or fill in your basic details." />
+        </EmptyState>
       ) : matches.length === 0 && !error && !busy ? (
         <Empty>
           <Text

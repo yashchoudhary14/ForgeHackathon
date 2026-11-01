@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { FileText, MapPin, Mic, MousePointerClick, Bot } from "lucide-react";
 import { useApp } from "../context";
 import { Card, Eyebrow } from "../ui";
@@ -31,7 +30,7 @@ const jobs = [
 export default function Home() {
   const { lang } = useApp();
   return (
-    <div className="-mx-4 -mt-6 md:-mx-8">
+    <div className="-mx-4 -mt-5 md:-mx-8">
       <section
         className="px-5 pb-20 pt-14 text-center md:pt-20"
         style={{
@@ -43,7 +42,7 @@ export default function Home() {
           <span className="rounded-full bg-[#ffe7d3] px-4 py-2 text-[13px] font-semibold text-saffron-text">
             For every citizen · in your own language
           </span>
-          <h1 className="mx-auto text-[clamp(2.6rem,9vw,5.6rem)]">
+          <h1 className="home-display mx-auto">
             Your rights, explained.
             <br />
             <em>Your forms, done.</em>
@@ -55,13 +54,13 @@ export default function Home() {
             you.
           </p>
           <div className="mt-2 flex flex-wrap justify-center gap-3">
-            <PillLink to="/talk" className="!min-h-14 !px-7 text-[17px]">
+            <PillLink to="/talk" className="!min-h-14 !px-7 text-base">
               <Mic size={20} aria-hidden="true" />
               {tt(lang, "chooseTalk")}
             </PillLink>
             <a
               href="#get-started"
-              className="inline-flex min-h-14 items-center gap-2 rounded-full bg-white/85 px-7 text-[17px] font-semibold no-underline"
+              className="inline-flex min-h-14 items-center gap-2 rounded-full bg-white/85 px-7 text-base font-semibold no-underline"
               style={{ color: "#17140f" }}
             >
               <MousePointerClick size={20} aria-hidden="true" />
@@ -96,10 +95,12 @@ export default function Home() {
         id="get-started"
         className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-10 md:px-8"
       >
-        <Card tint="peach" className="mb-6">
-          <p className="m-0">
-            <Link to="/explain">Have a notice? Understand it first →</Link>
-          </p>
+        <Card tint="peach" className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white text-saffron-text"><FileText size={24} strokeWidth={1.75} aria-hidden="true" /></span>
+            <div><strong>Have a government notice?</strong><p lang="hi" className="m-0 text-sm text-ink-soft">सरकारी सूचना आसान भाषा में समझें</p></div>
+          </div>
+          <PillLink to="/explain" tone="light">Understand notice →</PillLink>
         </Card>
         <Intake />
       </section>

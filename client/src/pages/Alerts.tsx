@@ -4,7 +4,7 @@ import { listNotifications, markNotificationsRead, resolveLink } from "../api/al
 import type { NotificationOut } from "../api/types";
 import { ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
-import { Card, EmptyState, Eyebrow } from "../ui";
+import { Card, EmptyState, Eyebrow, SourceLink } from "../ui";
 import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
 
@@ -15,9 +15,7 @@ export function OpenLink({ link, lang }: { link: string | null; lang: string }) 
   if (to) return <Link to={to} className={cls}>{tt(lang, "open")} →</Link>;
   if (href)
     return (
-      <a href={href} target="_blank" rel="noreferrer" className={cls}>
-        {tt(lang, "officialSource")} ↗
-      </a>
+      <SourceLink url={href} />
     );
   return null;
 }
@@ -72,7 +70,7 @@ export function AlertsPanel({
     <div className="flex flex-col gap-3">
       {shown.length === 0 ? (
         <EmptyState
-          title={tt(lang, profileId ? "alertsEmpty" : "needProfileTitle")}
+          title={tt(lang, profileId ? "alertsEmpty" : "alertsProfileTitle")}
           action={
             !profileId && (
               <PillLink to="/talk">{tt(lang, "chooseTalk")} →</PillLink>

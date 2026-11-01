@@ -1,6 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { tt } from "./ui-strings";
 import { useApp } from "./context";
+import { ExternalLink, Landmark } from "lucide-react";
+import { safeUrl } from "./api/client";
 
 export const cx = (...parts: (string | false | undefined | null)[]) =>
   parts.filter(Boolean).join(" ");
@@ -15,7 +17,57 @@ export const tones: Record<PillTone, string> = {
   ghost: "bg-transparent text-ink shadow-[inset_0_0_0_1px_#17140f]",
 };
 export const pillBase =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold no-underline disabled:cursor-not-allowed disabled:opacity-50";
+  "pill-control inline-flex min-h-12 min-w-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold no-underline transition-transform duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none disabled:cursor-not-allowed disabled:bg-[#e6dec8] disabled:text-[#5c5346] disabled:opacity-100";
+
+export function TextSizeToggle() {
+  const { lang, largeText, setLargeText } = useApp();
+  return (
+    <button
+      type="button"
+      aria-label={tt(lang, "largeText")}
+      aria-pressed={largeText}
+      title={tt(lang, "largeText")}
+      onClick={() => setLargeText(!largeText)}
+      className={cx(
+        "text-size-toggle min-h-11 min-w-11 rounded-full px-3 text-sm font-bold shadow-[inset_0_0_0_1px_#d9cfc0]",
+        largeText ? "bg-lime text-ink" : "bg-white text-ink",
+      )}
+    >
+      A+
+    </button>
+  );
+}
+
+/** Identifies the link's government host; this does not certify AI-generated text. */
+export function SourceLink({
+  url,
+  children,
+}: {
+  url?: string | null;
+  children?: ReactNode;
+}) {
+  const { lang } = useApp();
+  const href = safeUrl(url);
+  if (!href)
+    return <span className="text-sm text-ink-soft">{tt(lang, "sourceUnavailable")}</span>;
+  const host = new URL(href).hostname.toLowerCase();
+  const official = ["gov.in", "nic.in"].some(
+    (domain) => host === domain || host.endsWith(`.${domain}`),
+  );
+  const Icon = official ? Landmark : ExternalLink;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="source-link inline-flex min-h-11 min-w-11 max-w-full flex-wrap items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-saffron-text shadow-[inset_0_0_0_1px_#d9cfc0]"
+    >
+      <Icon size={14} aria-hidden="true" className="shrink-0" />
+      {official && <span>{tt(lang, "officialSource")}</span>}
+      <span className="break-words">{children || host}</span>
+    </a>
+  );
+}
 
 export function PillButton({
   tone = "dark",
@@ -44,7 +96,7 @@ export function Card({
   return (
     <Tag
       className={cx(
-        "rounded-[28px] p-5 sm:p-6",
+        "min-w-0 rounded-[28px] p-5 sm:p-6",
         tint === "peach"
           ? "bg-peach"
           : tint === "blue"
@@ -60,7 +112,7 @@ export function Card({
 
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-[#6b6358]">
+    <span className="eyebrow m-0">
       {children}
     </span>
   );
@@ -154,7 +206,7 @@ export function ChatBubble({
     <div
       lang={lang}
       className={cx(
-        "max-w-[85%] px-4 py-3 text-[17px]",
+        "stream-entry max-w-[85%] px-4 py-3 text-base",
         from === "user"
           ? "self-end rounded-[22px_22px_6px_22px] bg-ink text-paper"
           : "self-start rounded-[22px_22px_22px_6px] bg-peach text-ink",
@@ -169,20 +221,29 @@ export function EmptyState({
   title,
   children,
   action,
+  icon,
 }: {
-  title: string;
+  title?: ReactNode;
   children?: ReactNode;
   action?: ReactNode;
+  icon?: ReactNode;
 }) {
   return (
     <div
       role="status"
       className="flex flex-col items-center gap-3 rounded-[22px] border border-dashed border-[#d9cfc0] p-8 text-center text-ink-soft"
     >
-      <strong className="font-serif text-2xl font-normal text-ink">
-        {title}
-      </strong>
-      {children && <p className="m-0">{children}</p>}
+      {icon && (
+        <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-full bg-peach text-saffron-text">
+          {icon}
+        </span>
+      )}
+      {title && (
+        <strong className="font-serif text-2xl font-normal text-ink">
+          {title}
+        </strong>
+      )}
+      {children && <div className="max-w-[65ch]">{children}</div>}
       {action}
     </div>
   );

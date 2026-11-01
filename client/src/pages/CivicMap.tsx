@@ -124,7 +124,7 @@ export default function CivicMap({
           {locationError}
         </p>
       )}
-      <div className="pointer-events-none absolute bottom-3.5 left-3.5 right-16 z-[400] flex flex-wrap gap-3 rounded-2xl bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-sm">
+      <div aria-label="Map legend" className="pointer-events-none absolute bottom-16 left-3.5 z-[400] flex w-fit max-w-[calc(100%-5rem)] flex-wrap gap-3 rounded-2xl border border-line bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-md backdrop-blur-md">
         <span className="inline-flex items-center gap-1.5">
           <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#9A4A12]" />
           Open
@@ -163,7 +163,7 @@ function renderPins(
     });
     const marker = L.marker([r.lat, r.lng], { icon });
     marker.bindPopup(
-      `<strong>${escapeHtml(r.title)}</strong><br/><small>${escapeHtml(r.department)} · 👍 ${r.supporters}</small>`,
+      `<strong>${escapeHtml(r.title)}</strong><br/><small>${escapeHtml(r.department)} · Supporters: ${r.supporters}</small>`,
     );
     if (onSelect) marker.on("click", () => onSelect(r));
     marker.addTo(group);

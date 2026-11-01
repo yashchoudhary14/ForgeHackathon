@@ -78,6 +78,8 @@ const Context = createContext({
   setProfileId: (_id: string) => {},
   mode: "" as "" | "talk" | "manual",
   setMode: (_m: "talk" | "manual") => {},
+  largeText: false,
+  setLargeText: (_large: boolean) => {},
   t: strings.en,
 });
 export function Provider({ children }: { children: ReactNode }) {
@@ -88,6 +90,12 @@ export function Provider({ children }: { children: ReactNode }) {
   );
   const [profileId, setId] = useState(stored("adhikaar-profile", ""));
   const [mode, setModeState] = useState(stored("adhikaar-mode", "") as "" | "talk" | "manual");
+  const [largeText, setLargeText] = useState(() => stored("adhikaar-text-scale", "") === "lg");
+  useEffect(() => {
+    document.documentElement.classList.toggle("text-scale-lg", largeText);
+    document.documentElement.dataset.textScale = largeText ? "lg" : "default";
+    persist("adhikaar-text-scale", largeText ? "lg" : "default");
+  }, [largeText]);
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
@@ -106,6 +114,8 @@ export function Provider({ children }: { children: ReactNode }) {
           persist("adhikaar-profile", id);
         },
         mode,
+        largeText,
+        setLargeText,
         setMode: (m) => {
           setModeState(m);
           persist("adhikaar-mode", m);

@@ -139,7 +139,7 @@ test("civic submission matches /reports multipart and timeline labels by source"
     }),
   );
   assert.match(html, /Citizen · नागरिक/);
-  assert.match(html, /Official · सरकारी/);
+  assert.match(html, /Official CPGRAMS reply · सरकारी जवाब/);
   assert.match(html, /MORPR\/E\/2026\/004812/);
 });
 

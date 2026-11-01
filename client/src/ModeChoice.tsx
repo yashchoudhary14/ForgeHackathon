@@ -6,7 +6,7 @@ import type { UiMode } from "./api/profile";
 import { languages, useApp } from "./context";
 import type { Lang } from "./api/types";
 import { tt } from "./ui-strings";
-import { Card, Eyebrow } from "./ui";
+import { Card, Eyebrow, TextSizeToggle } from "./ui";
 
 /** First visit: choose Talk or Manual. The choice is saved on the profile. */
 export default function ModeChoice() {
@@ -39,6 +39,7 @@ export default function ModeChoice() {
         <h1>{tt(lang, "chooseTitle")}</h1>
         <p className="m-0 text-ink-soft">{tt(lang, "chooseSub")}</p>
       </div>
+      <div className="flex flex-wrap items-center gap-3">
       <label className="flex items-center gap-3 text-sm">
         <span>Language</span>
         <select
@@ -54,6 +55,8 @@ export default function ModeChoice() {
           ))}
         </select>
       </label>
+      <TextSizeToggle />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {options.map(([mode, title, sub, Icon]) => (
           <Card key={mode} tint={mode === "talk" ? "peach" : undefined}>

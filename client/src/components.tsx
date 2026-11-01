@@ -1,9 +1,9 @@
 import { Text } from "./context";
 import { Component, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Mic, Square, Volume2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, History, Loader2, Mic, Square, Volume2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { assetUrl, request, safeUrl } from "./api/client";
+import { assetUrl, request } from "./api/client";
 import type {
   Citation,
   DocumentChange,
@@ -13,6 +13,7 @@ import type {
 } from "./api/types";
 import { useApp } from "./context";
 import { friendlyError } from "./api/errors";
+import { Card, EmptyState, PillButton, SourceLink } from "./ui";
 export function ErrorBox({
   error,
   retry,
@@ -22,17 +23,20 @@ export function ErrorBox({
 }) {
   const { t } = useApp();
   return (
-    <div className="error" role="alert">
-      <strong>
-        <Text value="Let’s try that again" />
-      </strong>
-      <p>
-        <Text value={friendlyError(error)} />
-      </p>
+    <div className="my-4 flex flex-col justify-between gap-4 rounded-[24px] border border-[#f5c2bc] bg-bad-soft/70 p-5 text-bad sm:flex-row sm:items-center" role="alert">
+      <div className="flex min-w-0 items-start gap-3">
+        <AlertTriangle size={24} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />
+        <div>
+          <strong><Text value="Let’s try that again" /></strong>
+          <p className="m-0 mt-1 max-w-[65ch]">
+            <Text value={friendlyError(error)} />
+          </p>
+        </div>
+      </div>
       {retry && (
-        <button className="secondary" onClick={() => retry()}>
+        <PillButton tone="light" className="self-start shrink-0" onClick={() => retry()}>
           {t.retry}
-        </button>
+        </PillButton>
       )}
     </div>
   );
@@ -40,16 +44,23 @@ export function ErrorBox({
 export function Loading({ message }: { message?: string } = {}) {
   const { t } = useApp();
   return (
-    <div role="status" className="skeletons">
-      <span />
-      <span />
-      <span />
-      <p>{message ? <Text value={message} /> : t.loading}</p>
+    <div role="status" aria-live="polite" className="my-4">
+      <Card className="flex flex-col gap-4">
+        <p className="m-0 inline-flex items-center gap-2 self-start rounded-full bg-paper px-3 py-2 text-sm font-medium text-ink-soft">
+          <Loader2 size={18} aria-hidden="true" className="shrink-0 animate-spin motion-reduce:animate-none" />
+          {message ? <Text value={message} /> : t.loading}
+        </p>
+        <div aria-hidden="true" className="flex flex-col gap-3 animate-pulse motion-reduce:animate-none">
+          <span className="h-6 w-2/3 rounded-2xl bg-line/80" />
+          <span className="h-4 w-full rounded-2xl bg-line/80" />
+          <span className="h-4 w-4/5 rounded-2xl bg-line/80" />
+        </div>
+      </Card>
     </div>
   );
 }
 export function Empty({ children }: { children: ReactNode }) {
-  return <div className="empty">{children}</div>;
+  return <EmptyState>{children}</EmptyState>;
 }
 export function Markdown({ text }: { text: string }) {
   const { lang } = useApp();
@@ -58,9 +69,7 @@ export function Markdown({ text }: { text: string }) {
       <ReactMarkdown
         components={{
           a: ({ href, children }) => (
-            <a href={safeUrl(href)} target="_blank" rel="noreferrer">
-              {children}
-            </a>
+            <SourceLink url={href}>{children}</SourceLink>
           ),
         }}
       >
@@ -77,23 +86,21 @@ export function Citations({ items }: { items: Citation[] }) {
     <ol className="citations">
       {items.map((c, i) => (
         <li key={i}>
-          <blockquote>“{c.quote}”</blockquote>
-          <a href={safeUrl(c.source_url)} target="_blank" rel="noreferrer">
-            {c.title || "Official source"} ↗
-          </a>
-          {c.section && <small> · {c.section}</small>}
+          <Quote citation={c} />
         </li>
       ))}
     </ol>
   );
 }
-function Quote({ citation }: { citation: Citation }) {
+export function Quote({ citation }: { citation: Citation }) {
   return (
-    <blockquote className="m-0 mt-1 border-l-4 border-[#e5dccf] pl-3 text-sm text-ink-soft">
-      “{citation.quote}”{" "}
-      <a href={safeUrl(citation.source_url)} target="_blank" rel="noreferrer" className="whitespace-nowrap font-semibold">
-        {citation.section || citation.title || "Source"} ↗
-      </a>
+    <blockquote className="m-0 mt-2 rounded-2xl border-l-4 border-saffron bg-paper/90 px-3.5 py-2.5 text-sm text-ink-soft">
+      <p className="m-0 text-ink">“{citation.quote}”</p>
+      <footer className="mt-2 flex flex-wrap items-center gap-2">
+        <SourceLink url={citation.source_url}>
+          {[citation.title, citation.section].filter(Boolean).join(" · ") || undefined}
+        </SourceLink>
+      </footer>
     </blockquote>
   );
 }
@@ -116,7 +123,7 @@ export function ClaimSections({ data }: { data: ExplainOut }) {
       {groups.map(([title, items]) => (
         <section key={title} className="flex min-w-0 flex-col gap-2 rounded-3xl bg-card p-5 shadow-[inset_0_0_0_1px_#ede5da]">
           <h3 className="m-0 font-serif text-xl font-normal">{title}</h3>
-          <ul className="m-0 flex flex-col gap-3 pl-5 text-[15px]">
+          <ul className="m-0 flex flex-col gap-3 pl-5 text-sm">
             {items.map((c, i) => (
               <li key={i} className="break-words">
                 {c.text}
@@ -142,15 +149,15 @@ export function ChangeList({ changes }: { changes: DocumentChange[] }) {
               <span className="rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn">Affects you · आप पर असर</span>
             )}
           </div>
-          <p className="m-0 text-[15px]">{c.description}</p>
+          <p className="m-0 text-sm">{c.description}</p>
           {c.impact && <p className="m-0 text-sm text-ink-soft">{c.impact}</p>}
           <div className="grid gap-2 md:grid-cols-2">
-            <div className="min-w-0 rounded-2xl bg-bad-soft p-3 text-bad">
-              <span className="block text-xs font-bold uppercase tracking-wider">Before · पहले</span>
+            <div className="min-w-0 rounded-2xl border border-[#f5c2bc] bg-bad-soft/60 p-3 text-bad">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold"><History size={16} aria-hidden="true" className="shrink-0" />Before · <span lang="hi">पहले</span></span>
               <Quote citation={c.old_citation} />
             </div>
-            <div className="min-w-0 rounded-2xl bg-ok-soft p-3 text-ok">
-              <span className="block text-xs font-bold uppercase tracking-wider">Now · अब</span>
+            <div className="min-w-0 rounded-2xl border border-[#b8e4cf] bg-ok-soft/60 p-3 text-ok">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold"><ArrowRight size={16} aria-hidden="true" className="shrink-0" />Now · <span lang="hi">अब</span></span>
               <Quote citation={c.new_citation} />
             </div>
           </div>
@@ -161,7 +168,7 @@ export function ChangeList({ changes }: { changes: DocumentChange[] }) {
 }
 export function Explanation({ data }: { data: ExplainOut }) {
   return (
-    <div className="explanation grid items-start gap-5 lg:grid-cols-[1.2fr_1fr]">
+    <div lang={data.language} className="explanation grid items-start gap-5 lg:grid-cols-[1.2fr_1fr]">
       <div className="flex flex-col gap-4">
         <article className="rounded-3xl bg-card p-6 shadow-[0_10px_30px_rgba(23,20,15,0.06),0_1px_0_rgba(23,20,15,0.05)] flex flex-col gap-4">
           <span className="eyebrow">
@@ -169,7 +176,7 @@ export function Explanation({ data }: { data: ExplainOut }) {
           </span>
           <h2 className="m-0 font-serif text-3xl font-normal">{data.title}</h2>
           {data.audio_url && (
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#FFE7D3] p-3 text-saffron-text">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#f3d2b8] bg-peach p-3 text-saffron-text">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold">
                 <Volume2 size={18} aria-hidden="true" />
                 <Text value={"Listen"} /> · सुनें
@@ -178,11 +185,12 @@ export function Explanation({ data }: { data: ExplainOut }) {
                 controls
                 preload="none"
                 src={assetUrl(data.audio_url)}
-                className="h-10 flex-1"
+                aria-label="Listen to this explanation · सुनें"
+                className="!m-0 h-12 min-w-0 basis-48 flex-1"
               />
             </div>
           )}
-          <p className="m-0 text-[17px] leading-relaxed">{data.summary}</p>
+          <p className="m-0 text-base leading-relaxed">{data.summary}</p>
           <div className="grid gap-3 md:grid-cols-2">
             {[
               ["Key points", data.key_points],
@@ -353,7 +361,7 @@ export function MicButton({
         onClick={() => (recording ? recorder.current?.stop() : void start())}
         aria-pressed={recording}
       >
-        {recording ? <Square /> : <Mic />}
+        {recording ? <Square size={24} aria-hidden="true" className="shrink-0" /> : <Mic size={24} aria-hidden="true" className="shrink-0" />}
         {busy ? (
           <Text value="Preparing your voice message…" />
         ) : recording ? (

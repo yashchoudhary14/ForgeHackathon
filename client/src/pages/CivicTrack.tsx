@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Bell, Bot, CheckCircle2, RefreshCw, ThumbsUp, Upload, XCircle } from "lucide-react";
+import { Bell, Bot, CheckCircle2, Landmark, MapPin, RefreshCw, ThumbsUp, Upload, XCircle } from "lucide-react";
 import {
   addEvidence,
   checkReportStatus,
@@ -37,9 +37,9 @@ export function CivicTimelineView({ report }: { report: Pick<ReportOut, "events"
         return (
           <li key={ev.id} className="relative">
             <span aria-hidden="true" className={`absolute -left-[22px] top-4 h-3.5 w-3.5 rounded-full border-[3px] border-paper ${dotStyle[badge.kind]}`} />
-            <Card className="flex flex-col gap-1.5 !rounded-[18px] !p-4">
+            <Card className={"flex flex-col gap-1.5 !rounded-[18px] !p-4 " + (badge.kind === "official" ? "border-l-4 border-saffron !bg-[#fffaf5]" : "")}>
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
-                <span className={`rounded-full px-2.5 py-0.5 font-semibold ${badgeStyle[badge.kind]}`}>{badge.label}</span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-semibold ${badgeStyle[badge.kind]}`}>{badge.kind === "official" && <Landmark size={14} aria-hidden="true" className="shrink-0" />}{badge.kind === "official" ? "Official CPGRAMS reply · सरकारी जवाब" : badge.label}</span>
                 <time dateTime={ev.created_at}>{new Date(ev.created_at).toLocaleString()}</time>
               </div>
               <p className="m-0 break-words text-[15px]">{ev.text}</p>
@@ -151,8 +151,8 @@ export default function CivicTrack() {
         )}
         <p className="m-0 text-sm text-ink-soft">{report.description}</p>
         {photo && <img src={assetUrl(photo)} alt="Photo of the reported issue" className="max-h-64 w-full rounded-2xl object-cover" />}
-        {report.address && <small className="break-words">📍 {report.address}</small>}
-        <small>👍 {report.supporters} · {new Date(report.created_at).toLocaleDateString()}</small>
+        {report.address && <small className="break-words"><MapPin size={15} aria-hidden="true" className="mr-1 inline shrink-0" />{report.address}</small>}
+        <small><ThumbsUp size={15} aria-hidden="true" className="mr-1 inline shrink-0" />{report.supporters} · {new Date(report.created_at).toLocaleDateString()}</small>
         {profileId ? (
           <div className="flex flex-wrap gap-2 pt-1">
             {!mine && (

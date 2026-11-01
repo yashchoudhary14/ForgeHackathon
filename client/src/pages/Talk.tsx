@@ -5,7 +5,7 @@ import type { TalkMessage } from "../api/talk";
 import { saveMode } from "../api/profile";
 import { languages, useApp } from "../context";
 import type { Lang } from "../api/types";
-import { ChatBubble } from "../ui";
+import { ChatBubble, PillButton } from "../ui";
 import type { OrbState } from "../ui";
 import { tt } from "../ui-strings";
 import { useRecorder } from "../useRecorder";
@@ -142,9 +142,15 @@ export default function Talk() {
         aria-live="polite"
       >
         {messages.length === 0 && (
-          <p className="m-auto text-center text-lg text-ink-soft">
-            {ui("talkEmpty")}
-          </p>
+          <div className="mx-auto my-auto flex max-w-md flex-col items-center gap-4 py-6 text-center">
+            <h1 className="m-0 font-serif text-3xl text-ink">{ui("talkGreeting")}</h1>
+            <p className="m-0 text-base text-ink-soft">{ui("talkWelcome")}</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {["starterSchemes", "starterNotice", "starterCivic"].map((key) => (
+                <PillButton key={key} tone="light" disabled={busy} className="!px-4 !py-2" onClick={() => void turn({ text: ui(key) })}>{ui(key)}</PillButton>
+              ))}
+            </div>
+          </div>
         )}
         {messages.map((m) => (
           <div key={m.id} className="flex flex-col gap-2">
