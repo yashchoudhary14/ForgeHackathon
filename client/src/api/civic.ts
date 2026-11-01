@@ -175,7 +175,7 @@ export function sourceBadge(event: Pick<ReportEvent, "source">): {
   kind: "official" | "citizen" | "system";
 } {
   if (event.source === "official") return { label: "Official · सरकारी", kind: "official" };
-  if (event.source === "system") return { label: "Adhikaar · सिस्टम", kind: "system" };
+  if (event.source === "system") return { label: "Buddy", kind: "system" };
   return { label: "Citizen · नागरिक", kind: "citizen" };
 }
 

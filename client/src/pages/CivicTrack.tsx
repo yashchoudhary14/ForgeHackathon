@@ -15,6 +15,7 @@ import type { ReportOut, VoteKind } from "../api/civic";
 import { assetUrl } from "../api/client";
 import { ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
+import { tt } from "../ui-strings";
 import { Card, EmptyState, Eyebrow } from "../ui";
 
 const badgeStyle = {
@@ -26,12 +27,14 @@ const dotStyle = { citizen: "bg-ok", system: "bg-act", official: "bg-saffron" };
 
 /** Audit trail with official replies labelled apart from citizen and system notes. */
 export function CivicTimelineView({ report }: { report: Pick<ReportOut, "events"> }) {
+  const { lang } = useApp();
   if (!report.events?.length)
     return <EmptyState title="No updates yet">Updates from citizens and the department will appear here.</EmptyState>;
   return (
     <ol className="relative m-0 flex list-none flex-col gap-3.5 pl-6 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-0.5 before:bg-[#e5dccf]">
       {report.events.map((ev) => {
         const badge = sourceBadge(ev);
+        if (badge.kind === "system") badge.label = tt(lang, "brandName");
         const media = (ev.meta?.media as { type?: string; url?: string }[] | undefined) ?? [];
         const photo = Array.isArray(media) ? media.find((m) => m.type === "photo")?.url : undefined;
         return (

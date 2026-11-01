@@ -35,15 +35,15 @@ export default function ModeChoice() {
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-2xl flex-col justify-center gap-6 px-4 py-10">
       <div className="flex flex-col gap-2">
-        <Eyebrow>Adhikaar · अधिकार</Eyebrow>
+        <Eyebrow>{tt(lang, "brandName")}</Eyebrow>
         <h1>{tt(lang, "chooseTitle")}</h1>
         <p className="m-0 text-ink-soft">{tt(lang, "chooseSub")}</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
       <label className="flex items-center gap-3 text-sm">
-        <span>Language</span>
+        <span>{tt(lang, "profileLanguage")}</span>
         <select
-          aria-label="Language"
+          aria-label={tt(lang, "profileLanguage")}
           value={lang}
           onChange={(e) => setLang(e.target.value as Lang)}
           className="!m-0 !w-auto"

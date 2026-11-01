@@ -43,7 +43,8 @@ async def update_profile(profile_id: str, body: ProfileUpdate):
         if profile is None:
             raise HTTPException(404, "Profile not found")
         if body.data is not None:
-            profile.data = {**(profile.data or {}), **body.data.model_dump(exclude_none=True)}
+            # Omitted fields keep their value; explicit null clears a field in the editor.
+            profile.data = {**(profile.data or {}), **body.data.model_dump(exclude_unset=True)}
         if body.sensitive is not None:
             profile.sensitive = crypto.encrypt_json({
                 **crypto.decrypt_json(profile.sensitive), **body.sensitive.model_dump(exclude_none=True),

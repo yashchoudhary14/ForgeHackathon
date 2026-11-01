@@ -5,13 +5,14 @@ import { createReport, triageReport, voteReport } from "../api/civic";
 import type { CivicTriage, SubmissionInput, TriageOut } from "../api/civic";
 import { ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
+import { tt } from "../ui-strings";
 import { PillLink } from "../nav";
 import { Card, EmptyState, Eyebrow } from "../ui";
 import { useRecorder } from "../useRecorder";
 import CameraCapture from "./CameraCapture";
 
 export default function CivicNew() {
-  const { profileId } = useApp();
+  const { profileId, lang } = useApp();
   const navigate = useNavigate();
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
@@ -116,7 +117,7 @@ export default function CivicNew() {
             समस्या बताएँ
           </span>
         </h1>
-        <EmptyState title="Create a profile first" action={<PillLink to="/talk">Talk to Sahayak →</PillLink>}>
+        <EmptyState title={tt(lang, "needProfileTitle")} action={<PillLink to="/talk">{tt(lang, "chooseTalk")} →</PillLink>}>
           Reports are linked to your profile so you can follow the official reply.
         </EmptyState>
       </div>

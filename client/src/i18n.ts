@@ -1,4 +1,5 @@
 import type { Lang } from "./api/types";
+import { tt } from "./ui-strings";
 // Navigation and Talk mode chrome (en, hi, bn, as) live in ui-strings*.ts; `tt` is the lookup.
 export { tt } from "./ui-strings";
 // English is also the fallback for the other supported intake/answer languages.
@@ -35,7 +36,7 @@ const hi: Record<string, string> = {
   "Find schemes you qualify for, with quotes from official sources.":
     "अपने लिए पात्र योजनाएँ खोजें, आधिकारिक स्रोतों के उद्धरणों के साथ।",
   "Watch the agent fill the portal. You approve before submit.":
-    "सहायक को पोर्टल भरते हुए देखें। जमा करने से पहले मंज़ूरी आप दें।",
+    "साथी को पोर्टल भरते हुए देखें। जमा करने से पहले मंज़ूरी आप दें।",
   "Have a notice? Understand it first →": "कोई सूचना मिली है? पहले उसे समझें →",
   "Fill in details instead": "जानकारी खुद भरें",
   "Understanding your details and building your profile…":
@@ -67,12 +68,12 @@ const hi: Record<string, string> = {
     "आपके आवेदन और सहेजी हुई रसीदें ला रहे हैं…",
   "Loading your uploaded documents…": "आपके अपलोड किए दस्तावेज़ ला रहे हैं…",
   "Fetching the latest official notices…": "ताज़ा आधिकारिक सूचनाएँ ला रहे हैं…",
-  "What should the assistant do?": "सहायक को क्या करना चाहिए?",
+  "What should the assistant do?": "साथी को क्या करना चाहिए?",
   "Restoring your application and connecting to the live browser…":
     "आपका आवेदन लाकर लाइव ब्राउज़र से जुड़ रहे हैं…",
   "You stay in control": "नियंत्रण आपके हाथ में",
   "The agent pauses for CAPTCHA, OTP and your approval before submission.":
-    "सहायक CAPTCHA, OTP और जमा करने से पहले आपकी मंज़ूरी के लिए रुकेगा।",
+    "साथी CAPTCHA, OTP और जमा करने से पहले आपकी मंज़ूरी के लिए रुकेगा।",
   "Restoring your next action…": "आपका अगला काम ला रहे हैं…",
   "No action needed from you yet": "अभी आपको कुछ करने की ज़रूरत नहीं है",
   "Reconnecting to retrieve the request. If it does not appear, try again.":
@@ -132,8 +133,6 @@ const hi: Record<string, string> = {
     "अपने बारे में बताने के बाद आपकी जानकारी यहाँ दिखेगी।",
   "Your profile is ready. Review it and find your schemes.":
     "आपकी जानकारी तैयार है। जाँचें और अपनी योजनाएँ खोजें।",
-  "Adhikaar helps you understand and apply. Eligibility and final decisions belong to the official authority.":
-    "अधिकार आपको समझने और आवेदन करने में मदद करता है। पात्रता और अंतिम निर्णय संबंधित सरकारी संस्था के हैं।",
   "Find support for your next step, with reasons from official sources.":
     "अपने अगले कदम के लिए सहायता खोजें, आधिकारिक स्रोतों से कारणों के साथ।",
   "Search all government schemes": "सभी सरकारी योजनाओं में खोजें",
@@ -162,7 +161,7 @@ const hi: Record<string, string> = {
   "Apply for me": "मेरे लिए आवेदन करें",
   "Choose the application portal": "आवेदन पोर्टल चुनें",
   "The assistant will fill the application while you watch. You approve the final submission.":
-    "आपकी निगरानी में सहायक आवेदन भरेगा। अंतिम सबमिशन की मंज़ूरी आप देंगे।",
+    "आपकी निगरानी में साथी आवेदन भरेगा। अंतिम सबमिशन की मंज़ूरी आप देंगे।",
   "Create a profile first →": "पहले अपनी जानकारी जोड़ें →",
   "Official application options": "आधिकारिक आवेदन विकल्प",
   "Enter another portal below": "नीचे दूसरा पोर्टल डालें",
@@ -238,7 +237,7 @@ const hi: Record<string, string> = {
   "Step by step": "एक-एक चरण",
   "Result:": "परिणाम:",
   "Steps will appear when the assistant begins.":
-    "सहायक के शुरू करते ही चरण दिखेंगे।",
+    "साथी के शुरू करते ही चरण दिखेंगे।",
   "In plain language": "आसान भाषा में",
   "Key points": "मुख्य बातें",
   "Your rights": "आपके अधिकार",
@@ -297,5 +296,6 @@ const hi: Record<string, string> = {
   pending: "इंतज़ार में",
 };
 export function translate(text: string, lang: Lang) {
+  if (text === "Buddy") return tt(lang, "brandName");
   return lang === "hi" ? hi[text] || text : text;
 }

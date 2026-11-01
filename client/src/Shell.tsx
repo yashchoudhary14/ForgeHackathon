@@ -21,6 +21,7 @@ const Talk = lazy(() => import("./pages/Talk"));
 const Civic = lazy(() => import("./pages/Civic"));
 const CivicNew = lazy(() => import("./pages/CivicNew"));
 const CivicTrack = lazy(() => import("./pages/CivicTrack"));
+const Profile = lazy(() => import("./pages/Profile"));
 
 export function useUnread(profileId: string) {
   const [unread, setUnread] = useState(0);
@@ -57,11 +58,7 @@ function Layout() {
         </Suspense>
         {!bare && (
           <footer className="py-8 text-xs text-ink-soft">
-            <Text
-              value={
-                "Adhikaar helps you understand and apply. Eligibility and final decisions belong to the official authority."
-              }
-            />
+            {tt(lang, "brandFooter")}
           </footer>
         )}
       </main>
@@ -89,6 +86,7 @@ export default function AppRoutes() {
       <Route path="/welcome" element={<ModeChoice />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/talk" element={<Talk />} />
         <Route path="/locker" element={<Locker />} />
         <Route path="/civic" element={<Civic />} />

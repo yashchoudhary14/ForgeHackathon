@@ -1,8 +1,8 @@
-# Adhikaar (अधिकार)
+# Buddy (साथी · বন্ধু)
 
 **Know your rights, claim them.**
 
-Forge Gen AI Buildathon, Theme 1 (Civic Pulse). Adhikaar combines **1.A Multilingual Policy, Rights & Scheme Explainer**, **1.B Civic Grievance Reporting** and **1.C Autonomous Public Service Agent** into one assistant.
+Forge Gen AI Buildathon, Theme 1 (Civic Pulse). Buddy combines **1.A Multilingual Policy, Rights & Scheme Explainer**, **1.B Civic Grievance Reporting** and **1.C Autonomous Public Service Agent** into one assistant.
 
 - Live app: https://adhikaar-jade.vercel.app
 - Live API docs: https://adhikaar-api-813554369403.asia-south1.run.app/docs
@@ -11,9 +11,9 @@ Forge Gen AI Buildathon, Theme 1 (Civic Pulse). Adhikaar combines **1.A Multilin
 
 India has more than 5,000 central and state welfare schemes, but the people they are written for rarely hear about them. The rules are in English legal language, spread over PDFs and portals, and applying means long forms, CAPTCHAs and OTPs. A farmer who has never used a website usually gives up or pays a middleman. Reporting a broken handpump or road is just as hard: which department, which portal, and did anyone act on it?
 
-## What Adhikaar does
+## What Buddy does
 
-You talk to **Sahayak** in your own language, by voice or text. It hears which language you speak (Hindi, Bengali, Assamese, Tamil and others) and stays in it, with audio replies. From there it does three jobs:
+You talk to **Buddy** in your own language, by voice or text. It hears which language you speak (Hindi, Bengali, Assamese, Tamil and others) and stays in it, with audio replies. From there it does three jobs:
 
 | Job | What happens |
 |---|---|
@@ -27,9 +27,9 @@ There are two ways in: **Talk mode** (one voice conversation that does everythin
 
 ## Try it
 
-1. Open the live app, press **Talk to Sahayak** and say or type, for example:
+1. Open the live app, press **Talk to Buddy** and say or type, for example:
    *"मैं उत्तर प्रदेश का किसान हूँ, 2 एकड़ ज़मीन है, बेटी B.Sc में पढ़ती है"*
-2. Sahayak replies in Hindi with audio and shows schemes as cards. Ask it to explain one, or say *"हाँ, आवेदन कर दो"* to start the form agent.
+2. Buddy replies in Hindi with audio and shows schemes as cards. Ask it to explain one, or say *"हाँ, आवेदन कर दो"* to start the form agent.
 3. In **Schemes**, open a scheme to see each rule, whether you meet it, and the quoted official text.
 4. In **Locker**, scan a document with the camera.
 5. In **Civic**, report an issue with a photo and your location; try reporting the same thing twice to see duplicate detection.
@@ -45,7 +45,7 @@ flowchart LR
     C -- "REST + SSE" --> API["FastAPI<br/>(Cloud Run, Mumbai)"]
     C -- "WebSocket: live screen,<br/>guided help, approval" --> API
 
-    API --> T["Talk agent (Sahayak)<br/>one conversation, tools"]
+    API --> T["Talk agent (Buddy)<br/>one conversation, tools"]
     T --> I["Intake<br/>speech/text to profile"]
     T --> M["Matcher<br/>search, triage, judge"]
     T --> E["Explainer<br/>rights, impact, compare"]
@@ -117,7 +117,7 @@ Gemini vision reads the photo (and the transcribed voice note) and returns the p
 
 ```
 client/                 React app: Home, Talk, Schemes, Scheme, Explain, Run, Runs, Locker, Civic, Activity, Alerts
-server/app/agents/      talk.py (Sahayak), intake.py, matcher.py, explainer.py, chat.py, civic.py, executor.py (form agent), browser.py
+server/app/agents/      talk.py (Buddy), intake.py, matcher.py, explainer.py, chat.py, civic.py, executor.py (form agent), browser.py
 server/app/services/    llm*.py (Gemini pool + cache), myscheme.py, feeds.py (PIB), sarvam.py, locker.py (OCR, variants),
                         geo.py, monitor.py (alerts), notify.py, rag.py, crypto.py
 server/app/routers/     HTTP, SSE and WebSocket endpoints

@@ -1,108 +1,151 @@
-import { FileText, MapPin, Mic, MousePointerClick, Bot } from "lucide-react";
+import { useEffect, useState } from "react";
+import { FileText, MapPin, Mic, Bot } from "lucide-react";
 import { useApp } from "../context";
-import { Card, Eyebrow } from "../ui";
-import { PillLink } from "../nav";
+import { request } from "../api/client";
+import type { ProfileOut } from "../api/types";
+import { Card, Eyebrow, PillButton } from "../ui";
+import { PersonIcon, PillLink } from "../nav";
 import { tt } from "../ui-strings";
-import Intake from "./Intake";
 
-const jobs = [
-  {
-    title: "Understand",
-    tint: "bg-paper shadow-[inset_0_0_0_1px_#ede5da]",
-    icon: FileText,
-    text: "Upload a notice or paste a gov link. Get your rights, duties and deadlines in plain language, what changes for you, and every point backed by a quote.",
-  },
-  {
-    title: "Act",
-    tint: "bg-act-soft",
-    icon: Bot,
-    text: "The agent opens the portal, fills it from your saved profile and documents, guides you through CAPTCHA and OTP, and submits only after you approve.",
-  },
-  {
-    title: "Speak up",
-    tint: "bg-[#f2f8e1]",
-    icon: MapPin,
-    text: "Report a local problem with a photo or your voice. Neighbours confirm it, the agent files it on CPGRAMS and you track the official reply.",
-  },
-];
+function PersonalSummary() {
+  const { lang, profileId } = useApp();
+  const [profile, setProfile] = useState<ProfileOut | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const c = new AbortController();
+    setProfile(null);
+    setFailed(false);
+    request<ProfileOut>(`/profile/${encodeURIComponent(profileId)}`, {
+      signal: c.signal,
+    })
+      .then((out) => {
+        if (!c.signal.aborted) setProfile(out);
+      })
+      .catch(() => {
+        if (!c.signal.aborted) setFailed(true);
+      });
+    return () => c.abort();
+  }, [profileId, revision]);
+  const details = profile
+    ? [
+        profile.data.age != null
+          ? `${tt(lang, "field_age")}: ${profile.data.age}`
+          : "",
+        profile.data.district,
+        profile.data.state,
+        profile.data.occupation,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+  return (
+    <Card className="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h2 className="flex items-center gap-2">
+          <PersonIcon />
+          {profile?.sensitive?.full_name || tt(lang, "profileSummary")}
+        </h2>
+        <p className="m-0 text-ink-soft" role="status">
+          {failed
+            ? tt(lang, "profileLoadError")
+            : !profile
+              ? tt(lang, "loading")
+              : details || tt(lang, "profileSummaryEmpty")}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {failed && (
+          <PillButton tone="light" onClick={() => setRevision((v) => v + 1)}>
+            {tt(lang, "tryAgain")}
+          </PillButton>
+        )}
+        <PillLink to="/profile">{tt(lang, "profileEdit")} →</PillLink>
+      </div>
+    </Card>
+  );
+}
 
-/** Home: the Dawn hero, the two ways to use Adhikaar, then the profile form. */
+/** Dawn home introduces the app; saved details are edited on /profile. */
 export default function Home() {
-  const { lang } = useApp();
+  const { lang, profileId } = useApp();
+  const jobs = [
+    {
+      title: "homeUnderstand",
+      text: "homeUnderstandText",
+      to: "/explain",
+      Icon: FileText,
+      tint: "",
+    },
+    {
+      title: "homeAct",
+      text: "homeActText",
+      to: "/schemes",
+      Icon: Bot,
+      tint: "bg-act-soft",
+    },
+    {
+      title: "homeCivic",
+      text: "homeCivicText",
+      to: "/civic",
+      Icon: MapPin,
+      tint: "bg-[#f2f8e1]",
+    },
+  ];
   return (
     <div className="-mx-4 -mt-5 md:-mx-8">
       <section
-        className="px-5 pb-20 pt-14 text-center md:pt-20"
+        className="px-5 pb-16 pt-14 text-center md:pt-20"
         style={{
           background:
             "linear-gradient(180deg,#F7A35C 0%,#FFC994 38%,#FBE6D2 70%,#FBF6EE 100%)",
         }}
       >
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-5">
-          <span className="rounded-full bg-[#ffe7d3] px-4 py-2 text-[13px] font-semibold text-saffron-text">
-            For every citizen · in your own language
+          <Eyebrow>{tt(lang, "brandName")}</Eyebrow>
+          <span className="rounded-full bg-[#ffe7d3] px-4 py-2 text-sm font-semibold text-saffron-text">
+            {tt(lang, "homeEyebrow")}
           </span>
           <h1 className="home-display mx-auto">
-            Your rights, explained.
+            {tt(lang, "homeTitle")}
             <br />
-            <em>Your forms, done.</em>
+            <em>{tt(lang, "homeAccent")}</em>
           </h1>
           <p className="m-0 max-w-xl text-xl text-ink-soft">
-            Tell Adhikaar who you are, by voice or text, in Hindi, Bengali,
-            Assamese or any Indian language. It finds what you are entitled to,
-            explains it with official proof, and fills the government form with
-            you.
+            {tt(lang, "homeDescription")}
           </p>
           <div className="mt-2 flex flex-wrap justify-center gap-3">
             <PillLink to="/talk" className="!min-h-14 !px-7 text-base">
               <Mic size={20} aria-hidden="true" />
               {tt(lang, "chooseTalk")}
             </PillLink>
-            <a
-              href="#get-started"
-              className="inline-flex min-h-14 items-center gap-2 rounded-full bg-white/85 px-7 text-base font-semibold no-underline"
-              style={{ color: "#17140f" }}
-            >
-              <MousePointerClick size={20} aria-hidden="true" />
-              {tt(lang, "chooseManual")}
-            </a>
+            <PillLink to="/schemes" tone="light" className="!min-h-14">
+              {tt(lang, "navSchemes")} →
+            </PillLink>
           </div>
         </div>
       </section>
-      <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 md:px-8">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <Eyebrow>One assistant, three jobs</Eyebrow>
-          <h2 className="text-[clamp(2rem,6vw,3.2rem)]">
-            Understand. Act. Speak up.
-          </h2>
-        </div>
+      <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-10 md:px-8">
+        {profileId && <PersonalSummary key={profileId} />}
         <div className="grid gap-4 md:grid-cols-3">
-          {jobs.map(({ title, tint, icon: Icon, text }) => (
-            <div
-              key={title}
-              className={`flex flex-col gap-3 rounded-[28px] p-6 ${tint}`}
-            >
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/70">
-                <Icon aria-hidden="true" />
-              </span>
-              <h3 className="m-0 font-serif text-3xl font-normal">{title}</h3>
-              <p className="m-0 text-ink-soft">{text}</p>
-            </div>
+          {jobs.map(({ title, text, to, Icon, tint }) => (
+            <Card key={title} className={`flex flex-col gap-3 ${tint}`}>
+              <Icon aria-hidden="true" />
+              <h2 className="m-0 font-serif text-3xl">{tt(lang, title)}</h2>
+              <p className="m-0 flex-1 text-ink-soft">{tt(lang, text)}</p>
+              <PillLink to={to} tone="light">
+                {tt(lang, "open")} →
+              </PillLink>
+            </Card>
           ))}
         </div>
-      </section>
-      <section
-        id="get-started"
-        className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-10 md:px-8"
-      >
-        <Card tint="peach" className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white text-saffron-text"><FileText size={24} strokeWidth={1.75} aria-hidden="true" /></span>
-            <div><strong>Have a government notice?</strong><p lang="hi" className="m-0 text-sm text-ink-soft">सरकारी सूचना आसान भाषा में समझें</p></div>
-          </div>
-          <PillLink to="/explain" tone="light">Understand notice →</PillLink>
-        </Card>
-        <Intake />
+        {!profileId && (
+          <Card>
+            <h2>{tt(lang, "profileTitle")}</h2>
+            <p className="text-ink-soft">{tt(lang, "profileSummaryEmpty")}</p>
+            <PillLink to="/profile">{tt(lang, "profileCreate")} →</PillLink>
+          </Card>
+        )}
       </section>
     </div>
   );

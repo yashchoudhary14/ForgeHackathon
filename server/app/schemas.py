@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-Lang = Literal["en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml", "pa", "od"]
+Lang = Literal["en", "hi", "bn", "as", "ta", "te", "mr", "gu", "kn", "ml", "pa", "od"]
 
 
 # ---------- profile ----------

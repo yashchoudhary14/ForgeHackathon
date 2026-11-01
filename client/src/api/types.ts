@@ -1,5 +1,5 @@
 export type Lang =
-  "en" | "hi" | "bn" | "ta" | "te" | "mr" | "gu" | "kn" | "ml" | "pa" | "od";
+  "en" | "hi" | "bn" | "as" | "ta" | "te" | "mr" | "gu" | "kn" | "ml" | "pa" | "od";
 export interface ProfileData {
   age?: number | null;
   gender?: "male" | "female" | "transgender" | null;
@@ -11,6 +11,9 @@ export interface ProfileData {
   occupation?: string | null;
   is_student?: boolean | null;
   education_level?: string | null;
+  course?: string | null;
+  study_year?: number | null;
+  institution_name?: string | null;
   disability_percent?: number | null;
   marital_status?: string | null;
   is_bpl?: boolean | null;
@@ -33,6 +36,7 @@ export interface ProfileIn {
 }
 export interface ProfileOut extends ProfileIn {
   id: string;
+  mode?: "talk" | "manual";
 }
 export interface ProfileExtractIn {
   text: string;

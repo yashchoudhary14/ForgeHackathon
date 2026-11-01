@@ -39,19 +39,24 @@ const toneText: Record<PillTone, string> = {
   ghost: "#17140f",
 };
 
+export function PersonIcon({ size = 20, className }: { size?: number; className?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" className={className}><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></svg>;
+}
+
 const phoneItems = [
   { to: "/talk", key: "navTalk", Icon: Mic },
   { to: "/schemes", key: "navSchemes", Icon: ListChecks },
   { to: "/locker", key: "navLocker", Icon: FileText },
   { to: "/civic", key: "navCivic", Icon: MapPin },
   { to: "/alerts", key: "navAlerts", Icon: Bell },
+  { to: "/profile", key: "navProfile", Icon: PersonIcon },
 ];
 export function BottomNav({ unread = 0 }: { unread?: number }) {
   const { lang } = useApp();
   return (
     <nav
       aria-label={tt(lang, "mainNav")}
-      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 justify-between gap-1 rounded-full bg-ink px-2 py-1.5 text-paper shadow-xl md:hidden"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 justify-between rounded-full bg-ink px-2 py-1.5 text-paper shadow-xl md:hidden"
     >
       {phoneItems.map(({ to, key, Icon }) => (
         <NavLink
@@ -61,7 +66,7 @@ export function BottomNav({ unread = 0 }: { unread?: number }) {
           style={({ isActive }) => ({ color: isActive ? "#17140f" : "#fbf6ee" })}
           className={({ isActive }) =>
             cx(
-              "relative flex min-h-12 min-w-11 flex-1 flex-col items-center justify-center gap-1 rounded-full px-1 py-1.5 no-underline transition-transform active:scale-[0.98] motion-reduce:transition-none",
+              "relative flex min-h-12 min-w-[44px] flex-1 flex-col items-center justify-center gap-1 rounded-full px-1 py-1.5 no-underline transition-transform active:scale-[0.98] motion-reduce:transition-none",
               isActive ? "bg-lime" : "hover:bg-white/10",
             )
           }
@@ -83,9 +88,10 @@ const desktopItems = [
   { to: "/runs", key: "navApplications" },
   { to: "/locker", key: "navLocker" },
   { to: "/civic", key: "navCivicMap" },
+  { to: "/profile", key: "navProfile" },
 ];
 export function PillNav({ unread = 0 }: { unread?: number }) {
-  const { lang, setLang, t } = useApp();
+  const { lang, setLang } = useApp();
   return (
     <header className="sticky top-0 z-30 hidden flex-wrap items-center justify-between gap-3 bg-paper/95 px-8 py-3 backdrop-blur md:flex">
       <Link
@@ -93,7 +99,7 @@ export function PillNav({ unread = 0 }: { unread?: number }) {
         className="inline-flex min-h-11 items-center px-2 font-serif text-3xl no-underline"
         style={{ color: "inherit" }}
       >
-        Adhikaar
+        {tt(lang, "brandName")}
       </Link>
       <nav
         aria-label={tt(lang, "mainNav")}
@@ -106,18 +112,19 @@ export function PillNav({ unread = 0 }: { unread?: number }) {
             style={({ isActive }) => ({ color: isActive ? "#fbf6ee" : "#17140f" })}
             className={({ isActive }) =>
               cx(
-                "flex min-h-11 items-center rounded-full px-3 text-sm font-semibold no-underline",
+                "flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-semibold no-underline",
                 isActive ? "bg-ink text-paper" : "text-ink",
               )
             }
           >
+            {key === "navProfile" && <PersonIcon size={18} />}
             {tt(lang, key)}
           </NavLink>
         ))}
       </nav>
       <div className="flex items-center gap-2">
         <label className="m-0">
-          <span className="sr-only">{t.language}</span>
+          <span className="sr-only">{tt(lang, "profileLanguage")}</span>
           <select value={lang} onChange={(e) => setLang(e.target.value as Lang)} className="!m-0 !min-h-11 !w-auto !max-w-32 !rounded-full !px-3 !py-1 text-sm">
             {Object.entries(languages).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
           </select>

@@ -1,11 +1,13 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { translate } from "./i18n";
+import { tt } from "./ui-strings";
 import type { ReactNode } from "react";
 import type { Lang } from "./api/types";
 export const languages: Record<Lang, string> = {
   en: "English",
   hi: "हिन्दी",
   bn: "বাংলা",
+  as: "অসমীয়া",
   ta: "தமிழ்",
   te: "తెలుగు",
   mr: "मराठी",
@@ -98,6 +100,10 @@ export function Provider({ children }: { children: ReactNode }) {
   }, [largeText]);
   useEffect(() => {
     document.documentElement.lang = lang;
+    document.title = tt(lang, "brandName");
+    document.querySelector('meta[name="application-name"]')?.setAttribute("content", tt(lang, "brandName"));
+    document.querySelector('meta[name="description"]')?.setAttribute("content", tt(lang, "homeDescription"));
+    document.querySelector('link[rel="manifest"]')?.setAttribute("href", `/manifest-${["hi", "bn", "as"].includes(lang) ? lang : "en"}.webmanifest`);
   }, [lang]);
   return (
     <Context.Provider

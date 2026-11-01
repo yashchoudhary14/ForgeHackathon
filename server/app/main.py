@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
 
 
-app = FastAPI(title="Adhikaar API", lifespan=lifespan)
+app = FastAPI(title="Buddy API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.client_origin.split(",") if o.strip()],

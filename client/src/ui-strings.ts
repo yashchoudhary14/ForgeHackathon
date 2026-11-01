@@ -1,9 +1,13 @@
 // Interface strings for the Dawn UI. English is the fallback for every key;
 // hi, bn and as cover the navigation and Talk mode chrome.
-import { hi } from "./ui-strings-hi";
-import { bn, as } from "./ui-strings-bn";
+import { hi } from "./ui-strings-hi.ts";
+import { bn, as } from "./ui-strings-bn.ts";
+import { profileEn, profileHi, profileBn, profileAs } from "./profile-strings.ts";
 
 export const en = {
+  ...profileEn,
+  brandName: "Buddy",
+  brandFooter: "Buddy helps you understand and apply. Eligibility and final decisions belong to the official authority.",
   mainNav: "Main navigation",
   navTalk: "Talk",
   navSchemes: "Schemes",
@@ -24,13 +28,13 @@ export const en = {
   cropAlt: "The part of the portal that needs your help",
   loading: "Please wait…",
   tryAgain: "Try again",
-  chooseTitle: "How would you like to use Adhikaar?",
+  chooseTitle: "How would you like to use Buddy?",
   chooseSub: "You can change this any time.",
-  chooseTalk: "Talk to Sahayak",
-  chooseTalkSub: "Speak in your own language. Sahayak does the rest.",
+  chooseTalk: "Talk to Buddy",
+  chooseTalkSub: "Speak in your own language. Buddy does the rest.",
   chooseManual: "I'll use the site myself",
   chooseManualSub: "Browse schemes, documents and reports on your own.",
-  talkTitle: "Sahayak",
+  talkTitle: "Buddy",
   holdToTalk: "Hold to talk",
   release: "Release to send",
   listening: "Listening…",
@@ -46,7 +50,7 @@ export const en = {
   langDetected: "Language detected",
   changeLang: "Change",
   talkEmpty: "Press and hold the microphone, then speak.",
-  talkGreeting: "Namaste, I am Sahayak.",
+  talkGreeting: "Namaste, I am Buddy.",
   talkWelcome: "Press and hold the orb to speak in Hindi, Bengali, Assamese or English, or choose a topic below.",
   starterSchemes: "Find schemes for my family",
   starterNotice: "Explain a government notice",
@@ -54,7 +58,7 @@ export const en = {
   largeText: "Large text",
   sourceUnavailable: "Source link unavailable",
   micDenied: "Microphone not available. Please type your message.",
-  talkError: "Sahayak could not answer. Please try again.",
+  talkError: "Buddy could not answer. Please try again.",
   openScheme: "See details",
   openRun: "Open the form",
   openReport: "Open the report",
@@ -84,20 +88,22 @@ export const en = {
   new: "New",
   markAllRead: "Mark all read",
   official: "Official",
-  needProfile: "Talk to Sahayak or fill in your details first. Your items will appear here.",
+  needProfile: "Talk to Buddy or fill in your details first. Your items will appear here.",
   needProfileTitle: "No profile yet",
   activityTitle: "Applications, reports and alerts",
   activityEmptyTitle: "Nothing here yet",
   activityEmpty: "Applications, civic reports and alerts will appear here as they happen.",
   tabAll: "All",
   unreadAlerts: "Unread alerts",
-  langNotSpoken: "Sahayak will reply in the language it hears.",
+  langNotSpoken: "Buddy will reply in the language it hears.",
   stopSpeaking: "Stop speaking",
   playReply: "Play reply",
 } as const;
 export type UiKey = keyof typeof en;
 export type Table = Partial<Record<UiKey, string>>;
-const tables: Record<string, Table> = { hi, bn, as };
+const tables: Record<string, Table> = {
+  hi: { ...hi, ...profileHi }, bn: { ...bn, ...profileBn }, as: { ...as, ...profileAs },
+};
 export function tt(lang: string, key: UiKey | string): string {
   const k = key as UiKey;
   return tables[lang]?.[k] ?? en[k] ?? String(key);

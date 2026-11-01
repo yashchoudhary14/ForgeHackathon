@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { streamChat } from "../api/client";
 import type { Citation } from "../api/types";
 import { useApp } from "../context";
+import { tt } from "../ui-strings";
 import { Citations, Empty, ErrorBox, Markdown, MicButton } from "../components";
 type Message = {
   id: string;
@@ -121,7 +122,7 @@ export default function Ask() {
           {messages.map((m) => (
             <article className={"message " + m.role} key={m.id}>
               <small>
-                <Text value={m.role === "user" ? "You" : "Adhikaar"} />
+                {m.role === "user" ? <Text value="You" /> : tt(lang, "brandName")}
               </small>
               <div>
                 {m.tools.map((tool, i) => (

@@ -228,6 +228,7 @@ export function MatchResults({
   error: string;
   progress: string;
 }) {
+  const { lang } = useApp();
   return (
     <section aria-label="Scheme matches" aria-busy={busy}>
       {progress && (
@@ -236,10 +237,10 @@ export function MatchResults({
         </p>
       )}
       {!profileId ? (
-        <EmptyState title={<Text value="See schemes matched to you" />} action={<PillLink to="/" tone="saffron">
+        <EmptyState title={<Text value="See schemes matched to you" />} action={<PillLink to="/profile" tone="saffron">
             <Text value={"Create your profile →"} />
           </PillLink>}>
-          <Text value="Tell Sahayak about yourself by voice or fill in your basic details." />
+          {tt(lang, "needProfile")}
         </EmptyState>
       ) : matches.length === 0 && !error && !busy ? (
         <Empty>
