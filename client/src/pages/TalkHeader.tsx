@@ -26,7 +26,7 @@ export default function TalkHeader({
     <header className="flex items-center justify-between gap-2 px-4 py-3">
       <button
         type="button"
-        aria-label="Close"
+        aria-label={tt(lang, "close")}
         onClick={() => navigate("/")}
         className="!min-h-11 !w-11 !rounded-full !bg-white/80 !p-0 !text-ink"
       >

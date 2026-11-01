@@ -1,4 +1,6 @@
 import type { Lang } from "./api/types";
+// Navigation and Talk mode chrome (en, hi, bn, as) live in ui-strings*.ts; `tt` is the lookup.
+export { tt } from "./ui-strings";
 // English is also the fallback for the other supported intake/answer languages.
 const hi: Record<string, string> = {
   "The receipt image is unavailable. Your reference and official link are still shown above.":

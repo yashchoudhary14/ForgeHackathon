@@ -1,205 +1,216 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bot, Bell, MapPin } from "lucide-react";
-import { listCivicReports, statusMeta } from "../api/civic";
-import type { CivicReportOut } from "../api/civic";
-import { request } from "../api/client";
-import type { Lang, NotificationOut, RunOut } from "../api/types";
+import { Bell, Bot, MapPin } from "lucide-react";
+import { getActivity } from "../api/alerts";
+import { listReports, statusMeta } from "../api/civic";
+import type { ReportOut } from "../api/civic";
+import { request, withOwner } from "../api/client";
+import type { ActivityItem, Lang, RunOut } from "../api/types";
 import { ErrorBox, Loading } from "../components";
 import { Text, useApp } from "../context";
 import { translate } from "../i18n";
 import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
 import { Card, EmptyState, Eyebrow, StatTile } from "../ui";
-import { AlertsPanel } from "./Alerts";
+import { AlertsPanel, OpenLink } from "./Alerts";
 
 type Tab = "all" | "runs" | "civic" | "alerts";
+const icons = { run: Bot, report: MapPin, notification: Bell };
 
-export function ActivityView({
-  runs,
-  reports,
-  tab = "all",
-  lang = "en",
-}: {
-  runs: RunOut[];
-  reports: CivicReportOut[];
-  tab?: Tab;
-  lang?: Lang;
-}) {
-  const showRuns = tab === "all" || tab === "runs";
-  const showCivic = tab === "all" || tab === "civic";
+/** The merged GET /activity timeline: one row per run, report or alert, newest first. */
+export function ActivityTimeline({ items, lang = "en" }: { items: ActivityItem[]; lang?: string }) {
+  if (items.length === 0)
+    return (
+      <EmptyState title={tt(lang, "activityEmptyTitle")} action={<PillLink to="/talk">{tt(lang, "talkMode")} →</PillLink>}>
+        {tt(lang, "activityEmpty")}
+      </EmptyState>
+    );
   return (
-    <div className="flex flex-col gap-5">
-      {showRuns && (
-        <section className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="m-0 flex items-center gap-2 font-serif text-2xl font-normal">
-              <Bot size={20} aria-hidden="true" />
-              <Text value="Assisted applications · योजना आवेदन" />
-            </h2>
-            <Link to="/schemes" className="text-sm font-semibold">Explore schemes →</Link>
-          </div>
-          {runs.length === 0 ? (
-            <EmptyState title="No assisted applications yet" action={<PillLink to="/schemes">Browse schemes →</PillLink>}>
-              Open a scheme to start a live browser agent application.
-            </EmptyState>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {runs.map((r) => (
-                <Card key={r.id} className="flex flex-col justify-between gap-2.5 !p-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className={`badge ${r.status}`}>{translate(r.status, lang)}</span>
-                      {r.scheme_slug && <small className="font-mono text-xs">{r.scheme_slug}</small>}
-                    </div>
-                    <h3 className="m-0 font-serif text-xl font-normal">{r.goal}</h3>
-                    {r.receipt?.reference_no && (
-                      <p className="m-0 text-sm"><Text value="Receipt:" /> <strong className="font-mono">{r.receipt.reference_no}</strong></p>
-                    )}
-                  </div>
-                  <Link to={"/runs/" + encodeURIComponent(r.id)} className="text-sm font-semibold"><Text value="Open session →" /></Link>
-                </Card>
-              ))}
+    <ol className="m-0 flex list-none flex-col gap-2 p-0">
+      {items.map((item) => {
+        const Icon = icons[item.type];
+        return (
+          <li key={item.type + item.id} className="flex flex-wrap items-start gap-3 rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_#ede5da]">
+            <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-peach text-saffron-text">
+              <Icon size={18} />
+            </span>
+            <div className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
+              <strong className="break-words">{item.title}</strong>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
+                <span className="capitalize">{translate(item.status.replaceAll("_", " "), lang as Lang)}</span>
+                {item.official && (
+                  <span className="rounded-full bg-warn-soft px-2 py-0.5 text-xs font-semibold text-warn">
+                    {tt(lang, "official")}
+                  </span>
+                )}
+                <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time>
+              </div>
             </div>
-          )}
-        </section>
-      )}
+            <OpenLink link={item.link} lang={lang} />
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
-      {showCivic && (
-        <section className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="m-0 flex items-center gap-2 font-serif text-2xl font-normal">
-              <MapPin size={20} aria-hidden="true" />
-              <Text value="Civic reports · नागरिक शिकायतें" />
-            </h2>
-            <Link to="/civic/new" className="text-sm font-semibold">+ Report an issue →</Link>
-          </div>
-          {reports.length === 0 ? (
-            <EmptyState title="No civic reports yet" action={<PillLink to="/civic/new">Report an issue →</PillLink>}>
-              Report a local water, road, electricity or sanitation problem and track it to CPGRAMS.
-            </EmptyState>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {reports.map((c) => {
-                const meta = statusMeta(c.status);
-                return (
-                  <Card key={c.id} className="flex flex-col justify-between gap-2.5 !p-4">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <span className="font-semibold uppercase text-ink-soft">{c.department || c.category}</span>
-                        <span className="rounded-full bg-peach px-2.5 py-0.5 font-semibold text-saffron-text">{meta.label}</span>
-                      </div>
-                      <h3 className="m-0 font-serif text-xl font-normal">{c.title}</h3>
-                      {(c.cpgrams_ref || c.receipt_no) && (
-                        <small className="font-mono font-bold">CPGRAMS: {c.cpgrams_ref || c.receipt_no}</small>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-ink-soft">👍 {c.upvotes ?? 1}</span>
-                      <Link to={"/civic/" + encodeURIComponent(String(c.id))} className="font-semibold">Track timeline →</Link>
-                    </div>
-                  </Card>
-                );
-              })}
+function RunCards({ runs, lang }: { runs: RunOut[]; lang: Lang }) {
+  if (runs.length === 0)
+    return (
+      <EmptyState title="No assisted applications yet" action={<PillLink to="/schemes">Browse schemes →</PillLink>}>
+        Open a scheme to start a live browser agent application.
+      </EmptyState>
+    );
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {runs.map((r) => (
+        <Card key={r.id} className="flex flex-col justify-between gap-2.5 !p-4">
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className={`badge ${r.status}`}>{translate(r.status.replaceAll("_", " "), lang)}</span>
+              {r.kind && r.kind !== "application" && <small className="capitalize">{r.kind.replaceAll("_", " ")}</small>}
             </div>
-          )}
-        </section>
-      )}
+            <h3 className="m-0 break-words font-serif text-xl font-normal">{r.goal}</h3>
+            {r.receipt?.reference_no && (
+              <p className="m-0 break-all text-sm"><Text value="Receipt:" /> <strong className="font-mono">{r.receipt.reference_no}</strong></p>
+            )}
+          </div>
+          <Link to={"/runs/" + encodeURIComponent(r.id)} className="inline-flex min-h-11 items-center text-sm font-semibold"><Text value="Open session →" /></Link>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function ReportCards({ reports }: { reports: ReportOut[] }) {
+  if (reports.length === 0)
+    return (
+      <EmptyState title="No civic reports yet" action={<PillLink to="/civic/new">Report an issue →</PillLink>}>
+        Report a local water, road, electricity or sanitation problem and track it to CPGRAMS.
+      </EmptyState>
+    );
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {reports.map((c) => (
+        <Card key={c.id} className="flex flex-col justify-between gap-2.5 !p-4">
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="min-w-0 break-words font-semibold uppercase text-ink-soft">{c.department}</span>
+              <span className="rounded-full bg-peach px-2.5 py-0.5 font-semibold text-saffron-text">{statusMeta(c.status).label}</span>
+            </div>
+            <h3 className="m-0 break-words font-serif text-xl font-normal">{c.title}</h3>
+            {c.official_ref && <small className="break-all font-mono font-bold">CPGRAMS: {c.official_ref}</small>}
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-ink-soft">👍 {c.supporters}</span>
+            <Link to={"/civic/" + encodeURIComponent(c.id)} className="inline-flex min-h-11 items-center font-semibold">Track timeline →</Link>
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }
 
 export default function Runs() {
   const { profileId, lang } = useApp();
-  const [runs, setRuns] = useState<RunOut[] | null>(null);
-  const [reports, setReports] = useState<CivicReportOut[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[] | null>(null);
+  const [runs, setRuns] = useState<RunOut[]>([]);
+  const [reports, setReports] = useState<ReportOut[]>([]);
   const [unread, setUnread] = useState(0);
   const [tab, setTab] = useState<Tab>("all");
   const [error, setError] = useState("");
 
   async function load(signal?: AbortSignal) {
     setError("");
-    const q = profileId ? `?profile_id=${encodeURIComponent(profileId)}` : "";
+    if (!profileId) return setActivity([]);
     try {
-      const [runList, civicList, notifList] = await Promise.all([
-        request<RunOut[]>(`/agent/runs${q}`, { signal }),
-        listCivicReports({}, signal).catch(() => [] as CivicReportOut[]),
-        profileId ? request<NotificationOut[]>(`/notifications${q}`, { signal }).catch(() => []) : Promise.resolve([] as NotificationOut[]),
+      const [items, runList, mine] = await Promise.all([
+        getActivity(profileId, signal),
+        request<RunOut[]>(withOwner("/agent/runs", profileId), { signal }),
+        listReports({ profile_id: profileId }, signal),
       ]);
       if (signal?.aborted) return;
-      setRuns(Array.isArray(runList) ? runList : []);
-      const mine = profileId ? civicList.filter((r) => !r.profile_id || r.profile_id === profileId) : civicList;
-      setReports(mine.length > 0 ? mine : civicList);
-      setUnread(Array.isArray(notifList) ? notifList.filter((n) => !n.read).length : 0);
+      setActivity(items);
+      setRuns(runList);
+      setReports(mine);
+      setUnread(items.filter((i) => i.type === "notification" && i.status === "unread").length);
     } catch (e) {
-      if (!signal?.aborted) setError((e as Error).message);
+      if (!signal?.aborted) {
+        setActivity((a) => a ?? []);
+        setError((e as Error).message);
+      }
     }
   }
 
   useEffect(() => {
+    setActivity(null);
     const c = new AbortController();
     void load(c.signal);
     return () => c.abort();
   }, [profileId]);
 
-  const showAlerts = tab === "all" || tab === "alerts";
+  const tabs: [Tab, string][] = [
+    ["all", tt(lang, "tabAll")],
+    ["runs", `${tt(lang, "navApplications")} (${runs.length})`],
+    ["civic", `${tt(lang, "navCivic")} (${reports.length})`],
+    ["alerts", `${tt(lang, "navAlerts")} (${unread})`],
+  ];
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <Eyebrow>{tt(lang, "navActivity")} · मेरी गतिविधि</Eyebrow>
-        <h1><Text value="My activity · आवेदन, शिकायतें और सूचनाएँ" /></h1>
+        <Eyebrow>{tt(lang, "navActivity")}</Eyebrow>
+        <h1>{tt(lang, "activityTitle")}</h1>
         <p className="m-0 text-ink-soft">
           <Text value="Track your assisted scheme applications, CPGRAMS civic grievances, and official notifications in one place." />
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatTile accent value={runs?.length ?? 0} label="Assisted applications · आवेदन" />
-        <StatTile value={reports.length} label="Civic reports · नागरिक शिकायतें" />
-        <StatTile value={unread} label="Unread alerts · नई सूचनाएँ" />
-      </div>
-
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Activity sections">
-        {(
-          [
-            ["all", "All activity"],
-            ["runs", `Applications (${runs?.length ?? 0})`],
-            ["civic", `Civic reports (${reports.length})`],
-            ["alerts", `Notifications (${unread})`],
-          ] as [Tab, string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className={tab === key ? "!min-h-10 !px-4 !py-1.5 text-sm" : "secondary !min-h-10 !px-4 !py-1.5 text-sm"}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {error && <ErrorBox error={error} retry={() => void load()} />}
-
-      {!runs ? (
-        <Loading message="Loading your applications, civic reports and alerts…" />
+      {!profileId ? (
+        <EmptyState title={tt(lang, "needProfileTitle")} action={<PillLink to="/talk">{tt(lang, "talkMode")} →</PillLink>}>
+          {tt(lang, "needProfile")}
+        </EmptyState>
       ) : (
         <>
-          <ActivityView runs={runs} reports={reports} tab={tab} lang={lang} />
-          {showAlerts && (
-            <section className="flex flex-col gap-3">
-              <h2 className="m-0 flex items-center gap-2 font-serif text-2xl font-normal">
-                <Bell size={20} aria-hidden="true" />
-                <Text value="Notifications · सूचनाएँ" />
-              </h2>
-              <Card><AlertsPanel /></Card>
-            </section>
+          <div className="grid grid-cols-3 gap-3">
+            <StatTile accent value={runs.length} label={tt(lang, "navApplications")} />
+            <StatTile value={reports.length} label={tt(lang, "navCivic")} />
+            <StatTile value={unread} label={tt(lang, "unreadAlerts")} />
+          </div>
+
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label={tt(lang, "navActivity")}>
+            {tabs.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setTab(key)}
+                className={(tab === key ? "" : "secondary ") + "!min-h-11 shrink-0 !rounded-full !px-4 !py-1.5 text-sm"}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {error && <ErrorBox error={error} retry={() => void load()} />}
+
+          {!activity ? (
+            <Loading message="Loading your applications, civic reports and alerts…" />
+          ) : tab === "all" ? (
+            <ActivityTimeline items={activity} lang={lang} />
+          ) : tab === "runs" ? (
+            <RunCards runs={runs} lang={lang} />
+          ) : tab === "civic" ? (
+            <ReportCards reports={reports} />
+          ) : (
+            <Card>
+              <AlertsPanel onUnread={setUnread} />
+            </Card>
           )}
         </>
       )}
     </div>
   );
 }
+

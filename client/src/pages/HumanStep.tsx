@@ -2,6 +2,7 @@ import type { ClientMessage, Human } from "../api/types";
 import { GuideCard, SwipeToConfirm } from "../guide";
 import { useApp } from "../context";
 import { tt } from "../ui-strings";
+import { formatKb } from "../api/locker";
 
 /** The "your help is needed" panel of the run screen (Agent + Approve designs). */
 export default function HumanStep({
@@ -21,7 +22,7 @@ export default function HumanStep({
   takeover: boolean;
   onTakeOver: () => void;
   send: (m: ClientMessage) => boolean;
-  onDone: (type: "resume" | "approve" | "abort") => void;
+  onDone: (type: "resume" | "approve" | "approve_duplicate" | "abort") => void;
 }) {
   const { lang } = useApp();
   const gl = human.guide?.lang || lang;
@@ -56,8 +57,21 @@ export default function HumanStep({
       >
         {human.message && <p className="m-0">{human.message}</p>}
         {human.kind === "confirm_upload" && doc && (
-          <p className="m-0 rounded-[14px] bg-white p-3 font-semibold">
-            {ui("attachDoc")}: {doc.title || doc.doc_type}
+          <div className="flex flex-col gap-1 rounded-[14px] bg-white p-3">
+            <span className="text-sm text-ink-soft">{ui("attachDoc")}</span>
+            <strong className="font-serif text-xl font-normal capitalize">
+              {doc.title || doc.doc_type.replaceAll("_", " ")}
+            </strong>
+            <span className="text-sm text-ink-soft">
+              {String(doc.format).toUpperCase()}
+              {doc.bytes ? ` · ${formatKb(doc.bytes)}` : ""}
+              {doc.meta?.readable === false ? ` · ${ui("docHardToRead")}` : ""}
+            </span>
+          </div>
+        )}
+        {human.duplicate_warning && (
+          <p role="alert" className="m-0 rounded-[14px] bg-warn-soft p-3 text-warn">
+            {human.duplicate_warning}
           </p>
         )}
         {human.kind === "confirm_submit" || human.kind === "confirm_upload" ? (
@@ -69,7 +83,9 @@ export default function HumanStep({
                   : ui("swipeUpload")
               }
               disabled={!connected}
-              onConfirm={() => onDone("approve")}
+              onConfirm={() =>
+                onDone(human.duplicate_warning ? "approve_duplicate" : "approve")
+              }
             />
             <button
               type="button"
@@ -123,7 +139,7 @@ export default function HumanStep({
               >
                 {ui("doItMyself")}
               </button>
-              {(takeover || human.kind === "payment") && (
+              {(takeover || human.kind === "payment" || human.kind === "login") && (
                 <button
                   type="button"
                   disabled={!connected}

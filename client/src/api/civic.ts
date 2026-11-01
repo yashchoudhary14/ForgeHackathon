@@ -1,139 +1,151 @@
-import { BASE, post, request } from "./client";
-import { responseError } from "./errors";
+import { post, request } from "./client";
 
-export interface CivicDuplicate {
-  id: number | string;
+// Shapes follow server/app/schemas.py (civic section) and routers/reports.py.
+export type ReportCategory =
+  | "water"
+  | "roads"
+  | "electricity"
+  | "sanitation"
+  | "streetlight"
+  | "drainage"
+  | "safety"
+  | "other";
+export type ReportStatus = "open" | "filed" | "in_progress" | "resolved" | "closed";
+export type Severity = "low" | "medium" | "high" | "urgent";
+
+export const categories: ReportCategory[] = [
+  "water",
+  "roads",
+  "electricity",
+  "sanitation",
+  "streetlight",
+  "drainage",
+  "safety",
+  "other",
+];
+export const statuses: ReportStatus[] = ["open", "filed", "in_progress", "resolved", "closed"];
+
+/** The AI triage the citizen can accept before saving (CivicTriage). */
+export interface CivicTriage {
+  category: ReportCategory;
   title: string;
-  distance_m?: number | null;
-  upvotes?: number;
-}
-
-export interface CivicTriageOut {
-  category: string;
-  severity: string;
+  title_local: string;
+  description: string;
+  severity: Severity;
+  severity_reason: string;
   department: string;
-  draft_title: string;
-  draft_hi?: string | null;
-  draft_en?: string | null;
-  duplicates?: CivicDuplicate[];
+  since_when?: string;
+  people_affected?: string;
 }
 
-export interface CivicEvent {
-  id?: number | string;
-  kind?: string;
-  actor?: string;
-  status?: string | null;
-  title?: string | null;
-  note?: string | null;
-  body?: string | null;
-  photo_url?: string | null;
-  receipt_no?: string | null;
-  created_at?: string;
-  meta?: Record<string, unknown> | null;
+export interface ReportMedia {
+  type: "photo" | "audio";
+  url: string;
+  mime?: string;
+  bytes?: number;
 }
 
-export interface CivicReportOut {
-  id: number | string;
-  profile_id?: string | null;
-  category: string;
-  severity?: string | null;
-  department?: string | null;
-  title: string;
-  description?: string | null;
-  draft_hi?: string | null;
-  draft_en?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  address?: string | null;
-  state?: string | null;
-  district?: string | null;
-  photo_url?: string | null;
-  audio_url?: string | null;
+/** ReportEventOut: source is official | citizen | system. */
+export interface ReportEvent {
+  id: number;
+  source: string;
+  kind: string;
+  text: string;
+  meta?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ComplaintDraft {
+  subject: string;
+  english: string;
+  local: string;
+  language: string;
+}
+
+export interface ReportOut extends CivicTriage {
+  id: string;
+  profile_id: string | null;
+  language: string;
+  lat: number;
+  lng: number;
+  address: string | null;
+  media: ReportMedia[];
   status: string;
-  upvotes: number;
-  cpgrams_ref?: string | null;
-  receipt_no?: string | null;
-  run_id?: string | null;
-  official_note?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  events?: CivicEvent[];
+  official_ref: string | null;
+  official_status: string | null;
+  supporters: number;
+  created_at: string;
+  updated_at: string;
+  events: ReportEvent[];
+  distance_m?: number | null;
+  similarity?: number | null;
+  duplicate_score?: number | null;
+  source_url?: string | null;
+  complaint_draft?: ComplaintDraft | null;
 }
 
-export interface CivicDepartmentStat {
-  department: string;
-  total?: number;
-  open?: number;
-  filed?: number;
-  resolved?: number;
-  resolved_pct?: number;
-  avg_days?: number | null;
+export interface TriageOut extends CivicTriage {
+  language: string;
+  address: string | null;
+  geocoding_attribution?: string;
+  duplicates: ReportOut[];
 }
 
-export interface CivicStatsOut {
+/** GET /reports/stats: counts from real rows only. */
+export interface ReportStats {
   total: number;
-  open: number;
-  filed: number;
-  resolved: number;
-  avg_days_open?: number | null;
-  by_department?: CivicDepartmentStat[];
-  oldest_unresolved?: CivicReportOut[];
+  by_status: Record<string, number>;
+  by_department: Record<string, number>;
+  by_category: Record<string, number>;
+  confirmed_by_others: number;
+  official_number: number;
+  resolved_confirmed: number;
+  open_by_department: Record<string, number>;
 }
 
-export interface CivicFilter {
-  state?: string;
-  district?: string;
+export interface ReportFilter {
   category?: string;
   status?: string;
-  near?: string;
+  profile_id?: string;
+  lat?: number;
+  lng?: number;
+  radius_km?: number;
+  limit?: number;
 }
 
-export interface CivicTriageInput {
-  photo?: Blob | null;
-  photoName?: string;
-  audio?: Blob | null;
-  audioName?: string;
+export interface SubmissionInput {
+  profile_id: string;
+  lat: number;
+  lng: number;
   text?: string;
-  lat?: number | null;
-  lng?: number | null;
-  lang?: string;
-}
-
-export interface CivicReportCreateInput {
-  profile_id?: string | null;
-  category: string;
-  severity?: string;
-  department?: string;
-  title: string;
-  description?: string;
-  draft_hi?: string | null;
-  draft_en?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  address?: string;
-  state?: string;
-  district?: string;
   photo?: Blob | null;
   photoName?: string;
   audio?: Blob | null;
   audioName?: string;
 }
 
-export function triageForm(input: CivicTriageInput): FormData {
+export type VoteKind = "support" | "still_broken" | "fixed" | "follow";
+
+const id = (v: string) => encodeURIComponent(v);
+
+/** Multipart body for POST /reports/triage and POST /reports. `accepted` is the triage the citizen confirmed. */
+export function submissionForm(input: SubmissionInput, accepted?: CivicTriage | null): FormData {
   const form = new FormData();
+  form.set("profile_id", input.profile_id);
+  form.set("lat", String(input.lat));
+  form.set("lng", String(input.lng));
+  if (input.text?.trim()) form.set("text", input.text.trim());
   if (input.photo) form.set("photo", input.photo, input.photoName || "issue.jpg");
   if (input.audio) form.set("audio", input.audio, input.audioName || "voice.webm");
-  if (input.text?.trim()) form.set("text", input.text.trim());
-  if (typeof input.lat === "number" && Number.isFinite(input.lat)) form.set("lat", String(input.lat));
-  if (typeof input.lng === "number" && Number.isFinite(input.lng)) form.set("lng", String(input.lng));
-  if (input.lang) form.set("lang", input.lang);
+  if (accepted) form.set("triage", JSON.stringify(accepted));
   return form;
 }
 
-export function reportsQuery(filter: CivicFilter = {}): string {
+export function reportsQuery(filter: ReportFilter = {}): string {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(filter)) {
-    if (typeof v === "string" && v.trim()) params.set(k, v.trim());
+    if (typeof v === "number" && Number.isFinite(v)) params.set(k, String(v));
+    else if (typeof v === "string" && v.trim()) params.set(k, v.trim());
   }
   const qs = params.toString();
   return qs ? `?${qs}` : "";
@@ -143,73 +155,66 @@ export function statusMeta(status: string): {
   label: string;
   tone: "ok" | "warn" | "bad" | "act" | "neutral";
 } {
-  const s = (status || "open").toLowerCase();
-  if (s === "citizen_verified" || s === "resolved") return { label: "Citizen verified · resolved", tone: "ok" };
-  if (s === "official_resolved") return { label: "Official reply · verify on site", tone: "warn" };
-  if (s === "filed" || s === "in_progress") return { label: "Filed on CPGRAMS", tone: "act" };
-  if (s === "still_broken" || s === "escalated") return { label: "Still broken · escalated", tone: "bad" };
-  if (s === "community_verified") return { label: "Confirmed by neighbours", tone: "warn" };
-  return { label: "Open", tone: "warn" };
+  switch ((status || "open").toLowerCase()) {
+    case "resolved":
+      return { label: "Resolved", tone: "ok" };
+    case "closed":
+      return { label: "Closed", tone: "neutral" };
+    case "filed":
+      return { label: "Filed on CPGRAMS", tone: "act" };
+    case "in_progress":
+      return { label: "In progress", tone: "act" };
+    default:
+      return { label: "Open", tone: "warn" };
+  }
 }
 
-export function actorBadge(event: CivicEvent): { label: string; kind: "official" | "citizen" | "agent" } {
-  const raw = `${event.actor || ""} ${event.kind || ""} ${event.status || ""}`.toLowerCase();
-  if (/official|cpgrams|dept|department|gov/.test(raw)) return { label: "Official · सरकारी जवाब", kind: "official" };
-  if (/agent|filed/.test(raw) || event.receipt_no) return { label: "Adhikaar Agent · CPGRAMS", kind: "agent" };
+/** Timeline label: official replies are kept visually apart from citizen and system notes. */
+export function sourceBadge(event: Pick<ReportEvent, "source">): {
+  label: string;
+  kind: "official" | "citizen" | "system";
+} {
+  if (event.source === "official") return { label: "Official · सरकारी", kind: "official" };
+  if (event.source === "system") return { label: "Adhikaar · सिस्टम", kind: "system" };
   return { label: "Citizen · नागरिक", kind: "citizen" };
 }
 
-export const triageCivic = (input: CivicTriageInput, signal?: AbortSignal) =>
-  request<CivicTriageOut>("/civic/triage", { method: "POST", body: triageForm(input), signal });
+export const firstPhoto = (r: Pick<ReportOut, "media">) =>
+  r.media?.find((m) => m.type === "photo")?.url;
 
-export async function createCivicReport(input: CivicReportCreateInput): Promise<CivicReportOut> {
-  const { photo, photoName, audio, audioName, ...jsonFields } = input;
-  if (photo || audio) {
-    const form = new FormData();
-    for (const [k, v] of Object.entries(jsonFields)) {
-      if (v !== undefined && v !== null && v !== "") form.set(k, String(v));
-    }
-    if (photo) form.set("photo", photo, photoName || "issue.jpg");
-    if (audio) form.set("audio", audio, audioName || "voice.webm");
-    const res = await fetch(`${BASE}/api/civic/reports`, { method: "POST", credentials: "include", body: form });
-    if (res.ok) return (await res.json()) as CivicReportOut;
-    if (res.status !== 422 && res.status !== 415) throw new Error(responseError(res.status));
-  }
-  return post<CivicReportOut>("/civic/reports", jsonFields);
-}
+export const triageReport = (input: SubmissionInput, signal?: AbortSignal) =>
+  request<TriageOut>("/reports/triage", { method: "POST", body: submissionForm(input), signal });
 
-export async function listCivicReports(filter: CivicFilter = {}, signal?: AbortSignal): Promise<CivicReportOut[]> {
-  const out = await request<CivicReportOut[] | { items?: CivicReportOut[] }>("/civic/reports" + reportsQuery(filter), { signal });
-  return Array.isArray(out) ? out : Array.isArray(out?.items) ? out.items : [];
-}
+export const createReport = (input: SubmissionInput, accepted: CivicTriage) =>
+  request<ReportOut>("/reports", { method: "POST", body: submissionForm(input, accepted) });
 
-export const getCivicReport = (id: string | number, signal?: AbortSignal) =>
-  request<CivicReportOut>(`/civic/reports/${encodeURIComponent(String(id))}`, { signal });
+export const listReports = (filter: ReportFilter = {}, signal?: AbortSignal) =>
+  request<ReportOut[]>("/reports" + reportsQuery(filter), { signal });
 
-export const getCivicStats = (filter: { state?: string; district?: string } = {}, signal?: AbortSignal) =>
-  request<CivicStatsOut>("/civic/stats" + reportsQuery(filter), { signal });
+export const getReport = (reportId: string, signal?: AbortSignal) =>
+  request<ReportOut>(`/reports/${id(reportId)}`, { signal });
 
-export const voteCivicReport = (id: string | number, profileId?: string) =>
-  post<{ upvotes: number; status: string }>(`/civic/reports/${encodeURIComponent(String(id))}/vote`, profileId ? { profile_id: profileId } : {});
+export const getReportStats = (signal?: AbortSignal) =>
+  request<ReportStats>("/reports/stats", { signal });
 
-export async function submitCivicEvidence(
-  id: string | number,
-  input: { status: "citizen_verified" | "still_broken"; photo?: Blob | null; photoName?: string; note?: string; profile_id?: string },
-): Promise<CivicReportOut> {
-  const path = `/civic/reports/${encodeURIComponent(String(id))}/evidence`;
+export const voteReport = (reportId: string, profileId: string, kind: VoteKind) =>
+  post<ReportOut>(`/reports/${id(reportId)}/vote`, { profile_id: profileId, kind });
+
+export function addEvidence(
+  reportId: string,
+  input: { profile_id: string; text?: string; photo?: Blob | null; photoName?: string },
+) {
   const form = new FormData();
-  form.set("status", input.status);
-  if (input.profile_id) form.set("profile_id", input.profile_id);
-  if (input.note?.trim()) form.set("note", input.note.trim());
+  form.set("profile_id", input.profile_id);
+  if (input.text?.trim()) form.set("text", input.text.trim());
   if (input.photo) form.set("photo", input.photo, input.photoName || "evidence.jpg");
-  const res = await fetch(`${BASE}/api${path}`, { method: "POST", credentials: "include", body: form });
-  if (res.ok) return (await res.json()) as CivicReportOut;
-  if (res.status !== 422 && res.status !== 415) throw new Error(responseError(res.status));
-  return post<CivicReportOut>(path, { status: input.status, profile_id: input.profile_id || null, note: input.note?.trim() || null });
+  return request<ReportOut>(`/reports/${id(reportId)}/evidence`, { method: "POST", body: form });
 }
 
-export const fileCivicOnCpgrams = (id: string | number, profileId?: string) =>
-  post<{ run_id: string }>(`/civic/reports/${encodeURIComponent(String(id))}/file`, profileId ? { profile_id: profileId } : {});
+export const fileReport = (reportId: string, profileId: string) =>
+  post<{ run_id: string; draft?: ComplaintDraft | null }>(`/reports/${id(reportId)}/file`, {
+    profile_id: profileId,
+  });
 
-export const checkCivicStatus = (id: string | number, profileId?: string) =>
-  post<{ status: string; official_note?: string | null }>(`/civic/reports/${encodeURIComponent(String(id))}/check-status`, profileId ? { profile_id: profileId } : {});
+export const checkReportStatus = (reportId: string, profileId: string) =>
+  post<{ run_id: string }>(`/reports/${id(reportId)}/check-status`, { profile_id: profileId });

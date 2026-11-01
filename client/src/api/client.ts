@@ -9,6 +9,9 @@ export function websocketUrl(path: string): string {
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return url.href;
 }
+/** Run reads, the run WebSocket and locker files are owner-only: the server checks ?profile_id=. */
+export const withOwner = (path: string, profileId: string) =>
+  path + (path.includes("?") ? "&" : "?") + new URLSearchParams({ profile_id: profileId });
 export const assetUrl = (url: string) => safeUrl(url);
 export function safeUrl(url?: string | null): string | undefined {
   if (!url) return;

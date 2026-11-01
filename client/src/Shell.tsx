@@ -1,7 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation, Link } from "react-router-dom";
-import { request } from "./api/client";
-import type { NotificationOut } from "./api/types";
+import { listNotifications } from "./api/alerts";
 import { useApp, Text } from "./context";
 import { Loading } from "./components";
 import { BottomNav, PillNav } from "./nav";
@@ -28,13 +27,8 @@ export function useUnread(profileId: string) {
   useEffect(() => {
     if (!profileId) return;
     const c = new AbortController();
-    request<NotificationOut[]>(
-      "/notifications?" + new URLSearchParams({ profile_id: profileId }),
-      { signal: c.signal },
-    )
-      .then((list) =>
-        setUnread(Array.isArray(list) ? list.filter((n) => !n.read).length : 0),
-      )
+    listNotifications(profileId, c.signal)
+      .then((out) => setUnread(out.unread_count ?? 0))
       .catch(() => setUnread(0));
     return () => c.abort();
   }, [profileId]);

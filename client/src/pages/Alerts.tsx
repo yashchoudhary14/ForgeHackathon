@@ -1,26 +1,47 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { post, request } from "../api/client";
+import { listNotifications, markNotificationsRead, resolveLink } from "../api/alerts";
 import type { NotificationOut } from "../api/types";
 import { ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
 import { Card, EmptyState, Eyebrow } from "../ui";
 import { tt } from "../ui-strings";
 
+/** A notification link: in-app route, or the official source in a new tab. */
+export function OpenLink({ link, lang }: { link: string | null; lang: string }) {
+  const { to, href } = resolveLink(link);
+  const cls = "inline-flex min-h-11 items-center font-semibold";
+  if (to) return <Link to={to} className={cls}>{tt(lang, "open")} →</Link>;
+  if (href)
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className={cls}>
+        {tt(lang, "officialSource")} ↗
+      </a>
+    );
+  return null;
+}
+
 /** Alerts from GET /api/notifications. Works as a page and as a panel. */
-export function AlertsPanel({ compact = false }: { compact?: boolean }) {
+export function AlertsPanel({
+  compact = false,
+  onUnread,
+}: {
+  compact?: boolean;
+  onUnread?: (count: number) => void;
+}) {
   const { profileId, lang } = useApp();
   const [items, setItems] = useState<NotificationOut[] | null>(null);
+  const [unread, setUnread] = useState(0);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   async function load(signal?: AbortSignal) {
     if (!profileId) return setItems([]);
     try {
       setError("");
-      const out = await request<NotificationOut[]>(
-        "/notifications?" + new URLSearchParams({ profile_id: profileId }),
-        { signal },
-      );
-      setItems(Array.isArray(out) ? out : []);
+      const out = await listNotifications(profileId, signal);
+      setItems(out.items ?? []);
+      setUnread(out.unread_count ?? 0);
+      onUnread?.(out.unread_count ?? 0);
     } catch (e) {
       if (!signal?.aborted) setError((e as Error).message);
     }
@@ -31,11 +52,16 @@ export function AlertsPanel({ compact = false }: { compact?: boolean }) {
     return () => c.abort();
   }, [profileId]);
   async function markRead() {
+    setBusy(true);
     try {
-      await post("/notifications/read", { profile_id: profileId });
+      const out = await markNotificationsRead(profileId);
       setItems((list) => list?.map((n) => ({ ...n, read: true })) ?? list);
+      setUnread(out.unread_count);
+      onUnread?.(out.unread_count);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
   if (error) return <ErrorBox error={error} retry={() => void load()} />;
@@ -45,7 +71,7 @@ export function AlertsPanel({ compact = false }: { compact?: boolean }) {
     <div className="flex flex-col gap-3">
       {shown.length === 0 ? (
         <EmptyState title={tt(lang, "alertsTitle")}>
-          {tt(lang, "alertsEmpty")}
+          {profileId ? tt(lang, "alertsEmpty") : tt(lang, "needProfile")}
         </EmptyState>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -53,30 +79,35 @@ export function AlertsPanel({ compact = false }: { compact?: boolean }) {
             <li
               key={n.id}
               className={
-                "rounded-[22px] p-4 " +
-                (n.read
-                  ? "bg-white shadow-[inset_0_0_0_1px_#ede5da]"
-                  : "bg-peach")
+                "flex flex-col gap-1 rounded-[22px] p-4 " +
+                (n.read ? "bg-white shadow-[inset_0_0_0_1px_#ede5da]" : "bg-peach")
               }
             >
-              <strong>{n.title}</strong>
-              {n.body && <p className="m-0 text-[15px]">{n.body}</p>}
-              <small>
-                {new Date(n.created_at).toLocaleString()}
-                {n.link && (
-                  <>
-                    {" · "}
-                    <Link to={n.link}>Open</Link>
-                  </>
+              <div className="flex items-start justify-between gap-2">
+                <strong className="min-w-0 break-words">{n.title}</strong>
+                {!n.read && (
+                  <span className="shrink-0 rounded-full bg-saffron-text px-2 py-0.5 text-xs font-semibold text-white">
+                    {tt(lang, "new")}
+                  </span>
                 )}
-              </small>
+              </div>
+              {n.body && <p className="m-0 break-words text-[15px]">{n.body}</p>}
+              <div className="flex flex-wrap items-center justify-between gap-x-3 text-sm text-ink-soft">
+                <time dateTime={n.created_at}>{new Date(n.created_at).toLocaleString()}</time>
+                <OpenLink link={n.link} lang={lang} />
+              </div>
             </li>
           ))}
         </ul>
       )}
-      {!compact && items.some((n) => !n.read) && (
-        <button type="button" className="secondary self-start" onClick={() => void markRead()}>
-          Mark all read
+      {!compact && unread > 0 && (
+        <button
+          type="button"
+          className="secondary self-start"
+          disabled={busy}
+          onClick={() => void markRead()}
+        >
+          {tt(lang, "markAllRead")}
         </button>
       )}
     </div>

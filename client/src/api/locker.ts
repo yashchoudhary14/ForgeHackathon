@@ -1,38 +1,52 @@
-import { BASE } from "./client";
+import { BASE, withOwner } from "./client";
 import { responseError } from "./errors";
 
+/** Server DocType (services/locker.py). */
+export const docTypes = [
+  "aadhaar",
+  "income_certificate",
+  "caste_certificate",
+  "domicile",
+  "marksheet",
+  "photo",
+  "land_record",
+  "bank_passbook",
+  "other",
+] as const;
+
+/** LockerOut: variants are portal-ready copies, e.g. [{format: "jpg", bytes: 180000}]. */
 export interface LockerItem {
-  id: string | number;
+  id: string;
   doc_type: string;
   title: string;
-  // Sizes in bytes per variant, e.g. {jpg: 180000, pdf: 210000}. An array of
-  // {name|variant, size} is also accepted so a small server change does not break the list.
-  variants?: Record<string, number> | { variant?: string; name?: string; size?: number }[] | null;
-  meta?: { readable?: boolean; issues?: string[] } | null;
-  created_at?: string;
+  variants: { format: string; bytes: number }[];
+  meta: {
+    readable?: boolean;
+    issues?: string[];
+    detected_doc_type?: string;
+  } & Record<string, unknown>;
+  created_at: string;
 }
 
-export function variantSizes(item: LockerItem): [string, number | null][] {
-  const v = item.variants;
-  if (!v) return [];
-  if (Array.isArray(v))
-    return v.map((x) => [
-      String(x.variant ?? x.name ?? "file").toUpperCase(),
-      typeof x.size === "number" ? x.size : null,
-    ]);
-  return Object.entries(v).map(([k, size]) => [
-    k.toUpperCase(),
-    typeof size === "number" ? size : null,
+export function variantSizes(item: Pick<LockerItem, "variants">): [string, number | null][] {
+  return (item.variants ?? []).map((v) => [
+    String(v.format || "file").toUpperCase(),
+    typeof v.bytes === "number" ? v.bytes : null,
   ]);
 }
 
 export const formatKb = (bytes: number | null) =>
   bytes == null ? "" : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
-export const lockerFileUrl = (id: string | number, variant: string) =>
-  `${BASE}/api/locker/${encodeURIComponent(String(id))}/file?variant=${encodeURIComponent(variant)}`;
+export const lockerFileUrl = (id: string, variant: string, profileId: string) =>
+  BASE +
+  "/api" +
+  withOwner(
+    `/locker/${encodeURIComponent(id)}/file?variant=${encodeURIComponent(variant)}`,
+    profileId,
+  );
 
-export function variantSummary(item: LockerItem): string {
+export function variantSummary(item: Pick<LockerItem, "variants">): string {
   const parts = variantSizes(item).map(([name, size]) => {
     const kb = formatKb(size);
     return kb ? `${name} ${kb}` : name;
@@ -53,10 +67,10 @@ export function uploadForm(
   return form;
 }
 
-export async function deleteLockerItem(id: string | number) {
-  const res = await fetch(`${BASE}/api/locker/${encodeURIComponent(String(id))}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
+export async function deleteLockerItem(id: string, profileId: string) {
+  const res = await fetch(
+    BASE + "/api" + withOwner(`/locker/${encodeURIComponent(id)}`, profileId),
+    { method: "DELETE", credentials: "include" },
+  );
   if (!res.ok) throw new Error(responseError(res.status));
 }

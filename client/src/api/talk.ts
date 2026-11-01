@@ -1,7 +1,10 @@
 import { BASE } from "./client";
 import { createSseParser } from "./sse";
 import { responseError } from "./errors";
-import type { ProfileData } from "./types";
+import type { Citation, ProfileData } from "./types";
+
+/** Languages POST /talk accepts as `lang` (server schemas.Lang). */
+export const talkLangs = ["en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml", "pa", "od"];
 
 export type TalkCard =
   | {
@@ -10,9 +13,11 @@ export type TalkCard =
       name: string;
       verdict: string;
       summary?: string;
+      citations?: Citation[];
     }
   | { kind: "run"; run_id: string; title?: string }
-  | { kind: "report"; report_id: string | number; title?: string }
+  // report_id is null when Sahayak suggests opening the report flow (nothing filed yet).
+  | { kind: "report"; report_id: string | null; title?: string }
   | { kind: "question"; field: string; options: string[]; label?: string }
   | { kind: "document_request"; doc_type: string; reason?: string };
 
@@ -42,18 +47,21 @@ export function talkBody(input: TalkInput): {
   body: BodyInit;
   headers: Record<string, string>;
 } {
+  // Languages the server cannot speak (e.g. Assamese UI) are not sent; the server then detects.
+  const lang = input.lang && talkLangs.includes(input.lang) ? input.lang : undefined;
   if (input.audio) {
     const form = new FormData();
     form.set("profile_id", input.profile_id);
-    form.set("audio", input.audio, "speech.webm");
-    if (input.lang) form.set("lang", input.lang);
+    const ext = input.audio.type.includes("ogg") ? "ogg" : input.audio.type.includes("mp4") ? "m4a" : "webm";
+    form.set("audio", input.audio, "speech." + ext);
+    if (lang) form.set("lang", lang);
     return { body: form, headers: {} };
   }
   return {
     body: JSON.stringify({
       profile_id: input.profile_id,
       text: input.text ?? "",
-      ...(input.lang ? { lang: input.lang } : {}),
+      ...(lang ? { lang } : {}),
     }),
     headers: { "Content-Type": "application/json" },
   };

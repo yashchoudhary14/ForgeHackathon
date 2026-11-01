@@ -16,7 +16,10 @@ const docOptions = [
   ["caste_certificate", "Caste certificate"],
   ["land_record", "Land record / Khatauni"],
   ["bank_passbook", "Bank passbook"],
-  ["marksheet", "Marksheet / ID"],
+  ["marksheet", "Marksheet"],
+  ["domicile", "Domicile certificate"],
+  ["photo", "Passport photo"],
+  ["other", "Other document"],
 ];
 
 export default function Locker() {
@@ -67,9 +70,9 @@ export default function Locker() {
     }
   }
 
-  async function remove(id: string | number) {
+  async function remove(id: string) {
     try {
-      await deleteLockerItem(id);
+      await deleteLockerItem(id, profileId);
       setItems((l) => l?.filter((x) => x.id !== id) ?? l);
     } catch (e) {
       setError((e as Error).message);
@@ -173,7 +176,7 @@ export default function Locker() {
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
                 {items.map((d, i) => (
                   <li key={d.id}>
-                    <LockerItemCard item={d} index={i} isNew={last?.id === d.id} onDelete={() => void remove(d.id)} />
+                    <LockerItemCard item={d} index={i} isNew={last?.id === d.id} profileId={profileId} onDelete={() => void remove(d.id)} />
                   </li>
                 ))}
               </ul>

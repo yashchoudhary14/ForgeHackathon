@@ -15,8 +15,8 @@ export default function CardView({
   onAnswer: (value: string) => void;
 }) {
   const box =
-    "flex w-[92%] flex-col gap-2 self-start rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_#ede5da]";
-  const link = "font-semibold";
+    "flex w-full max-w-[92%] flex-col gap-2 self-start rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_#ede5da]";
+  const link = "inline-flex min-h-11 items-center font-semibold";
   if (card.kind === "scheme")
     return (
       <div className={box}>
@@ -43,12 +43,15 @@ export default function CardView({
     return (
       <div className={box}>
         <span className="font-serif text-xl">{card.title || "—"}</span>
-        <Link
-          className={link}
-          to={"/civic/" + encodeURIComponent(String(card.report_id))}
-        >
-          {tt(lang, "openReport")} →
-        </Link>
+        {card.report_id ? (
+          <Link className={link} to={"/civic/" + encodeURIComponent(card.report_id)}>
+            {tt(lang, "openReport")} →
+          </Link>
+        ) : (
+          <Link className={link} to="/civic/new">
+            {tt(lang, "startReport")} →
+          </Link>
+        )}
       </div>
     );
   if (card.kind === "question")

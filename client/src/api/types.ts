@@ -114,6 +114,26 @@ export interface ExplainIn {
   language: Lang;
   with_audio?: boolean;
 }
+/** POST /explain/compare: old vs new document, answered as ExplainOut with `changes`. */
+export interface CompareIn {
+  old: ExplainSource;
+  new: ExplainSource;
+  profile_id?: string | null;
+  language: Lang;
+  with_audio?: boolean;
+}
+export interface ExplainedClaim {
+  text: string;
+  citation: Citation;
+}
+export interface DocumentChange {
+  title: string;
+  description: string;
+  old_citation: Citation;
+  new_citation: Citation;
+  affects_profile: boolean | null;
+  impact: string;
+}
 export interface ExplainOut {
   title: string;
   summary: string;
@@ -125,6 +145,14 @@ export interface ExplainOut {
   citations: Citation[];
   language: Lang;
   audio_url?: string | null;
+  rights?: ExplainedClaim[];
+  duties?: ExplainedClaim[];
+  restrictions?: ExplainedClaim[];
+  deadline_details?: ExplainedClaim[];
+  how_to_apply?: ExplainedClaim[];
+  document_details?: ExplainedClaim[];
+  personal_impacts?: ExplainedClaim[];
+  changes?: DocumentChange[];
 }
 export interface DocumentOut {
   id: string;
@@ -200,20 +228,36 @@ export interface RunOut {
   portal_url: string;
   goal: string;
   status: RunStatus;
+  kind?: "application" | "complaint" | "status_check" | string;
+  meta?: Record<string, unknown>;
   receipt: Receipt | null;
   error: string | null;
   steps: RunStepOut[];
 }
 export type HumanKind =
   | "captcha" | "otp" | "missing_field" | "confirm_submit" | "confirm_upload" | "login" | "payment";
+/** The locker document the agent wants to attach (confirm_upload). */
+export interface UploadDocument {
+  id: string;
+  title: string;
+  doc_type: string;
+  format: "jpg" | "pdf" | string;
+  bytes: number;
+  meta?: { readable?: boolean; issues?: string[] } | null;
+}
 export interface Human {
   kind: HumanKind;
-  message: string;
-  field?: string;
+  message?: string;
+  field?: string | null;
   guide?: { title?: string; steps?: string[]; lang?: string };
+  /** Base64 JPEG of only the control that needs the citizen (CAPTCHA, OTP box…). */
   crop?: string | null;
+  /** Spoken guide, e.g. /files/audio/….wav on the API host. */
   audio_url?: string | null;
-  document?: { title?: string; doc_type?: string } | null;
+  document?: UploadDocument | null;
+  /** confirm_submit when a completed application already exists: needs approve_duplicate. */
+  duplicate_warning?: string | null;
+  duplicate_run_ids?: string[];
 }
 export type ServerMessage =
   | { type: "frame"; jpeg: string }
@@ -227,15 +271,35 @@ export type ClientMessage =
   | { type: "click"; x: number; y: number }
   | { type: "type"; text: string }
   | { type: "key"; key: string }
-  | { type: "resume" | "approve" | "abort" };
+  | { type: "resume" | "approve" | "approve_duplicate" | "abort" };
 
 export interface NotificationOut {
-  id: number | string;
+  id: number;
   kind: string;
   title: string;
-  body?: string | null;
-  link?: string | null;
+  body: string;
+  link: string | null;
   read: boolean;
   created_at: string;
-  meta?: Record<string, unknown> | null;
+  meta: Record<string, unknown>;
+}
+/** GET /notifications?profile_id= */
+export interface NotificationsOut {
+  items: NotificationOut[];
+  unread_count: number;
+}
+/** POST /notifications/read */
+export interface NotificationsReadOut {
+  updated: number;
+  unread_count: number;
+}
+/** GET /activity?profile_id=: runs, reports and notifications, newest first. */
+export interface ActivityItem {
+  type: "run" | "report" | "notification";
+  id: string;
+  title: string;
+  status: string;
+  official: boolean;
+  updated_at: string;
+  link: string | null;
 }
