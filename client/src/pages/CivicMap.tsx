@@ -9,11 +9,11 @@ const INDIA_CENTER: [number, number] = [25.6, 82.0];
 function pinColor(status: string): { bg: string; fg: string } {
   const s = (status || "open").toLowerCase();
   if (s === "resolved" || s === "closed")
-    return { bg: "#155C42", fg: "#ffffff" };
+    return { bg: "var(--color-ok, #1E7B4F)", fg: "#ffffff" };
   // Darker shades keep the white count readable (4.5:1).
   if (s === "filed" || s === "in_progress")
-    return { bg: "#2A5FC4", fg: "#ffffff" };
-  return { bg: "#9A4A12", fg: "#ffffff" };
+    return { bg: "var(--color-act, #2B3FB5)", fg: "#ffffff" };
+  return { bg: "var(--color-saffron-text, #8A5300)", fg: "#ffffff" };
 }
 
 export default function CivicMap({
@@ -95,7 +95,7 @@ export default function CivicMap({
   }
 
   return (
-    <div className="relative min-h-[340px] overflow-hidden rounded-[28px] bg-[#efe8dc] bg-[radial-gradient(#d8cebe_1px,transparent_1px)] [background-size:16px_16px] shadow-[inset_0_0_0_1px_#ede5da] sm:min-h-[420px]">
+    <div className="relative min-h-[340px] overflow-hidden rounded-card border border-line bg-act-soft bg-[radial-gradient(var(--color-line)_1px,transparent_1px)] [background-size:16px_16px] sm:min-h-[420px]">
       <svg
         aria-hidden="true"
         viewBox="0 0 600 400"
@@ -103,8 +103,8 @@ export default function CivicMap({
       >
         <path
           d="M275 45 L325 70 L345 120 L415 145 L445 185 L395 230 L355 275 L315 355 L285 355 L245 270 L195 210 L215 145 L250 95 Z"
-          fill="#e2d7c5"
-          stroke="#c9bba4"
+          fill="var(--color-card, #fff)"
+          stroke="var(--color-act, #2B3FB5)"
           strokeWidth="2"
           strokeDasharray="4 4"
         />
@@ -115,7 +115,7 @@ export default function CivicMap({
         className="relative z-0 h-[340px] w-full !bg-transparent sm:h-[440px]"
       />
       <div className="pointer-events-none absolute inset-x-3.5 top-3.5 z-[400] flex flex-wrap items-center justify-between gap-2">
-        <span className="rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-sm">
+        <span className="rounded-full border border-line bg-card/95 px-3.5 py-2 text-xs font-semibold text-ink">
            <Text value="OpenStreetMap ·" /> {" "}
           {reports.filter((r) => r.lat != null && r.lng != null).length}{" "}
            <Text value="geotagged reports" /> </span>
@@ -139,15 +139,15 @@ export default function CivicMap({
           <Text value={locationError} />
         </p>
       )}
-      <div aria-label={tr("Map legend")} className="pointer-events-none absolute bottom-16 left-3.5 z-[400] flex w-fit max-w-[calc(100%-5rem)] flex-wrap gap-3 rounded-2xl border border-line bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-md backdrop-blur-md">
+      <div aria-label={tr("Map legend")} className="pointer-events-none absolute bottom-16 left-3.5 z-[400] flex w-fit max-w-[calc(100%-5rem)] flex-wrap gap-3 rounded-lg border border-line bg-card/95 px-3.5 py-2 text-xs font-semibold text-ink">
         <span className="inline-flex items-center gap-1.5">
-          <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#9A4A12]" />
+          <i className="inline-block h-2.5 w-2.5 rounded-full bg-saffron-text" />
            <Text value="Open" /> </span>
         <span className="inline-flex items-center gap-1.5">
-          <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#2A5FC4]" />
+          <i className="inline-block h-2.5 w-2.5 rounded-full bg-act" />
            <Text value="Filed on CPGRAMS" /> </span>
         <span className="inline-flex items-center gap-1.5">
-          <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#155C42]" />
+          <i className="inline-block h-2.5 w-2.5 rounded-full bg-ok" />
            <Text value="Resolved" /> </span>
       </div>
     </div>

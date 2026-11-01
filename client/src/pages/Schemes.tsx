@@ -201,15 +201,15 @@ export default function Schemes() {
       </div>
 
       {!profileId && matches.length === 0 ? (
-        <section className="mb-6 rounded-[28px] border border-[#f3d2b8] bg-peach p-6">
+        <section className="mb-6 overflow-hidden rounded-card border-2 border-ink bg-card p-5 sm:p-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-saffron-text">
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-saffron-text">
                   <Sparkles size={14} aria-hidden="true" />
                   {tt(lang, "matcherEyebrow")}
                 </span>
-                <h2 className="m-0 mt-1 font-serif text-2xl font-normal text-ink sm:text-3xl">
+                <h2 className="m-0 mt-1 font-serif text-[1.7rem] font-bold leading-tight text-ink sm:text-3xl">
                   {tt(lang, "matcherTitle")}
                 </h2>
               </div>
@@ -219,7 +219,7 @@ export default function Schemes() {
               </PillLink>
             </div>
 
-            <div className="grid gap-3 rounded-2xl bg-white/85 p-4 sm:grid-cols-3 lg:grid-cols-[1fr_1.4fr_1fr_auto] lg:items-end">
+            <div className="grid gap-4 border-t border-dashed border-line pt-4 sm:grid-cols-3 lg:grid-cols-[1fr_1.4fr_1fr_auto] lg:items-end">
               <label className="m-0 text-xs font-semibold text-ink-soft">
                  <Text value="State" /> <select
                   value={quickState}
@@ -253,10 +253,10 @@ export default function Schemes() {
                       type="button"
                       onClick={() => setQuickRole(val)}
                       className={
-                        "!min-h-10 !rounded-full !px-3 !py-1 text-xs font-semibold " +
+                        "!min-h-11 !rounded-full !px-3.5 !py-1 text-sm font-semibold " +
                         (quickRole === val
-                          ? "!bg-ink !text-paper"
-                          : "secondary !bg-paper !text-ink")
+                          ? "!bg-act !text-white"
+                          : "secondary border border-line !bg-card !text-ink")
                       }
                     >
                       <Text value={label} />
@@ -304,7 +304,7 @@ export default function Schemes() {
                 tone="saffron"
                 disabled={busy || !quickState || !quickAge.trim()}
                 onClick={handleQuickMatch}
-                className="w-full lg:w-auto"
+                className="w-full !min-h-12 text-base sm:col-span-3 lg:col-span-1 lg:w-auto"
               >
                  <Text value="Match my schemes →" /> </PillButton>
             </div>
@@ -318,7 +318,7 @@ export default function Schemes() {
                   type="button"
                   disabled={busy}
                   onClick={() => setQuickRole(role)}
-                  className="secondary inline-flex !min-h-11 items-center gap-1.5 !rounded-full border border-[#f3d2b8] !bg-white !px-3.5 !py-1.5 text-xs font-semibold !text-ink hover:border-saffron"
+                  className="secondary inline-flex !min-h-11 items-center gap-1.5 !rounded-full border border-line !bg-paper !px-3.5 !py-1.5 text-xs font-semibold !text-ink hover:border-act"
                 >
                   <Icon
                     size={15}
@@ -334,14 +334,14 @@ export default function Schemes() {
       ) : (
         <div className="mb-6 grid items-start gap-4 lg:grid-cols-[1fr_340px]">
           <MatchStats matches={matches} />
-          <Card>
-            <h2 className="mb-2">{tt(lang, "alertsTitle")}</h2>
+          <Card className="!rounded-card border-l-4 border-saffron !bg-peach !shadow-none">
+            <h2 className="mb-2 font-serif text-xl font-bold">{tt(lang, "alertsTitle")}</h2>
             <AlertsPanel compact />
           </Card>
         </div>
       )}
 
-      <section className="panel">
+      <section className="panel !rounded-card !border !border-line !bg-card !shadow-none">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -421,10 +421,10 @@ export default function Schemes() {
                   <Card
                     as="article"
                     key={s.slug}
-                    className="flex flex-col gap-3"
+                    className="flex flex-col gap-3 !rounded-card border border-line !bg-card !shadow-none"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1 text-xs font-semibold text-ink-soft">
+                      <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-ink-soft">
                         <Landmark
                           size={14}
                           aria-hidden="true"
@@ -434,11 +434,11 @@ export default function Schemes() {
                           {s.ministry || s.state || tr("Government of India")}
                         </span>
                       </span>
-                      <span className="rounded-full bg-peach px-2.5 py-0.5 text-[11px] font-semibold text-saffron-text">
+                      <span className="rounded-lg border border-saffron px-2 py-0.5 text-xs font-semibold text-saffron-text">
                         {s.state ? s.state : tr("Central")}
                       </span>
                     </div>
-                    <h2 className="m-0 font-serif text-2xl font-normal leading-snug">
+                    <h2 className="m-0 font-serif text-[1.45rem] font-bold leading-tight">
                       <Link
                         to={"/schemes/" + slug}
                         style={{ color: "inherit", textDecoration: "none" }}
@@ -456,19 +456,19 @@ export default function Schemes() {
                       <div className="flex flex-wrap gap-1.5">
                         {visibleTags.map((tag) => (
                           <span
-                            className="rounded-full border border-line bg-paper px-3 py-1 text-xs font-medium text-ink-soft"
+                            className="rounded-lg border border-line bg-paper px-2.5 py-1 text-xs font-medium text-ink-soft"
                             key={tag}
                           >
                             {tag}
                           </span>
                         ))}
                         {extraTags > 0 && (
-                          <span className="rounded-full bg-peach px-2.5 py-1 text-xs font-semibold text-saffron-text">
+                          <span className="rounded-lg bg-peach px-2.5 py-1 text-xs font-semibold text-saffron-text">
                             +{extraTags}  <Text value="more" /> </span>
                         )}
                       </div>
                     )}
-                    <div className="mt-auto flex flex-wrap gap-2 pt-2">
+                    <div className="mt-auto flex flex-wrap gap-2 border-t border-line pt-3">
                       <PillLink to={"/schemes/" + slug} tone="dark">
                          <Text value="Check eligibility & apply →" /> </PillLink>
                       <PillLink to={"/explain?scheme=" + slug} tone="light">

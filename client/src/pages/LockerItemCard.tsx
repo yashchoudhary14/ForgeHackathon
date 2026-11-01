@@ -11,7 +11,8 @@ import { Card } from "../ui";
 
 export const label = (s: string) => s.replaceAll("_", " ");
 
-const swatches = ["bg-[#FFE7D3]", "bg-[#D7E4FF]", "bg-[#E2F2B8]"];
+const swatches = ["bg-peach text-saffron-text", "bg-act-soft text-act", "bg-ok-soft text-ok"];
+const spines = ["border-l-saffron", "border-l-act", "border-l-ok"];
 
 export default function LockerItemCard({
   item: d,
@@ -30,30 +31,31 @@ export default function LockerItemCard({
   const variants = variantSizes(d);
   const summary = variantSummary(d);
   const swatch = swatches[index % swatches.length];
+  const spine = spines[index % spines.length];
   return (
-    <Card className="flex flex-col gap-3 !rounded-[20px] !p-4">
+    <Card className={`flex flex-col gap-3 !rounded-tile border border-l-[8px] border-line !bg-card !p-4 !shadow-none ${spine}`}>
       <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
-          className={`grid h-12 w-10 shrink-0 place-items-center rounded-[10px] ${swatch}`}
+          className={`relative grid h-14 w-11 shrink-0 place-items-center rounded-md rounded-tr-[14px] border border-line ${swatch}`}
         >
           <FileText size={18} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <strong className="font-serif text-2xl font-normal capitalize">
+            <strong className="font-serif text-xl font-bold leading-tight capitalize">
               {d.title || tr(label(d.doc_type))}
             </strong>
             {isNew && (
-              <span className="rounded-full bg-[#FFE7D3] px-2.5 py-1 text-xs font-semibold text-[#9A4A12]">
+              <span className="rounded-lg bg-lime px-2 py-0.5 text-xs font-bold text-ink">
                  <Text value="New" /> </span>
             )}
             {d.meta?.readable === true && (
-              <span className="rounded-full bg-ok-soft px-2.5 py-1 text-xs font-semibold text-ok">
+              <span className="rounded-lg border border-ok px-2 py-0.5 text-xs font-bold text-ok">
                  <Text value="Readable" /> </span>
             )}
             {d.meta?.readable === false && (
-              <span className="rounded-full bg-warn-soft px-2.5 py-1 text-xs font-semibold text-warn">
+              <span className="rounded-lg border border-warn bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn">
                  <Text value="Needs rescan" /> </span>
             )}
           </div>
@@ -66,26 +68,26 @@ export default function LockerItemCard({
           type="button"
           aria-label={tr("Delete") + " " + (d.title || tr(label(d.doc_type)))}
           onClick={onDelete}
-          className="secondary !min-h-11 !w-11 shrink-0 !rounded-full !p-0"
+          className="secondary !min-h-11 !w-11 shrink-0 !rounded-full border border-line !bg-card !p-0 !text-ink-soft hover:!text-bad"
         >
           <Trash2 size={18} />
         </button>
       </div>
       {!!d.meta?.issues?.length && (
-        <p className="m-0 rounded-2xl bg-warn-soft p-2.5 text-sm text-warn">
+        <p className="m-0 border-l-4 border-warn bg-warn-soft px-3 py-2 text-sm text-warn">
           {d.meta.issues.map((issue) => tr(label(issue))).join(" · ")}
         </p>
       )}
       {variants.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="-mx-4 -mb-4 flex flex-wrap gap-2 border-t border-dashed border-line bg-paper/60 px-4 py-3">
           {variants.map(([name, size]) => (
             <a
               key={name}
               href={profileId ? lockerFileUrl(d.id, name.toLowerCase(), profileId) : undefined}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ok-soft px-4 text-sm font-semibold no-underline"
-              style={{ color: "#155c42" }}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ok bg-card px-4 text-sm font-semibold no-underline"
+              style={{ color: "var(--color-ok, #1E7B4F)" }}
             >
               <Download size={14} aria-hidden="true" /> {name}{" "}
               {formatKb(size)}
