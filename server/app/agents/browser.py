@@ -4,6 +4,7 @@ import base64
 import logging
 import json
 import re
+import time
 from io import BytesIO
 
 from PIL import Image
@@ -190,6 +191,7 @@ class Browser:
         self.page: Page | None = None
         self._cdp = None
         self.last_frame: bytes | None = None
+        self._frame_sending = False
         self._adopt_lock = asyncio.Lock()
         self.navigation_id = 0
         self.network_errors: dict[str, int] = {}
@@ -266,38 +268,49 @@ class Browser:
             self.network_errors.pop(key, None)
 
     async def _frame(self, ev):
+        started = time.monotonic()
         try:
             await self._cdp.send("Page.screencastFrameAck", {"sessionId": ev["sessionId"]})
         except Exception:
             return
         self.last_frame = base64.b64decode(ev["data"])
-        await self.on_frame(ev["data"])
+        # ACK every frame, but do not queue websocket sends behind a slow viewer.
+        if self._frame_sending:
+            return
+        self._frame_sending = True
+        try:
+            await self.on_frame(ev["data"])
+        finally:
+            self._frame_sending = False
+            elapsed = (time.monotonic() - started) * 1000
+            if elapsed >= 120:
+                log.info("browser phase=frame ms=%.0f", elapsed)
 
     async def goto(self, url: str):
+        started = time.monotonic()
         for attempt in range(3):
             await self.page.goto(url, wait_until="domcontentloaded", timeout=45000)
             await self.settle()
-            try:
-                await self.page.wait_for_load_state("networkidle", timeout=5000)
-            except PlaywrightTimeout:
-                pass  # polling pages need not become idle
             blocked = await self.page.locator('.ngx-spinner-overlay:visible, .loading-overlay:visible, .spinner-overlay:visible').count()
             if attempt == 2 or not (blocked or any(status in (502, 503, 504) for status in self.network_errors.values())):
                 break
             # Recover only during initial page loading, before any citizen data is entered.
             # Do not replay POST requests or refresh a partially completed form.
             await asyncio.sleep(0.5 * (attempt + 1))
+        log.info("browser phase=goto ms=%.0f attempts=%d", (time.monotonic() - started) * 1000, attempt + 1)
 
     async def settle(self):
+        started = time.monotonic()
         # Analytics and polling need not finish before a form can be used.
-        await self.page.wait_for_load_state("domcontentloaded", timeout=10000)
-        await self.page.wait_for_timeout(150)
+        await self.page.wait_for_load_state("domcontentloaded", timeout=2500)
+        await self.page.locator("body").wait_for(state="visible", timeout=1000)
         busy = self.page.locator('[aria-busy="true"], mat-progress-spinner, mat-spinner, .ngx-spinner-overlay, .loading-overlay, .spinner-overlay').filter(visible=True)
         if await busy.count():
             try:
                 await busy.first.wait_for(state="hidden", timeout=2000)
             except Exception:
                 pass  # report the current state rather than waiting forever
+        log.info("browser phase=settle ms=%.0f", (time.monotonic() - started) * 1000)
 
     async def _snap_once(self) -> dict:
         try:
@@ -308,6 +321,7 @@ class Browser:
             return await self.page.evaluate(SNAPSHOT_JS)
 
     async def snapshot(self) -> dict:
+        started = time.monotonic()
         # SPAs animate between steps without any network, so wait until two reads agree
         snap = await self._snap_once()
         for _ in range(4):
@@ -321,6 +335,8 @@ class Browser:
         snap["title"] = await self.page.title()
         snap["navigation_id"] = self.navigation_id
         snap["network_errors"] = [f"HTTP {status}: {path}" for path, status in self.network_errors.items()]
+        log.info("browser phase=snapshot ms=%.0f reads=%d elements=%d", (time.monotonic() - started) * 1000,
+                 _ + 2, len(snap["elements"]))
         return snap
 
     async def decision_screenshot(self) -> bytes:
@@ -522,7 +538,7 @@ class Browser:
 
     async def scroll(self, down: bool = True):
         await self.page.mouse.wheel(0, 600 if down else -600)
-        await asyncio.sleep(0.4)
+        await self.settle()
 
     # --- human takeover (coords are fractions of the viewport) ---
     async def human_click(self, fx: float, fy: float):

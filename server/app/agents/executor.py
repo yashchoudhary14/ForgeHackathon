@@ -41,7 +41,7 @@ class Aborted(Exception):
 SUBMIT_RE = re.compile(r"\b(final\s*submit|submit|confirm|apply now|register|pay|proceed to pay|save\s*&\s*submit|send)\b", re.I)
 
 SYSTEM = """You are an agent operating a real Indian government web portal in a browser, on behalf of a citizen
-who is watching live. You see the page as a list of interactive elements (id, tag, label, ...) plus a screenshot.
+who is watching live. You see the page as a list of interactive elements (id, tag, label, ...).
 Return an actions list containing 1 to 8 actions, in execution order, for fields visible in this observation.
 Batch independent type/select/check actions to fill as many known fields as possible in ONE call.
 Fill stable text/date fields first; put choices likely to reveal cascading fields last.
@@ -152,6 +152,7 @@ def execution_prefix(actions: list[Decision], elements: list[dict] | None = None
         el = by_id.get(action.element_id, {})
         return action.action in FIELD_ACTIONS or (action.action == "click" and
             (el.get("role") in ("radio", "checkbox", "option") or
+             (el.get("tag") == "input" and el.get("type") in ("radio", "checkbox")) or
              (el.get("tag") == "label" and "checked" in el)))
     if not field_action(actions[0]):
         return actions[:1]
@@ -225,6 +226,7 @@ def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
     label = el.get("field_label") or el.get("label") or el.get("name") or el.get("placeholder") or "this field"
     birth = bool(re.search(r"date\s*of\s*birth|\bdob\b|birth\s*date", label, re.I))
     data_entry = (d.action in ("type", "select", "check") or el.get("role") in ("option", "radio", "checkbox")
+                  or (el.get("tag") == "input" and el.get("type") in ("radio", "checkbox"))
                   or (el.get("tag") == "label" and "checked" in el))
     if birth and not known.get("dob"):
         key = "dob"
@@ -288,6 +290,7 @@ class RunSession:
             self.last_subscriber_at = time.monotonic()
 
     async def emit(self, msg: dict):
+        started = time.monotonic()
         dead = []
         for ws in list(self.subs):
             try:
@@ -296,6 +299,9 @@ class RunSession:
                 dead.append(ws)
         for ws in dead:
             self.unsubscribe(ws)
+        if msg.get("type") != "frame":
+            log.info("agent run=%s step=%d phase=emit ms=%.0f event=%s", self.id, self.steps,
+                     (time.monotonic() - started) * 1000, msg.get("type"))
 
     async def _on_frame(self, b64: str):
         now = time.monotonic()
@@ -305,6 +311,7 @@ class RunSession:
         await self.emit({"type": "frame", "jpeg": b64})
 
     async def set_status(self, status: str, **extra):
+        started = time.monotonic()
         changed = self.status != status
         self.status = status
         async with SessionLocal() as db:
@@ -313,6 +320,8 @@ class RunSession:
             for k, v in extra.items():
                 setattr(run, k, v)
             await db.commit()
+        log.info("agent run=%s step=%d phase=status_db ms=%.0f status=%s", self.id, self.steps,
+                 (time.monotonic() - started) * 1000, status)
         if changed and status in {"done", "failed", "needs_human", "awaiting_approval"}:
             await notify(self.profile_id, "run_status", {
                 "done": "Application completed", "failed": "Application needs attention",
@@ -327,10 +336,10 @@ class RunSession:
             run.meta = {**(run.meta or {}), "answers_encrypted": crypto.encrypt_json(self.answers)}
             await db.commit()
 
-    async def human_event(self, kind: str, element_id: int | None = None, **details) -> dict:
+    async def _human_guide(self, kind: str, field: str | None) -> tuple[HumanGuide, str | None]:
+        started = time.monotonic()
         # Only the step category goes to the model: no page pixels, citizen values,
         # portal text, filenames, or the planner's potentially personal message.
-        field = details.get("field")
         safe_field = field if field in (set(ProfileData.model_fields) | set(SensitiveData.model_fields)) else None
         try:
             guide = await llm.generate_json(
@@ -343,7 +352,7 @@ class RunSession:
                 "payee and approving there themselves. Never ask to share a PIN, password or OTP. "
                 "For confirm_submit ask them to review before approving. For confirm_upload ask them "
                 "to check the document shown before allowing attachment. Return lang exactly as requested.",
-                HumanGuide, model="lite", temperature=0,
+                HumanGuide, model="lite", temperature=0, thinking_level="low",
                 system="Write accessible instructions only. No personal information is supplied.")
             if not isinstance(guide, HumanGuide):
                 raise ValueError("Invalid guidance response")
@@ -355,22 +364,46 @@ class RunSession:
                      ["Complete the step shown on the screen yourself.", "Then press Continue."])
             guide = HumanGuide(title="आपकी मदद चाहिए" if self.language == "hi" else "Your help is needed",
                                steps=steps, lang=self.language)
-        if kind == "missing_field" and details.get("message") and self.language != "en":
-            try:
-                # The question can contain private portal data: Sarvam only, never
-                # the generic translation fallback to Gemini, and no public TTS file.
-                details["message"] = await sarvam.translate(details["message"], "en", self.language, allow_llm=False)
-            except Exception:
-                log.warning("Private portal question translation unavailable")
+        log.info("agent run=%s step=%d phase=guide ms=%.0f", self.id, self.steps,
+                 (time.monotonic() - started) * 1000)
         audio_url = None
+        started = time.monotonic()
         try:
             if self.language in sarvam.LANG_CODES:
                 audio_url = await sarvam.tts_to_file(" ".join(guide.steps), self.language)
         except Exception:
             log.warning("Guidance speech unavailable for %s", self.language)
-        crop = None
-        if hasattr(self.browser, "human_crop"):
-            crop = await self.browser.human_crop(kind, element_id)
+        log.info("agent run=%s step=%d phase=tts ms=%.0f", self.id, self.steps,
+                 (time.monotonic() - started) * 1000)
+        return guide, audio_url
+
+    async def human_event(self, kind: str, element_id: int | None = None, **details) -> dict:
+        async def crop_control():
+            started = time.monotonic()
+            try:
+                crop = await self.browser.human_crop(kind, element_id) if hasattr(self.browser, "human_crop") else None
+            except Exception:
+                log.warning("Could not capture human control (%s)", kind)
+                crop = None
+            log.info("agent run=%s step=%d phase=human_crop ms=%.0f", self.id, self.steps,
+                     (time.monotonic() - started) * 1000)
+            return crop
+
+        async def translate_question():
+            if kind == "missing_field" and details.get("message") and self.language != "en":
+                started = time.monotonic()
+                try:
+                    # Private portal text stays with Sarvam; no Gemini fallback or public TTS.
+                    details["message"] = await sarvam.translate(details["message"], "en", self.language, allow_llm=False)
+                except Exception:
+                    log.warning("Private portal question translation unavailable")
+                log.info("agent run=%s step=%d phase=question_translation ms=%.0f", self.id, self.steps,
+                         (time.monotonic() - started) * 1000)
+
+        # Only human nodes call this. Independent image/translation work must not
+        # serialise behind guide generation and speech. Keep one client event.
+        (guide, audio_url), crop, _ = await asyncio.gather(
+            self._human_guide(kind, details.get("field")), crop_control(), translate_question())
         from uuid import uuid4
         return {"type": "needs_human", "request_id": uuid4().hex, "kind": kind, "guide": guide.model_dump(),
                 "crop": crop, "audio_url": audio_url, **details}
@@ -523,18 +556,52 @@ def _history_text(h: list[dict]) -> str:
     return "\n".join(lines) or "(none yet)"
 
 
+def planning_model(st: State) -> str:
+    """Cheap field entry; keep the configured model for recovery and submission review."""
+    submit_visible = any(SUBMIT_RE.search(str(el.get("text") or el.get("label") or ""))
+                         for el in st["snap"]["elements"]
+                         if el.get("tag") not in ("input", "textarea", "select") and
+                         len(str(el.get("text") or el.get("label") or "")) < 40)
+    return get_settings().agent_model if st.get("fails") or st.get("stagnant") or submit_visible else "lite"
+
+
+def planning_elements(elements: list[dict]) -> list[dict]:
+    """Compact the model view only; guards retain the full, fresh observation."""
+    result = []
+    for element in elements:
+        safe = {}
+        for key, value in element.items():
+            if key == "value" and element.get("tag") in ("input", "textarea") and value:
+                value = "<set>"
+            elif isinstance(value, str):
+                value = value[:160]
+            elif key == "options":
+                value = [str(option)[:100] for option in value]
+            if value not in (None, "", []):
+                safe[key] = value
+        result.append(safe)
+    return result
+
+
 def build_graph(rs: RunSession):
     shots_dir = Path(str(Path(get_settings().storage_dir).resolve()) + "-private") / "runs" / rs.id
     shots_dir.mkdir(parents=True, exist_ok=True)
 
     async def record(st: State, d: Decision | None, status: str, result: str) -> str:
+        started = time.monotonic()
         shot_path = shots_dir / f"{st['step']:03d}.enc"
+        shot_url = None
         try:
-            image = await rs.browser.screenshot(quality=50)
-            await asyncio.to_thread(locker.encrypt_file, shot_path, image)
-            shot_url = f"/api/agent/runs/{rs.id}/screenshots/{st['step']}?profile_id={rs.profile_id}"
+            # Keep checkpoint/error/approval images and every audit row. Intermediate
+            # fields in a plan need no duplicate full-page image.
+            if status != "ok" or not st.get("remaining"):
+                image = await rs.browser.screenshot(quality=50)
+                await asyncio.to_thread(locker.encrypt_file, shot_path, image)
+                shot_url = f"/api/agent/runs/{rs.id}/screenshots/{st['step']}?profile_id={rs.profile_id}"
         except Exception:
             shot_url = None
+        image_ms = (time.monotonic() - started) * 1000
+        db_started = time.monotonic()
         action = d.model_dump(exclude_none=True, exclude={"thought"}) if d else None
         if action and action.get("value") and action.get("action") == "type" and d.kind == "otp":
             action["value"] = "••••"
@@ -542,17 +609,20 @@ def build_graph(rs: RunSession):
             db.add(AgentStep(run_id=rs.id, idx=st["step"], thought=d.thought if d else None, action=action,
                              status=status, url=rs.browser.page.url, screenshot=shot_url))
             await db.commit()
+        log.info("agent run=%s step=%d phase=record ms=%.0f image_ms=%.0f db_ms=%.0f captured=%s",
+                 rs.id, st["step"], (time.monotonic() - started) * 1000, image_ms,
+                 (time.monotonic() - db_started) * 1000, bool(shot_url))
         await rs.emit({"type": "step", "step": {"idx": st["step"], "thought": d.thought if d else None, "action": action,
                                                   "status": status, "url": rs.browser.page.url, "screenshot": shot_url,
                                                   "result": result}})
         return shot_url
 
     async def observe(st: State) -> State:
+        started = time.monotonic()
         snap = await rs.browser.snapshot()
         if snap.get("loading"):
             await rs.browser.settle()
             snap = await rs.browser.snapshot()
-        shot = await rs.browser.decision_screenshot()
         dig = _digest(snap)
         hist = list(st.get("history", []))
         # "ok" from playwright only means the click didn't throw - tell the model when the page didn't react
@@ -563,7 +633,9 @@ def build_graph(rs: RunSession):
                 hist.append({"step": hist[-1]["step"], "action": "note",
                              "result": "You are repeating an action that has no effect. It is probably already done "
                                        "(check checked/selected/value). Move on (e.g. click Next) or try a different element."})
-        return {"snap": snap, "shot": shot, "digest": dig, "history": hist,
+        log.info("agent run=%s step=%d phase=observe ms=%.0f elements=%d", rs.id,
+                 st.get("step", 0), (time.monotonic() - started) * 1000, len(snap["elements"]))
+        return {"snap": snap, "digest": dig, "history": hist,
                 "stagnant": st.get("stagnant", 0) + 1 if st.get("digest") == dig else 0}
 
     async def decide(st: State) -> State:
@@ -578,12 +650,7 @@ def build_graph(rs: RunSession):
             message = "The portal has not changed after three attempts. " + (errors or "Please check the live browser before continuing.")
             return {"decision": Decision(thought="The portal is not responding; stopping repeated actions.",
                     action="ask_human", kind="missing_field", message=message), "remaining": []}
-        elements = []
-        for element in snap["elements"]:
-            safe = dict(element)
-            if safe.get("tag") in ("input", "textarea") and safe.get("value"):
-                safe["value"] = "<set>"
-            elements.append(safe)
+        elements = planning_elements(snap["elements"])
         obs = rs.redact({
             "url": snap["url"], "title": snap["title"], "headings": snap["headings"],
             "validation_errors": snap["errors"], "captcha_detected": snap["captcha"],
@@ -591,25 +658,34 @@ def build_graph(rs: RunSession):
             "elements": elements, "page_text": snap["text"][:1500],
         })
         doc_types = []
-        if rs.profile_id:
+        if rs.profile_id and any(el.get("type") == "file" for el in snap["elements"]):
             async with SessionLocal() as db:
                 doc_types = list((await db.execute(select(LockerItem.doc_type).where(
                     LockerItem.profile_id == rs.profile_id))).scalars())
         prompt = [
             f"GOAL: {rs.redact(rs.goal)}\n\nCITIZEN (personal fields hidden): {json.dumps(rs.citizen_view(), ensure_ascii=False)}\n\n"
             f"PREVIOUS STEPS:\n{rs.redact(_history_text(st.get('history', [])))}\n\n"
-            f"OBSERVATION:\n{json.dumps(obs, ensure_ascii=False)}",
+            f"OBSERVATION:\n{json.dumps(obs, ensure_ascii=False, separators=(',', ':'))}",
             f"LOCKER document types available: {json.dumps(doc_types)}",
         ]
         rs.llm_calls += 1
-        plan = await llm.generate_json(prompt, ActionPlan, system=SYSTEM, temperature=0.1, model=get_settings().agent_model)
+        started = time.monotonic()
+        model = planning_model(st)
+        plan = await llm.generate_json(prompt, ActionPlan, system=SYSTEM, temperature=0.1,
+                                      model=model, thinking_level="low")
         actions = execution_prefix(plan.actions, snap["elements"])
+        log.info("agent run=%s step=%d phase=decide ms=%.0f model=%s thinking=low prompt_chars=%d actions=%d fails=%d",
+                 rs.id, st.get("step", 0), (time.monotonic() - started) * 1000, model,
+                 len(SYSTEM) + sum(map(len, prompt)), len(actions), st.get("fails", 0))
         return {"decision": actions[0], "remaining": actions[1:]}
 
     async def guard(st: State) -> State:
         """deterministic safety rails on top of whatever the model decided"""
         d = st["decision"]
+        started = time.monotonic()
         snap = await rs.browser.snapshot()
+        log.info("agent run=%s step=%d phase=guard_snapshot ms=%.0f", rs.id,
+                 st.get("step", 0) + 1, (time.monotonic() - started) * 1000)
         missing_target = d.element_id is not None and not any(e["id"] == d.element_id for e in snap["elements"])
         if page_changed(st["snap"], snap) or missing_target:
             return {"snap": snap, "stale": True, "remaining": []}
@@ -661,6 +737,7 @@ def build_graph(rs: RunSession):
             return {"step": step, "outcome": outcome, "remaining": []}
 
         try:
+            started = time.monotonic()
             if d.action == "click":
                 await b.click(d.element_id)
             elif d.action == "type":
@@ -706,25 +783,27 @@ def build_graph(rs: RunSession):
             elif d.action == "scroll":
                 await b.scroll((d.value or "down") != "up")
             elif d.action == "wait":
-                await asyncio.sleep(2)
+                await b.settle()
             if not allowed(b.page.url):
                 raise RuntimeError("left government site")
             hist.append({"step": step, "action": desc, "result": "ok"})
+            log.info("agent run=%s step=%d phase=act ms=%.0f action=%s", rs.id, step,
+                     (time.monotonic() - started) * 1000, d.action)
             await record(st, d, "ok", "ok")
-            after = await b.snapshot()
             remaining = st.get("remaining", [])
-            changed = page_changed(st["snap"], after)
-            if remaining and changed:
-                hist.append({"step": step, "action": "batch stopped", "result": "Page structure changed; remaining actions discarded"})
-            if remaining and not changed:
+            # The next guard re-observes and rejects any structural change BEFORE
+            # executing another field. Do not take the same snapshot twice.
+            if remaining:
                 return {"step": step, "history": hist, "fails": 0, "outcome": "batch",
-                        "snap": after, "digest": _digest(st["snap"]),
+                        "digest": _digest(st["snap"]),
                         "decision": remaining[0], "remaining": remaining[1:]}
             return {"step": step, "history": hist, "fails": 0, "outcome": "next",
-                    "snap": after, "digest": _digest(st["snap"]), "remaining": []}
+                    "digest": _digest(st["snap"]), "remaining": []}
         except RunAborted:
             raise
         except Exception as e:
+            log.info("agent run=%s step=%d phase=retry ms=%.0f action=%s fails=%d", rs.id, step,
+                     (time.monotonic() - started) * 1000, d.action, st.get("fails", 0) + 1)
             err = str(e).split("\n")[0][:200]
             hist.append({"step": step, "action": desc, "result": f"ERROR: {err}"})
             await record(st, d, "retry", err)
