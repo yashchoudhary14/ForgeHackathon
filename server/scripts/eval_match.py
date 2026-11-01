@@ -88,7 +88,7 @@ CASES = {
             "pm-yasasvipmsobcebcdnts": "OBC post-matric route after a matriculation-equivalent Class 10; read the Class XI exception with its rule.",
             "pm-yasasvitcseobcebcdnts": "OBC Class XI top-class school route; notified-school/selection conditions remain unknown.",
         },
-        "excluded": {"pmsm", "pre-sc"},
+        "excluded": {"pmsm", "pre-sc", "chobcbg"},
     },
     "odisha-pregnant-rural": {
         "profile": ProfileData(state="Odisha", age=25, gender="female", caste="general",

@@ -12,16 +12,25 @@ from pydantic import BaseModel
 from ..config import get_settings
 from ..schemas import Citation, MatchResult, ProfileData, Reason, SchemeDetail, SchemeSummary
 from ..services import llm
+from .matching_rules import institutional_target, numeric_checks, profile_text
 
 log = logging.getLogger(__name__)
 MATCH_SECONDS = 55.0
+TALK_MATCH_SECONDS = 18.0
 
 JUDGE_SYSTEM = """You decide whether a citizen qualifies for an Indian government scheme.
+The applicant is an individual citizen. Construction/organisation grants whose applicants
+are institutions, states, UTs or NGOs are not citizen entitlements: mark not_eligible
+with an exact quote establishing that target. Hostel construction is not hostel admission.
+Read annual_income_display in Indian grouping and lakh; compare the actual numeric
+income/age against the official limits, never add a zero or confuse lakh with million.
 You get the scheme's OFFICIAL eligibility and exclusion text and the citizen's profile.
 For every distinct criterion applicable to the citizen's eligibility route produce one reason:
 - claim: the criterion in plain words
 - met: true / false / null (null = profile doesn't say, we need to ask)
-- quote: copy the exact words from the official text that state this criterion (verbatim, max 30 words). No paraphrase.
+- quote: copy a SINGLE CONTIGUOUS span from the official text (verbatim, max 30 words).
+  Never combine separate list items, insert connecting words, or rewrite an ampersand.
+  For alternative applicant categories quote only the applicable item.
 - section: "eligibility", "exclusions", or "details"
 - For exclusions, also set exclusion_applies: true if the exclusion applies to this citizen,
   false if it clearly does not, null if unknown. met means the citizen PASSES the restriction,
@@ -55,6 +64,10 @@ Post-matric includes undergraduate study after class 10; do not confuse it with 
 Do not infer previous graduation, another scholarship, or an exclusion from missing information."""
 
 TRIAGE_SYSTEM = """Screen an Indian government scheme's TARGET GROUP before detailed eligibility judging.
+The applicant is an individual citizen, not an institution, state government or NGO.
+Drop institution-only construction/organisation grants even if the citizen belongs to
+the community ultimately served. Quote the institutional applicant/construction target.
+Use annual_income_display (Indian grouping and lakh) for numeric comparisons.
 Drop only a clear target-group mismatch supported by the supplied official text.
 Check occupation, course/education level, caste/category, state, gender and special beneficiary groups.
 A rural student is not a farmer just because she lives in a village. If occupation is student
@@ -156,7 +169,7 @@ def explicit_target_mismatch(p: ProfileData, scheme: SchemeDetail) -> str | None
 
 async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
     """True means keep. Unsupported drops and unavailable triage fail open."""
-    evidence = explicit_target_mismatch(p, scheme)
+    evidence = institutional_target(scheme) or explicit_target_mismatch(p, scheme)
     if evidence:
         log.info("triage dropped %s: official target restriction %r", scheme.slug, evidence)
         return False
@@ -170,7 +183,7 @@ async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
     try:
         async def screen():
             return await llm.generate_json(
-                f"Official scheme text:\n{official}\n\nCitizen profile: {p.model_dump_json(exclude_none=True)}",
+                f"Official scheme text:\n{official}\n\nCitizen profile: {profile_text(p)}",
                 _Triage, system=TRIAGE_SYSTEM, model="lite",  # quick screen, judge does the real work
             )
 
@@ -179,7 +192,8 @@ async def triage(p: ProfileData, scheme: SchemeDetail) -> bool:
         ], screen))
         # A drop needs a real source span, not a model's paraphrase.
         if (result.drop and result.reason and _norm(result.quote) and _norm(result.quote) in _norm(official)
-                and not qualified_restriction(result.quote, official)):
+                and not qualified_restriction(result.quote, official)
+                and all(met is False for met in numeric_checks(p, result.reason, result.quote).values())):
             log.info("triage dropped %s: %s", scheme.slug, result.reason)
             return False
     except Exception as e:
@@ -360,6 +374,16 @@ async def candidates(p: ProfileData, keyword: str | None, limit: int) -> list[Sc
 
 
 async def judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
+    evidence = institutional_target(scheme)
+    if evidence:
+        section, quote = evidence
+        return MatchResult(
+            scheme=SchemeSummary(**scheme.model_dump(include=set(SchemeSummary.model_fields))),
+            verdict="not_eligible", confidence=1.0,
+            reasons=[Reason(claim="This scheme funds institutions or construction, rather than individual applicants.",
+                            met=False, citation=Citation(source_url=scheme.source_url, title=scheme.name,
+                                                       quote=quote, section=section))],
+        )
     result = await llm.cached("matcher.judge", [
         scheme.slug, p.model_dump(exclude_none=True), scheme.model_dump(mode="json"), JUDGE_SYSTEM,
         get_settings().gemini_judge_model,
@@ -374,10 +398,24 @@ async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
     prompt = (
         f"Scheme: {scheme.name} ({scheme.ministry or scheme.state or ''})\n\n{official}\n\n"
         f"DOCUMENTS:\n{scheme.documents_md[:1500]}\n\n"
-        f"Citizen profile: {p.model_dump_json(exclude_none=True)}"
+        f"Citizen profile: {profile_text(p)}"
     )
     j = await llm.generate_json(prompt, _Judgement, system=JUDGE_SYSTEM,
                                 model=get_settings().gemini_judge_model, thinking_level="LOW")
+    if j.reasons and not any(quote_found(r.quote, sources.get(r.section, "")) for r in j.reasons):
+        # One evidence correction, still under the caller's matching deadline.
+        # Never relax verification to rescue a plausible but unsupported verdict.
+        log.info("retrying judgement without any verified quotes for %s", scheme.slug)
+        try:
+            j = await llm.generate_json(
+                prompt + "\nYour previous quotes failed exact-source verification. Regenerate the judgement. "
+                "Copy each quote directly from ONE contiguous source passage, preferably a short applicable "
+                "eligibility line. Do not join alternative list items or paraphrase their wording.",
+                _Judgement, system=JUDGE_SYSTEM,
+                model=get_settings().gemini_judge_model, thinking_level="LOW",
+            )
+        except Exception:
+            log.warning("quote correction unavailable for %s", scheme.slug)
 
     reasons: list[Reason] = []
     dropped = 0
@@ -387,8 +425,17 @@ async def _judge(p: ProfileData, scheme: SchemeDetail) -> MatchResult:
             met = r.met
             if r.section == "exclusions":
                 met = None if r.exclusion_applies is None else not r.exclusion_applies
+            claim = r.claim
+            if met is False:
+                checks = numeric_checks(p, r.claim, r.quote)
+                if checks:
+                    # Exclusion text states the excluded condition, so invert it.
+                    expected = True if r.section == "exclusions" else False
+                    if not all(value is expected for value in checks.values()):
+                        met = None
+                        claim = "Confirm the quoted income/age requirement."
             reasons.append(Reason(
-                claim=r.claim, met=met,
+                claim=claim, met=met,
                 citation=Citation(source_url=scheme.source_url, title=scheme.name, quote=r.quote, section=r.section),
             ))
         else:
@@ -461,12 +508,18 @@ def _rank(p: ProfileData, cands: list[SchemeSummary], results: list[MatchResult]
                                           positions.get(r.scheme.slug, len(cands))))
 
 
-async def _match_events(p: ProfileData, keyword: str | None, limit: int) -> AsyncIterator[dict]:
-    """found -> result/checked as each judgement lands -> done. Judging stops at MATCH_SECONDS
-    and whatever finished by then is kept."""
+async def _match_events(p: ProfileData, keyword: str | None, limit: int, *,
+                        candidate_limit: int | None = None, max_seconds: float | None = None) -> AsyncIterator[dict]:
+    """found -> result/checked -> done within the budget, preserving completed work."""
     loop = asyncio.get_running_loop()
-    deadline = loop.time() + MATCH_SECONDS
-    cands = await candidates(p, keyword, limit)
+    deadline = loop.time() + (MATCH_SECONDS if max_seconds is None else max_seconds)
+    try:
+        cands = await asyncio.wait_for(candidates(p, keyword, limit), timeout=max(0, deadline - loop.time()))
+    except TimeoutError:
+        log.warning("candidate discovery time budget reached")
+        cands = []
+    if candidate_limit is not None:
+        cands = cands[:candidate_limit]
     total = len(cands)
     yield {"type": "found", "total": total}
     sem = asyncio.Semaphore(24)  # paid vertex quota, 4 was for the free tier
@@ -509,6 +562,18 @@ async def match(p: ProfileData, keyword: str | None = None, limit: int = 8, lang
             if event["type"] == "done":
                 return event["results"]
     return []
+
+
+async def first_matches(p: ProfileData, keyword: str | None = None, limit: int = 3) -> list[MatchResult]:
+    """Talk's small first page; closing events cancels all unfinished matching work."""
+    results = []
+    async with aclosing(_match_events(p, keyword, limit, candidate_limit=12, max_seconds=TALK_MATCH_SECONDS)) as events:
+        async for event in events:
+            if event["type"] == "result" and event["result"].verdict in {"eligible", "likely"}:
+                results.append(event["result"])
+                if len(results) >= limit:
+                    break
+    return sorted(results, key=lambda r: (ORDER[r.verdict], -relevance(p, r.scheme), -r.confidence))
 
 
 async def match_stream(p: ProfileData, keyword: str | None = None, limit: int = 8, lang: str = "en") -> AsyncIterator[dict]:

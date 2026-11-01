@@ -87,6 +87,44 @@ async def test_empty_stream(monkeypatch):
     ]
 
 
+async def test_talk_returns_first_three_positive_results_and_cancels_tail(monkeypatch):
+    cands = [scheme(s) for s in ["slow", "negative", "unknown", "one", "two", "three"]]
+    monkeypatch.setattr(matcher, "candidates", AsyncMock(return_value=cands))
+    monkeypatch.setattr(myscheme, "get_scheme", AsyncMock(side_effect=lambda slug, **kw: next(s for s in cands if s.slug == slug)))
+    monkeypatch.setattr(myscheme, "index_schemes", AsyncMock())
+    started, cancelled = asyncio.Event(), asyncio.Event()
+
+    async def check(p, s, sem):
+        if s.slug == "slow":
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+        await started.wait()
+        return result(s.slug, {"negative": "not_eligible", "unknown": "unknown"}.get(s.slug, "likely"))
+
+    monkeypatch.setattr(matcher, "_judge_one", check)
+    matches = await asyncio.wait_for(matcher.first_matches(ProfileData()), 1)
+    assert {r.scheme.slug for r in matches} == {"one", "two", "three"}
+    assert cancelled.is_set()
+
+
+async def test_talk_budget_also_bounds_slow_candidate_discovery(monkeypatch):
+    cancelled = asyncio.Event()
+
+    async def candidates(*args):
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    monkeypatch.setattr(matcher, "candidates", candidates)
+    monkeypatch.setattr(matcher, "TALK_MATCH_SECONDS", .03)
+    assert await asyncio.wait_for(matcher.first_matches(ProfileData()), .5) == []
+    assert cancelled.is_set()
+
+
 async def test_routes_keep_json_contract_and_stream_events_and_validate_profile(monkeypatch):
     db = SimpleNamespace(get=AsyncMock(return_value=SimpleNamespace(data={"age": 21})))
     app = FastAPI()

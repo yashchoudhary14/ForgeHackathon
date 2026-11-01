@@ -201,6 +201,24 @@ async def test_an_unverified_failure_cannot_decide_the_verdict(monkeypatch):
     assert [reason.claim for reason in result.reasons] == ["Student"]
 
 
+@pytest.mark.parametrize("repaired", [True, False])
+async def test_judge_retries_merged_quotes_once_without_weakening_verification(monkeypatch, repaired):
+    from tests.test_matcher_records import recorded
+
+    official = recorded("kcc")
+    bad = matcher._Judgement(verdict="eligible", confidence=.9, missing_info=[], documents_needed=[], reasons=[
+        matcher._Reason(claim="Farmer", met=True, section="eligibility",
+            quote="Farmers who are owner cultivators, tenant farmers, oral lessees, or share croppers.")])
+    good = bad.model_copy(update={"reasons": [matcher._Reason(claim="Owner cultivator", met=True,
+        section="eligibility", quote="Farmers - individual/joint borrowers who are owner cultivators;")]})
+    generate = AsyncMock(side_effect=[bad, good if repaired else bad])
+    monkeypatch.setattr(llm, "generate_json", generate)
+    result = await matcher._judge(ProfileData(occupation="farmer", land_acres=2), official)
+    assert generate.await_count == 2
+    assert result.verdict == ("eligible" if repaired else "unknown")
+    assert all(matcher.quote_found(r.citation.quote, official.eligibility_md) for r in result.reasons)
+
+
 async def test_time_budget_keeps_completed_results_and_cancels_slow_work(monkeypatch):
     schemes = [detail("ready", "Relevant scholarship", "SC students"), detail("slow", "Other scholarship", "SC students")]
     monkeypatch.setattr(matcher, "MATCH_SECONDS", 0.05)
