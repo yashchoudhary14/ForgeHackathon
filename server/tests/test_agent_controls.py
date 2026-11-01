@@ -69,6 +69,9 @@ def test_bare_option_label_is_not_shown_as_the_question():
     got = require_source(d, {"role": "radio", "label": "No"}, {})
     assert got.action == "ask_human" and "Please provide No" not in got.message
     assert "question shown in the picture" in got.message
+    d = Decision(thought="Pick occupation", action="click", element_id=2)
+    got = require_source(d, {"role": "radio", "label": "Self-Employed/ Entrepreneur"}, {})
+    assert got.action == "ask_human" and "Self-Employed" not in got.message
 
 
 def test_age_does_not_authorize_entering_birth_date():

@@ -235,7 +235,11 @@ def require_source(d: Decision, el: dict | None, known: dict) -> Decision:
     else:
         return d
     # A bare option ("No", "Yes") is the model's guess, not the question; never show it as the ask.
-    bare_option = not el.get("field_label") and re.fullmatch(r"yes|no|true|false|हाँ|हां|नहीं|হ্যাঁ|না", label.strip(), re.I)
+    option_like = (el.get("role") in ("option", "radio", "checkbox")
+                   or (el.get("tag") == "input" and el.get("type") in ("radio", "checkbox"))
+                   or (el.get("tag") == "label" and "checked" in el) or d.action == "click")
+    bare_option = not el.get("field_label") and (option_like or re.fullmatch(
+        r"yes|no|true|false|हाँ|हां|नहीं|হ্যাঁ|না", label.strip(), re.I))
     message = ("Please answer the question shown in the picture; it is not in the supplied profile. "
                "You can also fill it in the browser." if bare_option else
                f"Please provide {label}; it is not in the supplied profile. You can also fill it in the browser.")
