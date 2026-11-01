@@ -77,7 +77,7 @@ EOF
 
 "$GCLOUD" run deploy "$SERVICE" --project="$PROJECT" --region="$REGION" \
     --source="$server_dir" --service-account="$SERVICE_ACCOUNT" \
-    --cpu=2 --memory=4Gi --min-instances=1 --max-instances=1 --max=1 \
+    --cpu=4 --memory=4Gi --min-instances=1 --max-instances=1 --max=1 \
     --no-cpu-throttling --timeout=3600 --session-affinity --port=8080 \
     --no-invoker-iam-check --ingress=all \
     --env-vars-file="$env_file" \
