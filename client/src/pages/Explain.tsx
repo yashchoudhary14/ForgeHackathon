@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeftRight, FileUp, Link2 } from "lucide-react";
-import { post, request, safeUrl } from "../api/client";
+import { request, safeUrl } from "../api/client";
 import type {
+  CompareIn,
   DocumentOut,
   ExplainOut,
   ExplainSource,
@@ -17,7 +18,6 @@ export default function Explain() {
   const [docs, setDocs] = useState<DocumentOut[]>([]);
   const [url, setUrl] = useState("");
   const [data, setData] = useState<ExplainOut | null>(null);
-  const [compare, setCompare] = useState<ExplainOut | null>(null);
   const [docA, setDocA] = useState("");
   const [docB, setDocB] = useState("");
   const [busy, setBusy] = useState(false);
@@ -68,7 +68,6 @@ export default function Explain() {
     setLastAction(() => () => runExplain(source));
     setBusy(true);
     setError("");
-    setCompare(null);
     try {
       const result = await request<ExplainOut>("/explain", {
         method: "POST",
@@ -97,24 +96,21 @@ export default function Explain() {
     setBusy(true);
     setError("");
     try {
-      const [newer, older] = await Promise.all([
-        post<ExplainOut>("/explain", {
-          source: { type: "document", document_id: docA },
+      // Server compares old (docB) against new (docA) and returns quoted changes.
+      const result = await request<ExplainOut>("/explain/compare", {
+        method: "POST",
+        body: JSON.stringify({
+          old: { type: "document", document_id: docB },
+          new: { type: "document", document_id: docA },
           profile_id: profileId || null,
           language: lang,
           with_audio: true,
-        }),
-        post<ExplainOut>("/explain", {
-          source: { type: "document", document_id: docB },
-          profile_id: profileId || null,
-          language: lang,
-          with_audio: false,
-        }),
-      ]);
+        } satisfies CompareIn),
+        signal: controller.signal,
+      });
       if (!controller.signal.aborted) {
-        setData(newer);
-        setCompare(older);
-      }
+        setData(result);
+          }
     } catch (e) {
       if (!controller.signal.aborted) setError((e as Error).message);
     } finally {
@@ -131,7 +127,6 @@ export default function Explain() {
     setLastAction(() => () => upload(file));
     setBusy(true);
     setError("");
-    setCompare(null);
     try {
       const form = new FormData();
       if (file) form.append("file", file);
@@ -143,11 +138,15 @@ export default function Explain() {
       });
       await getDocs(controller.signal);
       setUrl("");
-      const result = await post<ExplainOut>("/explain", {
-        source: { type: "document", document_id: doc.id },
-        profile_id: profileId || null,
-        language: lang,
-        with_audio: true,
+      const result = await request<ExplainOut>("/explain", {
+        method: "POST",
+        body: JSON.stringify({
+          source: { type: "document", document_id: doc.id },
+          profile_id: profileId || null,
+          language: lang,
+          with_audio: true,
+        }),
+        signal: controller.signal,
       });
       if (!controller.signal.aborted) setData(result);
     } catch (e) {
@@ -268,7 +267,7 @@ export default function Explain() {
             type="button"
             disabled={busy || !docA || !docB || docA === docB}
             onClick={() => void runCompare()}
-            className="!bg-saffron !text-white"
+            className="!bg-saffron-text !text-white"
           >
             <ArrowLeftRight size={16} aria-hidden="true" />
             Compare · पुराने सर्कुलर से तुलना करें
@@ -285,7 +284,7 @@ export default function Explain() {
       {busy && (
         <Loading message="Reading the document and writing a plain-language explanation…" />
       )}
-      {data && <Explanation data={data} compare={compare} />}
+      {data && !busy && <Explanation data={data} />}
 
       <div className="grid items-start gap-5 lg:grid-cols-2">
         {docs.length > 0 && (

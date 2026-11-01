@@ -1,7 +1,7 @@
-import { Text } from "../context";
+import { Text, useApp } from "../context";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { request, websocketUrl } from "../api/client";
+import { request, websocketUrl, withOwner } from "../api/client";
 import { applyRunEvent, isTerminal, mergeRunSnapshot } from "../api/run-state";
 import type {
   ClientMessage,
@@ -28,6 +28,7 @@ const actionLabels: Record<string, string> = {
 };
 export default function Run() {
   const { id = "" } = useParams();
+  const { profileId } = useApp();
   const [run, setRun] = useState<RunOut | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -63,7 +64,7 @@ export default function Run() {
       if (disposed || finished) return;
       setConnection(attempts ? "Reconnecting…" : "Connecting…");
       const ws = new WebSocket(
-        websocketUrl(`/agent/runs/${encodeURIComponent(id)}/ws`),
+        websocketUrl(withOwner(`/agent/runs/${encodeURIComponent(id)}/ws`, profileId)),
       );
       const liveSteps = new Set<number>();
       socket.current = ws;
@@ -71,7 +72,7 @@ export default function Run() {
         if (disposed) return;
         if (attempts > 0) {
           const snapshotRevision = revision;
-          void request<RunOut>(`/agent/runs/${encodeURIComponent(id)}`, {
+          void request<RunOut>(withOwner(`/agent/runs/${encodeURIComponent(id)}`, profileId), {
             signal: abort.signal,
           })
             .then((snapshot) => {
@@ -142,7 +143,7 @@ export default function Run() {
               setHuman(null);
               setTakeover(false);
               setConnection("Finished");
-              void request<RunOut>(`/agent/runs/${encodeURIComponent(id)}`, {
+              void request<RunOut>(withOwner(`/agent/runs/${encodeURIComponent(id)}`, profileId), {
                 signal: abort.signal,
               })
                 .then((r) => {
@@ -200,7 +201,7 @@ export default function Run() {
     async function start() {
       try {
         const result = await request<RunOut>(
-          `/agent/runs/${encodeURIComponent(id)}`,
+          withOwner(`/agent/runs/${encodeURIComponent(id)}`, profileId),
           { signal: abort.signal },
         );
         if (disposed) return;
@@ -224,7 +225,7 @@ export default function Run() {
       clearTimeout(retry);
       socket.current?.close();
     };
-  }, [id, epoch]);
+  }, [id, epoch, profileId]);
   useEffect(() => {
     const list = timeline.current;
     if (list) list.scrollTop = list.scrollHeight;
@@ -258,7 +259,7 @@ export default function Run() {
     setError("");
     return true;
   }
-  function humanAction(type: "resume" | "approve" | "abort") {
+  function humanAction(type: "resume" | "approve" | "approve_duplicate" | "abort") {
     if (send({ type })) {
       setHuman(null);
       setTakeover(false);

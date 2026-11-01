@@ -41,6 +41,7 @@ function ReceiptScreenshot({ src }: { src: string }) {
 
 export function ReceiptView({ receipt }: { receipt: Receipt }) {
   const url = safeUrl(receipt.url);
+  // The screenshot URL is /api/agent/runs/{id}/screenshots/{n}?profile_id=… on the API host.
   const screenshot = receipt.screenshot
     ? assetUrl(receipt.screenshot)
     : undefined;

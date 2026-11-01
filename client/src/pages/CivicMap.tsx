@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { LocateFixed } from "lucide-react";
-import type { CivicReportOut } from "../api/civic";
+import type { ReportOut } from "../api/civic";
 import "leaflet/dist/leaflet.css";
 
 const INDIA_CENTER: [number, number] = [25.6, 82.0];
 
 function pinColor(status: string): { bg: string; fg: string } {
   const s = (status || "open").toLowerCase();
-  if (s === "citizen_verified" || s === "resolved")
+  if (s === "resolved" || s === "closed")
     return { bg: "#155C42", fg: "#ffffff" };
+  // Darker shades keep the white count readable (4.5:1).
   if (s === "filed" || s === "in_progress")
-    return { bg: "#3D7BEA", fg: "#ffffff" };
-  if (s === "still_broken" || s === "escalated")
-    return { bg: "#E03A2E", fg: "#ffffff" };
-  return { bg: "#E8731C", fg: "#ffffff" };
+    return { bg: "#2A5FC4", fg: "#ffffff" };
+  return { bg: "#9A4A12", fg: "#ffffff" };
 }
 
 export default function CivicMap({
@@ -21,8 +20,8 @@ export default function CivicMap({
   onSelect,
   onNearMe,
 }: {
-  reports: CivicReportOut[];
-  onSelect?: (report: CivicReportOut) => void;
+  reports: ReportOut[];
+  onSelect?: (report: ReportOut) => void;
   onNearMe?: (lat: number, lng: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -84,11 +83,11 @@ export default function CivicMap({
   }
 
   return (
-    <div className="relative min-h-[420px] overflow-hidden rounded-[28px] bg-[#e9e3d5] shadow-[inset_0_0_0_1px_#ede5da]">
+    <div className="relative min-h-[340px] overflow-hidden sm:min-h-[420px] rounded-[28px] bg-[#e9e3d5] shadow-[inset_0_0_0_1px_#ede5da]">
       <div
         ref={containerRef}
         aria-label="Civic issues map"
-        className="h-[440px] w-full z-0"
+        className="z-0 h-[340px] w-full sm:h-[440px]"
       />
       <div className="pointer-events-none absolute inset-x-3.5 top-3.5 z-[400] flex flex-wrap items-center justify-between gap-2">
         <span className="rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-sm">
@@ -99,7 +98,7 @@ export default function CivicMap({
             type="button"
             disabled={locating}
             onClick={locateUser}
-            className="pointer-events-auto secondary !min-h-10 !px-3.5 !py-1.5 text-xs shadow-sm"
+            className="pointer-events-auto secondary !min-h-11 !rounded-full !px-3.5 !py-1.5 text-sm shadow-sm"
           >
             <LocateFixed size={15} aria-hidden="true" />
             {locating ? "Locating…" : "Near me"}
@@ -108,16 +107,16 @@ export default function CivicMap({
       </div>
       <div className="pointer-events-none absolute bottom-3.5 left-3.5 z-[400] flex flex-wrap gap-3 rounded-2xl bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-sm">
         <span className="inline-flex items-center gap-1.5">
-          <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#E8731C]" />
-          Open / escalated
+          <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#9A4A12]" />
+          Open
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#3D7BEA]" />
+          <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#2A5FC4]" />
           Filed on CPGRAMS
         </span>
         <span className="inline-flex items-center gap-1.5">
           <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#155C42]" />
-          Citizen verified
+          Resolved
         </span>
       </div>
     </div>
@@ -128,8 +127,8 @@ function renderPins(
   L: typeof import("leaflet"),
   map: import("leaflet").Map,
   group: import("leaflet").LayerGroup,
-  reports: CivicReportOut[],
-  onSelect?: (report: CivicReportOut) => void,
+  reports: ReportOut[],
+  onSelect?: (report: ReportOut) => void,
 ) {
   group.clearLayers();
   const coords: [number, number][] = [];
@@ -139,13 +138,13 @@ function renderPins(
     const { bg, fg } = pinColor(r.status);
     const icon = L.divIcon({
       className: "civic-pin",
-      html: `<div style="background:${bg};color:${fg};min-width:34px;height:34px;padding:0 8px;border-radius:999px;display:grid;place-items:center;font-weight:700;font-size:13px;border:3px solid #fff;box-shadow:0 6px 14px rgba(0,0,0,0.22);">${r.upvotes ?? 1}</div>`,
+      html: `<div style="background:${bg};color:${fg};min-width:34px;height:34px;padding:0 8px;border-radius:999px;display:grid;place-items:center;font-weight:700;font-size:13px;border:3px solid #fff;box-shadow:0 6px 14px rgba(0,0,0,0.22);">${r.supporters}</div>`,
       iconSize: [34, 34],
       iconAnchor: [17, 17],
     });
     const marker = L.marker([r.lat, r.lng], { icon });
     marker.bindPopup(
-      `<strong>${escapeHtml(r.title)}</strong><br/><small>${escapeHtml(r.department || r.category)} · 👍 ${r.upvotes ?? 1}</small>`,
+      `<strong>${escapeHtml(r.title)}</strong><br/><small>${escapeHtml(r.department)} · 👍 ${r.supporters}</small>`,
     );
     if (onSelect) marker.on("click", () => onSelect(r));
     marker.addTo(group);

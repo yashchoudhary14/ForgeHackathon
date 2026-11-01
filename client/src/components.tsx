@@ -4,7 +4,13 @@ import type { ReactNode } from "react";
 import { Mic, Square, Volume2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { assetUrl, request, safeUrl } from "./api/client";
-import type { Citation, ExplainOut, SttOut } from "./api/types";
+import type {
+  Citation,
+  DocumentChange,
+  ExplainedClaim,
+  ExplainOut,
+  SttOut,
+} from "./api/types";
 import { useApp } from "./context";
 import { friendlyError } from "./api/errors";
 export function ErrorBox({
@@ -81,13 +87,79 @@ export function Citations({ items }: { items: Citation[] }) {
     </ol>
   );
 }
-export function Explanation({
-  data,
-  compare,
-}: {
-  data: ExplainOut;
-  compare?: ExplainOut | null;
-}) {
+function Quote({ citation }: { citation: Citation }) {
+  return (
+    <blockquote className="m-0 mt-1 border-l-4 border-[#e5dccf] pl-3 text-sm text-ink-soft">
+      “{citation.quote}”{" "}
+      <a href={safeUrl(citation.source_url)} target="_blank" rel="noreferrer" className="whitespace-nowrap font-semibold">
+        {citation.section || citation.title || "Source"} ↗
+      </a>
+    </blockquote>
+  );
+}
+const claimGroups: [keyof ExplainOut, string][] = [
+  ["rights", "Your rights · आपके अधिकार"],
+  ["duties", "Your duties · आपकी ज़िम्मेदारियाँ"],
+  ["restrictions", "Restrictions · पाबंदियाँ"],
+  ["deadline_details", "Deadlines · अंतिम तिथि"],
+  ["how_to_apply", "How to apply · आवेदन कैसे करें"],
+  ["document_details", "Documents · ज़रूरी दस्तावेज़"],
+];
+/** Explainer sections where every claim carries its verified quote. */
+export function ClaimSections({ data }: { data: ExplainOut }) {
+  const groups = claimGroups
+    .map(([key, title]) => [title, (data[key] as ExplainedClaim[] | undefined) ?? []] as const)
+    .filter(([, items]) => items.length > 0);
+  if (!groups.length) return null;
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {groups.map(([title, items]) => (
+        <section key={title} className="flex min-w-0 flex-col gap-2 rounded-3xl bg-card p-5 shadow-[inset_0_0_0_1px_#ede5da]">
+          <h3 className="m-0 font-serif text-xl font-normal">{title}</h3>
+          <ul className="m-0 flex flex-col gap-3 pl-5 text-[15px]">
+            {items.map((c, i) => (
+              <li key={i} className="break-words">
+                {c.text}
+                <Quote citation={c.citation} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+/** Compare mode: what changed between the old and new document, both sides quoted. */
+export function ChangeList({ changes }: { changes: DocumentChange[] }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-3xl bg-card p-5 shadow-[inset_0_0_0_1px_#ede5da]">
+      <span className="eyebrow">What changed · पुराने से तुलना</span>
+      {changes.map((c, i) => (
+        <article key={i} className="flex min-w-0 flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="m-0 font-serif text-xl font-normal">{c.title}</h3>
+            {c.affects_profile === true && (
+              <span className="rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn">Affects you · आप पर असर</span>
+            )}
+          </div>
+          <p className="m-0 text-[15px]">{c.description}</p>
+          {c.impact && <p className="m-0 text-sm text-ink-soft">{c.impact}</p>}
+          <div className="grid gap-2 md:grid-cols-2">
+            <div className="min-w-0 rounded-2xl bg-bad-soft p-3 text-bad">
+              <span className="block text-xs font-bold uppercase tracking-wider">Before · पहले</span>
+              <Quote citation={c.old_citation} />
+            </div>
+            <div className="min-w-0 rounded-2xl bg-ok-soft p-3 text-ok">
+              <span className="block text-xs font-bold uppercase tracking-wider">Now · अब</span>
+              <Quote citation={c.new_citation} />
+            </div>
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+export function Explanation({ data }: { data: ExplainOut }) {
   return (
     <div className="explanation grid items-start gap-5 lg:grid-cols-[1.2fr_1fr]">
       <div className="flex flex-col gap-4">
@@ -138,44 +210,8 @@ export function Explanation({
           </div>
         </article>
 
-        {compare && (
-          <section className="rounded-3xl bg-card p-6 shadow-[0_10px_30px_rgba(23,20,15,0.06),0_1px_0_rgba(23,20,15,0.05)] flex flex-col gap-3">
-            <span className="eyebrow">
-              What changed · पुराने सर्कुलर से तुलना
-            </span>
-            <h3 className="m-0 font-serif text-2xl font-normal">
-              {compare.title} → {data.title}
-            </h3>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl bg-[#FDE4E0] p-4 text-[#8D1F17]">
-                <span className="block text-xs font-bold uppercase tracking-wider">
-                  Before · पहले ({compare.title})
-                </span>
-                <p className="m-0 mt-1.5 text-sm">{compare.summary}</p>
-                {compare.key_points.length > 0 && (
-                  <ul className="m-0 mt-2 pl-4 text-xs">
-                    {compare.key_points.slice(0, 3).map((pt, i) => (
-                      <li key={i}>{pt}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="rounded-2xl bg-[#DDF3E9] p-4 text-[#155C42]">
-                <span className="block text-xs font-bold uppercase tracking-wider">
-                  Now · अब ({data.title})
-                </span>
-                <p className="m-0 mt-1.5 text-sm">{data.summary}</p>
-                {data.key_points.length > 0 && (
-                  <ul className="m-0 mt-2 pl-4 text-xs">
-                    {data.key_points.slice(0, 3).map((pt, i) => (
-                      <li key={i}>{pt}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
+        <ClaimSections data={data} />
+        {!!data.changes?.length && <ChangeList changes={data.changes} />}
       </div>
 
       <aside className="flex flex-col gap-4">
@@ -190,6 +226,16 @@ export function Explanation({
             {data.what_it_means_for_you ||
               "Add your profile details on the home page or Talk mode to get personalized impact notes for your household."}
           </p>
+          {!!data.personal_impacts?.length && (
+            <ul className="m-0 flex flex-col gap-2 pl-5 text-sm">
+              {data.personal_impacts.map((c, i) => (
+                <li key={i} className="break-words">
+                  {c.text}
+                  <Quote citation={c.citation} />
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
         <section className="rounded-3xl bg-card p-6 shadow-[0_10px_30px_rgba(23,20,15,0.06),0_1px_0_rgba(23,20,15,0.05)] flex flex-col gap-3">
           <span className="eyebrow">

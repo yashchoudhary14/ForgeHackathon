@@ -17,11 +17,13 @@ export default function LockerItemCard({
   index = 0,
   isNew = false,
   onDelete,
+  profileId = "",
 }: {
   item: LockerItem;
   index?: number;
   isNew?: boolean;
   onDelete: () => void;
+  profileId?: string;
 }) {
   const variants = variantSizes(d);
   const summary = variantSummary(d);
@@ -80,7 +82,7 @@ export default function LockerItemCard({
           {variants.map(([name, size]) => (
             <a
               key={name}
-              href={lockerFileUrl(d.id, name.toLowerCase())}
+              href={profileId ? lockerFileUrl(d.id, name.toLowerCase(), profileId) : undefined}
               target="_blank"
               rel="noreferrer"
               className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ok-soft px-4 text-sm font-semibold no-underline"

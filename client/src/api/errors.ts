@@ -3,6 +3,9 @@ const messages = {
   busy: "Lots of people are asking for help right now. Please wait a moment and try again.",
   missing: "We couldn’t find that item. Go back to the list or try again.",
   invalid: "Please check the details you entered and try again.",
+  forbidden: "Only the person who created this can do that.",
+  conflict: "This is already in progress or done. Refresh to see the latest state.",
+  tooLarge: "That file is too large. Please choose a smaller one.",
   connection:
     "Could not connect to the service. Check your connection and try again.",
   timeout: "The request timed out or was cancelled. Please try again.",
@@ -12,6 +15,9 @@ export function responseError(status: number): string {
   if (status === 404) return messages.missing;
   if (status === 429) return messages.busy;
   if (status === 400 || status === 422) return messages.invalid;
+  if (status === 401 || status === 403) return messages.forbidden;
+  if (status === 409) return messages.conflict;
+  if (status === 413) return messages.tooLarge;
   return messages.unavailable;
 }
 
