@@ -75,6 +75,72 @@ test("tap starts, second tap sends, and holding releases with one stop", () => {
   // Releasing before getUserMedia resolves still cancels the pending hold.
   assert.equal(micGesture(false, 301), "stop");
 });
+
+test("service application actions open the existing guarded run", async () => {
+  const h = host();
+  assert.equal(
+    await dispatchAction(
+      {
+        type: "start_application",
+        service: "driving_licence",
+        run_id: "service-run",
+      },
+      h,
+    ),
+    true,
+  );
+  assert.deepEqual(h.calls, [
+    ["run", "service-run"],
+    ["navigate", "/runs/service-run"],
+  ]);
+  assert.equal(
+    await dispatchAction(
+      {
+        type: "start_application",
+        service: "driving_licence",
+        slug: "other",
+        run_id: "service-run",
+      },
+      h,
+    ),
+    false,
+  );
+});
+
+test("external portal opening is limited to verified guide-only PAN providers", async () => {
+  const previous = globalThis.window;
+  const opened = [];
+  globalThis.window = { open: (...args) => opened.push(args) };
+  try {
+    const h = host();
+    assert.equal(
+      await dispatchAction(
+        { type: "open_portal", url: "https://www.pan.utiitsl.com" },
+        h,
+      ),
+      true,
+    );
+    for (const url of [
+      "javascript:alert(1)",
+      "http://www.pan.utiitsl.com",
+      "https://www.pan.utiitsl.com.evil.example",
+      "https://user@www.pan.utiitsl.com",
+      "https://www.pan.utiitsl.com:8080",
+      "https://unknown.gov.in",
+    ]) {
+      assert.equal(
+        await dispatchAction({ type: "open_portal", url }, h),
+        false,
+      );
+    }
+    assert.deepEqual(opened, [
+      ["https://www.pan.utiitsl.com/", "_blank", "noopener,noreferrer"],
+    ]);
+  } finally {
+    if (previous === undefined) delete globalThis.window;
+    else globalThis.window = previous;
+  }
+});
 test("local AudioContext meter requires two seconds of continuous silence", () => {
   assert.equal(silenceExpired(0.001, 1999, 0), false);
   assert.equal(silenceExpired(0.001, 2000, 0), true);

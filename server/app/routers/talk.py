@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from starlette.datastructures import UploadFile
 
-from ..agents.talk import ONBOARDING_FIELDS, UI_ROUTES, TalkTools, detect_text_language, requested_language, respond, safe_text
+from ..agents.talk import ONBOARDING_FIELDS, UI_ROUTES, TalkTools, asks_for_help, detect_text_language, requested_language, respond, safe_text
 from ..db import SessionLocal
 from ..models import AgentRun, ChatMessage, Profile
 from ..schemas import ProfileData, TalkIn
@@ -122,7 +122,9 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
         ChatMessage.session_id == session_id, ChatMessage.role.in_(["user", "assistant"]))
         .order_by(ChatMessage.id.desc()).limit(10))).scalars().all()
     history = [{"role": r.role, "content": safe_text(r.content, sensitive),
-                "offer_slug": next((c.get("talk_offer_slug") for c in (r.citations or []) if "talk_offer_slug" in c), None)}
+                "offer_slug": next((c.get("talk_offer_slug") for c in (r.citations or []) if "talk_offer_slug" in c), None),
+                "offer_service": next((c.get("talk_offer_service") for c in (r.citations or []) if "talk_offer_service" in c), None),
+                "services": next((c.get("talk_services", []) for c in (r.citations or []) if "talk_services" in c), [])}
                for r in reversed(rows)]
     db.add(ChatMessage(session_id=session_id, role="user", content=message))
     await db.commit()
@@ -130,7 +132,7 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
     if body.context:
         page = body.context.page
         tools.context = {"page": page if page in UI_ROUTES else "/runs/:id" if re.fullmatch(r"/runs/[\w-]+", page) else "/schemes/:slug" if re.fullmatch(r"/schemes/[\w-]+", page) else "/",
-                         "onboarding": body.context.onboarding}
+                         "onboarding": body.context.onboarding and not asks_for_help(message)}
         current_scheme = re.fullmatch(r"/schemes/([A-Za-z0-9_-]{1,200})", page)
         if current_scheme:
             try:
@@ -170,8 +172,15 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
     if cards:
         content += "\nCards shown: " + json.dumps(cards, ensure_ascii=False)
     offer = reply.get("application_offer_slug")
+    metadata = []
+    if offer:
+        metadata.append({"talk_offer_slug": offer})
+    if reply.get("application_offer_service"):
+        metadata.append({"talk_offer_service": reply["application_offer_service"]})
+    if tools.services:
+        metadata.append({"talk_services": list(tools.services.values())})
     db.add(ChatMessage(session_id=session_id, role="assistant", content=content,
-                       citations=[{"talk_offer_slug": offer}] if offer else []))
+                       citations=metadata))
     await db.commit()
     audio_url = None
     yield {"type": "progress", "stage": "preparing_audio"}

@@ -3,7 +3,13 @@ import type { Lang, ProfileData } from "../api/types";
 export type BuddyAction =
   | { type: "navigate"; route: string }
   | { type: "open_scheme"; slug: string }
-  | { type: "start_application"; slug: string; run_id: string }
+  | {
+      type: "start_application";
+      slug?: string;
+      service?: string;
+      run_id: string;
+    }
+  | { type: "open_portal"; url: string }
   | { type: "open_camera"; doc_type: string; reason: string }
   | { type: "open_report" | "show_profile" }
   | { type: "set_language"; lang: Lang }
@@ -93,6 +99,29 @@ export async function dispatchAction(
   const identifier = (v: unknown): v is string =>
     typeof v === "string" && /^[\w-]{1,200}$/.test(v);
   switch (a.type) {
+    case "open_portal": {
+      // The only external service providers in the verified directory. A normal
+      // link is also shown in the service card if the browser blocks this window.
+      if (typeof a.url !== "string") return false;
+      let url: URL;
+      try {
+        url = new URL(a.url);
+      } catch {
+        return false;
+      }
+      if (
+        url.protocol !== "https:" ||
+        url.username ||
+        url.password ||
+        url.port ||
+        !["www.onlineservices.nsdl.com", "www.pan.utiitsl.com"].includes(
+          url.hostname,
+        )
+      )
+        return false;
+      window.open(url.href, "_blank", "noopener,noreferrer");
+      return true;
+    }
     case "navigate":
       if (typeof a.route !== "string" || !routes.has(a.route)) return false;
       host.navigate(a.route);
@@ -102,7 +131,8 @@ export async function dispatchAction(
       host.navigate("/schemes/" + encodeURIComponent(a.slug));
       return true;
     case "start_application":
-      if (!identifier(a.slug) || !identifier(a.run_id)) return false;
+      if (!identifier(a.run_id) || identifier(a.slug) === identifier(a.service))
+        return false;
       host.activateRun(a.run_id);
       host.navigate("/runs/" + encodeURIComponent(a.run_id));
       return true;

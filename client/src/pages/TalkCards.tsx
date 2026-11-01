@@ -3,6 +3,56 @@ import type { TalkCard } from "../api/talk";
 import { VerdictChip } from "../ui";
 import { tt } from "../ui-strings";
 
+function safeLink(value: string | null): string | undefined {
+  try {
+    const url = new URL(value || "");
+    return url.protocol === "https:" && !url.username && !url.password
+      ? url.href
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const labels: Record<string, string[]> = {
+  en: [
+    "Official portal",
+    "Steps",
+    "Documents",
+    "Fees",
+    "Processing time",
+    "Sources",
+    "Help me apply",
+  ],
+  hi: [
+    "आधिकारिक पोर्टल",
+    "चरण",
+    "दस्तावेज़",
+    "शुल्क",
+    "लगने वाला समय",
+    "स्रोत",
+    "आवेदन में मदद करें",
+  ],
+  bn: [
+    "সরকারি পোর্টাল",
+    "ধাপ",
+    "নথি",
+    "ফি",
+    "প্রক্রিয়ার সময়",
+    "সূত্র",
+    "আবেদনে সাহায্য করুন",
+  ],
+  as: [
+    "চৰকাৰী পৰ্টেল",
+    "পদক্ষেপ",
+    "নথি",
+    "মাচুল",
+    "প্ৰক্ৰিয়াৰ সময়",
+    "উৎস",
+    "আবেদন কৰাত সহায় কৰক",
+  ],
+};
+
 export default function CardView({
   card,
   lang,
@@ -19,6 +69,91 @@ export default function CardView({
   const box =
     "flex w-full max-w-[92%] flex-col gap-2 self-start rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_#ede5da]";
   const link = "inline-flex min-h-11 items-center font-semibold";
+  const l = labels[lang] || labels.en;
+  const sources = (items: { url: string; title: string }[]) => (
+    <div className="flex flex-col gap-1">
+      <strong>{l[5]}</strong>
+      {items.map(
+        (source, index) =>
+          safeLink(source.url) && (
+            <a
+              key={source.url + index}
+              href={safeLink(source.url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-words underline"
+            >
+              {source.title}
+            </a>
+          ),
+      )}
+    </div>
+  );
+  if (card.kind === "sources")
+    return <div className={box}>{sources(card.sources)}</div>;
+  if (card.kind === "service")
+    return (
+      <div className={box}>
+        <span className="font-serif text-xl">{card.service}</span>
+        {safeLink(card.official_portal_url) && (
+          <a
+            className={link}
+            href={safeLink(card.official_portal_url)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {l[0]} ↗
+          </a>
+        )}
+        {card.steps.length > 0 && (
+          <>
+            <strong>{l[1]}</strong>
+            <ol className="m-0 list-decimal pl-5">
+              {card.steps.map((step, index) => (
+                <li key={index}>{step}</li>
+              ))}
+            </ol>
+          </>
+        )}
+        {card.documents.length > 0 && (
+          <>
+            <strong>{l[2]}</strong>
+            <ul className="m-0 list-disc pl-5">
+              {card.documents.map((doc, index) => (
+                <li key={index}>{doc}</li>
+              ))}
+            </ul>
+          </>
+        )}
+        {card.fees && (
+          <p className="m-0">
+            <strong>{l[3]}: </strong>
+            {card.fees}
+          </p>
+        )}
+        {card.time && (
+          <p className="m-0">
+            <strong>{l[4]}: </strong>
+            {card.time}
+          </p>
+        )}
+        {card.notes.map((note, index) => (
+          <p className="m-0 text-sm" key={index}>
+            {note}
+          </p>
+        ))}
+        {sources(card.sources)}
+        {card.official_portal_url && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onAnswer(`${l[6]}: ${card.service}`)}
+          >
+            {l[6]}
+          </button>
+        )}
+      </div>
+    );
   if (card.kind === "scheme")
     return (
       <div className={box}>
@@ -46,7 +181,10 @@ export default function CardView({
       <div className={box}>
         <span className="font-serif text-xl">{card.title || "—"}</span>
         {card.report_id ? (
-          <Link className={link} to={"/civic/" + encodeURIComponent(card.report_id)}>
+          <Link
+            className={link}
+            to={"/civic/" + encodeURIComponent(card.report_id)}
+          >
             {tt(lang, "openReport")} →
           </Link>
         ) : (
@@ -78,9 +216,18 @@ export default function CardView({
     <div className={box}>
       <strong>{card.doc_type}</strong>
       {card.reason && <p className="m-0 text-[15px]">{card.reason}</p>}
-      {onCapture ? <button disabled={disabled} onClick={() => onCapture(card.doc_type, card.reason || "")}>{tt(lang, "sendDocument")}</button> : <Link className={link} to="/locker">
-        {tt(lang, "sendDocument")} →
-      </Link>}
+      {onCapture ? (
+        <button
+          disabled={disabled}
+          onClick={() => onCapture(card.doc_type, card.reason || "")}
+        >
+          {tt(lang, "sendDocument")}
+        </button>
+      ) : (
+        <Link className={link} to="/locker">
+          {tt(lang, "sendDocument")} →
+        </Link>
+      )}
     </div>
   );
 }

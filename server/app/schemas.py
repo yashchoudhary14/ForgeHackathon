@@ -305,9 +305,10 @@ class TalkIn(BaseModel):
 
 
 class TalkReply(BaseModel):
-    text: str = Field(min_length=1, max_length=1200)
+    text: str = Field(min_length=1, max_length=16000)
     quick_replies: list[str] = Field(default_factory=list, max_length=4)
     application_offer_slug: str | None = Field(default=None, description="Only when text asks consent to APPLY to this one scheme; otherwise null")
+    application_offer_service: str | None = Field(default=None, description="Only when text asks consent to APPLY to this one returned service_id; otherwise null")
 # ---------- civic ----------
 
 ReportCategory = Literal["water", "roads", "electricity", "sanitation", "streetlight", "drainage", "safety", "other"]
