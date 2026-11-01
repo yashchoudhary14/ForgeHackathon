@@ -5,9 +5,35 @@ import type { Citation, ProfileData } from "./types";
 import type { BuddyAction } from "../buddy/actions";
 
 /** Languages POST /talk accepts as `lang` (server schemas.Lang). */
-export const talkLangs = ["en", "hi", "bn", "as", "ta", "te", "mr", "gu", "kn", "ml", "pa", "od"];
+export const talkLangs = [
+  "en",
+  "hi",
+  "bn",
+  "as",
+  "ta",
+  "te",
+  "mr",
+  "gu",
+  "kn",
+  "ml",
+  "pa",
+  "od",
+];
 
 export type TalkCard =
+  | {
+      kind: "service";
+      service_id: string;
+      service: string;
+      official_portal_url: string | null;
+      steps: string[];
+      documents: string[];
+      fees: string | null;
+      time: string | null;
+      notes: string[];
+      sources: { url: string; title: string }[];
+    }
+  | { kind: "sources"; sources: { url: string; title: string }[] }
   | {
       kind: "scheme";
       slug: string;
@@ -26,6 +52,8 @@ export type TalkStage =
   | "planning"
   | "saving_profile"
   | "finding_schemes"
+  | "finding_service"
+  | "searching_sources"
   | "preparing_reply"
   | "preparing_audio";
 
@@ -51,7 +79,12 @@ export interface TalkInput {
   text?: string;
   audio?: Blob;
   lang?: string;
-  context?: { page: string; run_id: string | null; pending_step: string | null; onboarding?: boolean };
+  context?: {
+    page: string;
+    run_id: string | null;
+    pending_step: string | null;
+    onboarding?: boolean;
+  };
   stream_audio?: boolean;
 }
 
@@ -61,11 +94,16 @@ export function talkBody(input: TalkInput): {
   headers: Record<string, string>;
 } {
   // Unknown language codes are omitted so speech detection can choose safely.
-  const lang = input.lang && talkLangs.includes(input.lang) ? input.lang : undefined;
+  const lang =
+    input.lang && talkLangs.includes(input.lang) ? input.lang : undefined;
   if (input.audio) {
     const form = new FormData();
     form.set("profile_id", input.profile_id);
-    const ext = input.audio.type.includes("ogg") ? "ogg" : input.audio.type.includes("mp4") ? "m4a" : "webm";
+    const ext = input.audio.type.includes("ogg")
+      ? "ogg"
+      : input.audio.type.includes("mp4")
+        ? "m4a"
+        : "webm";
     form.set("audio", input.audio, "speech." + ext);
     if (lang) form.set("lang", lang);
     if (input.context) form.set("context", JSON.stringify(input.context));

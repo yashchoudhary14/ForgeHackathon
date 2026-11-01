@@ -3,7 +3,7 @@ const en = {
     "This does not look like the requested document. Please photograph the correct document with its heading visible.",
   name: "Buddy",
   greeting:
-    "Hello, I’m Buddy. I can help you find support and fill forms. Choose how to tell me about yourself.",
+    "Hello, I’m Buddy. Ask me anything, or get help with government services, schemes and applications. You can also save a profile for filling forms.",
   voice: "Answer by voice",
   manual: "Fill a form",
   state: "Which state do you live in?",
@@ -59,7 +59,7 @@ const hi: Record<Key, string> = {
     "यह माँगा गया कागज़ नहीं लग रहा। कृपया सही कागज़ की तस्वीर लें और उसका शीर्षक दिखाएँ।",
   name: "साथी",
   greeting:
-    "नमस्ते, मैं साथी हूँ। योजनाएँ खोजने और फ़ॉर्म भरने में मदद करूँगा। अपने बारे में बताने का तरीका चुनें।",
+    "नमस्ते, मैं साथी हूँ। कोई भी सवाल पूछें या सरकारी सेवाओं, योजनाओं और आवेदन में मदद लें। फ़ॉर्म भरने के लिए अपनी जानकारी भी सहेज सकते हैं।",
   voice: "बोलकर जवाब दें",
   manual: "फ़ॉर्म भरें",
   state: "आप किस राज्य में रहते हैं?",
@@ -112,7 +112,7 @@ const bn: Record<Key, string> = {
     "এটি চাওয়া নথি মনে হচ্ছে না। সঠিক নথির ছবি তুলুন, শিরোনাম স্পষ্ট রাখুন।",
   name: "বন্ধু",
   greeting:
-    "নমস্কার, আমি বন্ধু। প্রকল্প খুঁজতে ও ফর্ম পূরণে সাহায্য করব। নিজের কথা বলার উপায় বেছে নিন।",
+    "নমস্কার, আমি বন্ধু। যেকোনো প্রশ্ন করুন বা সরকারি পরিষেবা, প্রকল্প ও আবেদনে সাহায্য নিন। ফর্ম পূরণের জন্য নিজের তথ্যও সেভ করতে পারেন।",
   voice: "কথা বলে উত্তর দিন",
   manual: "ফর্ম পূরণ করুন",
   state: "আপনি কোন রাজ্যে থাকেন?",
@@ -161,7 +161,7 @@ const bn: Record<Key, string> = {
 const as: Record<Key, string> = {
   name: "বন্ধু",
   greeting:
-    "নমস্কাৰ, মই বন্ধু। আঁচনি বিচাৰিবলৈ আৰু ফৰ্ম পূৰণ কৰিবলৈ সহায় কৰিম। নিজৰ কথা কোৱাৰ উপায় বাছক।",
+    "নমস্কাৰ, মই বন্ধু। যিকোনো প্ৰশ্ন সোধক বা চৰকাৰী সেৱা, আঁচনি আৰু আবেদনত সহায় লওক। ফৰ্ম পূৰণৰ বাবে নিজৰ তথ্যও সংৰক্ষণ কৰিব পাৰে।",
   voice: "কথা কৈ উত্তৰ দিয়ক",
   manual: "ফৰ্ম পূৰণ কৰক",
   state: "আপুনি কোন ৰাজ্যত থাকে?",
