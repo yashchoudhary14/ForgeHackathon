@@ -5,6 +5,7 @@ import type { NotificationOut } from "../api/types";
 import { ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
 import { Card, EmptyState, Eyebrow } from "../ui";
+import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
 
 /** A notification link: in-app route, or the official source in a new tab. */
@@ -70,8 +71,15 @@ export function AlertsPanel({
   return (
     <div className="flex flex-col gap-3">
       {shown.length === 0 ? (
-        <EmptyState title={tt(lang, "alertsTitle")}>
-          {profileId ? tt(lang, "alertsEmpty") : tt(lang, "needProfile")}
+        <EmptyState
+          title={tt(lang, profileId ? "alertsEmpty" : "needProfileTitle")}
+          action={
+            !profileId && (
+              <PillLink to="/talk">{tt(lang, "chooseTalk")} →</PillLink>
+            )
+          }
+        >
+          {!profileId && tt(lang, "needProfile")}
         </EmptyState>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">

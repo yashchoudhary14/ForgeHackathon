@@ -108,7 +108,7 @@ export default function Civic() {
       </div>
 
       <Card className="flex flex-col gap-3 !p-4">
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="group" aria-label="Filter by status">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
           {statusTabs.map(([val, lbl]) => (
             <button
               key={val}
@@ -167,9 +167,11 @@ export default function Civic() {
           {!reports ? (
             <Loading message="Loading civic reports and accountability stats…" />
           ) : reports.length === 0 ? (
-            <EmptyState title="No reports match this view" action={<PillLink to="/civic/new" tone="saffron">Report an issue →</PillLink>}>
-              Change the filters or report a local issue in your area.
-            </EmptyState>
+            !error && (
+              <EmptyState title="No reports match this view" action={<PillLink to="/civic/new" tone="saffron">Report an issue →</PillLink>}>
+                Change the filters or report a local issue in your area.
+              </EmptyState>
+            )
           ) : (
             reports.map((r) => {
               const meta = statusMeta(r.status);
