@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { Outlet, Route, Routes, useLocation, Link } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation, Link } from "react-router-dom";
 import { listNotifications } from "./api/alerts";
 import { useApp, Text } from "./context";
 import { Loading } from "./components";
@@ -10,6 +10,12 @@ import BuddyWelcome from "./buddy/BuddyWelcome";
 import BuddyDock from "./buddy/BuddyDock";
 import { BuddyProvider } from "./buddy/context";
 import Home from "./pages/Home";
+
+// first visit: ask "voice or form" before anything else; skipping sets a mode, so home shows after that
+function HomeOrWelcome() {
+  const { profileId, mode } = useApp();
+  return !profileId && !mode ? <Navigate to="/welcome" replace /> : <Home />;
+}
 
 const Schemes = lazy(() => import("./pages/Schemes"));
 const Scheme = lazy(() => import("./pages/Scheme"));
@@ -94,7 +100,7 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/welcome" element={<BuddyWelcome />} />
       <Route element={<Layout />}>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<HomeOrWelcome />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/talk" element={<Talk />} />
         <Route path="/locker" element={<Locker />} />
