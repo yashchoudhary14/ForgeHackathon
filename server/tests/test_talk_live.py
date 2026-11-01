@@ -3,6 +3,7 @@ import io
 import json
 import os
 import re
+import time
 import wave
 from urllib.parse import urlsplit
 
@@ -10,9 +11,20 @@ import httpx
 import pytest
 
 
-def decode(response):
-    response.raise_for_status()
-    return [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
+async def timed_talk(client, **kwargs):
+    """Include speech synthesis in completion time; observe actual streamed cards."""
+    started = time.monotonic()
+    events, timings = [], {}
+    async with client.stream("POST", "/api/talk", **kwargs) as response:
+        response.raise_for_status()
+        async for line in response.aiter_lines():
+            if not line.startswith("data: "):
+                continue
+            event = json.loads(line[6:])
+            events.append(event)
+            timings.setdefault(event["type"], round(time.monotonic() - started, 2))
+    print(json.dumps({"talk_seconds": timings}))
+    return events
 
 
 @pytest.mark.live
@@ -23,8 +35,8 @@ async def test_first_hindi_text_student_profile_cards_and_playable_audio():
         created = await client.post("/api/profile", json={"mode": "talk"})
         created.raise_for_status()
         profile_id = created.json()["id"]
-        events = decode(await client.post("/api/talk", json={"profile_id": profile_id,
-            "text": "मैं बिहार की 19 साल की SC छात्रा हूँ, B.Sc पहले साल"}))
+        events = await timed_talk(client, json={"profile_id": profile_id,
+            "text": "मैं बिहार की 19 साल की SC छात्रा हूँ, B.Sc पहले साल"})
         assert not [event for event in events if event["type"] == "error"], events
         done = next(event for event in events if event["type"] == "done")
         assert done["lang"] == "hi" and re.search(r"[\u0900-\u097f]", done["text"])
@@ -60,8 +72,8 @@ async def test_hindi_audio_profile_matching_and_followup():
             "text": "main Uttar Pradesh ka kisan hoon, do acre zameen hai", "language": "hi"})
         speech.raise_for_status()
         assert speech.content.startswith(b"RIFF")
-        first = decode(await client.post("/api/talk", data={"profile_id": profile_id},
-                                        files={"audio": ("farmer.wav", speech.content, "audio/wav")}))
+        first = await timed_talk(client, data={"profile_id": profile_id},
+                                 files={"audio": ("farmer.wav", speech.content, "audio/wav")})
         assert not [e for e in first if e["type"] == "error"], first
         transcript = next(e for e in first if e["type"] == "transcript")
         assert transcript["lang"] == "hi", transcript
@@ -77,8 +89,8 @@ async def test_hindi_audio_profile_matching_and_followup():
         first_done = next(e for e in first if e["type"] == "done")
         assert first_done["audio_url"] and re.search(r"[\u0900-\u097f]", first_done["text"])
         # The follow-up is intentionally English: it must NOT switch the session.
-        second = decode(await client.post("/api/talk", json={"profile_id": profile_id,
-                                                            "text": "Please explain the first scheme briefly"}))
+        second = await timed_talk(client, json={"profile_id": profile_id,
+                                               "text": "Please explain the first scheme briefly"})
         done = next(e for e in second if e["type"] == "done")
         assert done["lang"] == "hi" and re.search(r"[\u0900-\u097f]", done["text"])
         assert done["audio_url"]
@@ -88,4 +100,4 @@ async def test_hindi_audio_profile_matching_and_followup():
             assert audio.headers["content-type"].startswith("audio/")
         print(json.dumps({"profile_id": profile_id, "transcript": transcript, "profile": first_done["profile"],
                           "scheme_slugs": [s["slug"] for s in schemes], "first_reply": first_done["text"],
-                          "followup_reply": done["text"], "followup_audio_url": done["audio_url"]}, ensure_ascii=False))
+                          "followup_reply": done["text"], "followup_audio_url": done["audio_url"]}, ensure_ascii=True))

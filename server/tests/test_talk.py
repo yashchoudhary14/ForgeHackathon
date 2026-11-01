@@ -159,33 +159,48 @@ async def test_gemini_dispatches_tools_preserves_signature_and_emits_real_cards(
     row = await db.get(Profile, "farmer")
     monkeypatch.setattr(intake, "extract", AsyncMock(return_value=(ProfileData(state="Uttar Pradesh", occupation="farmer", land_acres=2), SensitiveData())))
     matches = [MatchResult(scheme=SchemeSummary(slug=f"scheme-{i}", name=f"Official {i}", brief="Official description"),
-                           verdict="likely", confidence=.8, reasons=[]) for i in range(5)]
+                           verdict="likely", confidence=.8, reasons=[]) for i in range(3)]
     match = AsyncMock(return_value=matches)
-    monkeypatch.setattr(talk.matcher, "match", match)
+    monkeypatch.setattr(talk.matcher, "first_matches", match)
     reply = TalkReply(text="आपके लिए योजनाएँ मिली हैं। क्या इनके बारे में समझाऊँ?", quick_replies=["समझाएँ"])
-    planned = [model_response(("save_profile_facts", {}), ("find_schemes", {})), model_response(), model_response(reply=reply)]
+    planned = [model_response(("save_profile_facts", {}), ("find_schemes", {})), model_response(reply=reply)]
 
     async def generate(contents, cfg, model):
-        assert model == "strong"
+        assert model == ("strong" if len(planned) == 2 else "lite")
         assert "Private Citizen" not in str(contents) + str(cfg)
-        if len(planned) == 2:
-            assert contents[-2].parts[0].thought_signature == b"keep-original-signature"
-            assert len(contents[-1].parts) == 2
+        if len(planned) == 1:
+            assert contents[-3].parts[0].thought_signature == b"keep-original-signature"
+            assert len(contents[-2].parts) == 2
         return planned.pop(0)
 
     monkeypatch.setattr(talk.llm, "generate_content", generate)
     tools = talk.TalkTools(db, row, "farmer in UP with two acres")
     result = [e async for e in talk.respond(tools.message, "hi", [], tools)]
-    assert [e["type"] for e in result] == ["card"] * 5 + ["delta", "reply"]
+    assert [e["type"] for e in result] == ["card"] * 3 + ["delta", "reply"]
     assert {"kind", "slug", "name", "verdict", "summary"} <= result[0]["card"].keys()
     assert match.await_args.args[0].land_acres == 2
-    assert match.await_args.kwargs["limit"] == 5
+    assert match.await_args.kwargs["limit"] == 3
+
+
+async def test_repeated_find_reuses_this_turns_intake_and_results(db, monkeypatch):
+    extract = AsyncMock(return_value=(ProfileData(state="Bihar", is_student=True), SensitiveData()))
+    monkeypatch.setattr(intake, "extract", extract)
+    match = AsyncMock(return_value=[MatchResult(scheme=SchemeSummary(slug="s", name="Support"),
+        verdict="likely", confidence=.8, reasons=[])])
+    monkeypatch.setattr(talk.matcher, "first_matches", match)
+    tools = talk.TalkTools(db, await db.get(Profile, "farmer"), "student in Bihar")
+    await tools.call("save_profile_facts", {})
+    first = await tools.call("find_schemes", {})
+    assert await tools.call("find_schemes", {}) == first
+    extract.assert_awaited_once()
+    match.assert_awaited_once()
+    assert len(tools.cards) == 1
 
 
 async def test_tool_allowlist_and_sanitized_failure(db, monkeypatch):
     tools = talk.TalkTools(db, await db.get(Profile, "farmer"), "hello")
     assert "error" in await tools.call("__dict__", {})
-    monkeypatch.setattr(talk.matcher, "match", AsyncMock(side_effect=RuntimeError("secret credential")))
+    monkeypatch.setattr(talk.matcher, "first_matches", AsyncMock(side_effect=RuntimeError("secret credential")))
     monkeypatch.setattr(intake, "extract", AsyncMock(return_value=(ProfileData(), SensitiveData())))
     assert "secret" not in str(await tools.call("find_schemes", {}))
     report = await tools.call("report_issue", {"title": "पानी नहीं आ रहा"})
