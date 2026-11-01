@@ -21,12 +21,22 @@ export function PillLink({
     <Link
       to={to}
       className={cx(pillBase, tones[tone], className)}
-      style={{ color: "inherit" }}
+      // Inline because the global unlayered `a { color }` rule beats Tailwind text utilities.
+      style={{ color: toneText[tone] }}
     >
       {children}
     </Link>
   );
 }
+
+const toneText: Record<PillTone, string> = {
+  dark: "#fbf6ee",
+  saffron: "#17140f",
+  act: "#ffffff",
+  lime: "#17140f",
+  light: "#17140f",
+  ghost: "#17140f",
+};
 
 const phoneItems = [
   { to: "/talk", key: "navTalk", Icon: Mic },
@@ -40,18 +50,18 @@ export function BottomNav({ unread = 0 }: { unread?: number }) {
   return (
     <nav
       aria-label={tt(lang, "mainNav")}
-      className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 gap-1 rounded-full bg-ink p-1.5 shadow-xl md:hidden"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 gap-1 rounded-full bg-ink p-1.5 text-paper shadow-xl md:hidden"
     >
       {phoneItems.map(({ to, key, Icon }) => (
         <NavLink
           key={to}
           to={to}
           aria-label={tt(lang, key)}
-          style={{ color: "inherit" }}
+          style={({ isActive }) => ({ color: isActive ? "#17140f" : "#fbf6ee" })}
           className={({ isActive }) =>
             cx(
               "relative grid h-12 w-12 place-items-center rounded-full",
-              isActive ? "bg-saffron text-ink" : "text-paper",
+              isActive ? "bg-lime" : "hover:bg-white/10",
             )
           }
         >
@@ -91,7 +101,7 @@ export function PillNav({ unread = 0 }: { unread?: number }) {
           <NavLink
             key={to}
             to={to}
-            style={{ color: "inherit" }}
+            style={({ isActive }) => ({ color: isActive ? "#fbf6ee" : "#17140f" })}
             className={({ isActive }) =>
               cx(
                 "flex min-h-11 items-center rounded-full px-4 text-[15px] font-semibold no-underline",
