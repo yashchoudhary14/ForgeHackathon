@@ -20,8 +20,15 @@ const toneClass: Record<string, string> = {
   ok: "bg-ok-soft text-ok",
   warn: "bg-warn-soft text-warn",
   bad: "bg-bad-soft text-bad",
-  act: "bg-act-soft text-[#1f4fa8]",
-  neutral: "bg-[#efe8dc] text-ink-soft",
+  act: "bg-act-soft text-act",
+  neutral: "bg-paper text-ink-soft",
+};
+const toneEdge: Record<string, string> = {
+  ok: "border-l-ok",
+  warn: "border-l-saffron",
+  bad: "border-l-bad",
+  act: "border-l-act",
+  neutral: "border-l-line",
 };
 
 export default function Civic() {
@@ -88,13 +95,12 @@ export default function Civic() {
 
       {stats && stats.total === 0 && (reports?.length ?? 0) === 0 ? (
         <Card
-          tint="peach"
-          className="flex flex-col justify-between gap-4 md:flex-row md:items-center"
+          className="flex flex-col justify-between gap-4 !rounded-card border-2 border-ink !bg-card !shadow-none md:flex-row md:items-center"
         >
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wider text-saffron-text">
+            <span className="text-sm font-semibold text-saffron-text">
                <Text value="NEIGHBOURHOOD ACCOUNTABILITY" /> </span>
-            <strong className="font-serif text-2xl font-normal text-ink">
+            <strong className="font-serif text-2xl font-bold leading-tight text-ink">
                <Text value="Be the first in your neighbourhood to report a street, water, or electricity issue" /> </strong>
             <p className="m-0 text-sm text-ink-soft">
                <Text value="For roads, water, electricity or sanitation, take a photo or speak. Buddy will identify the department and draft a CPGRAMS grievance." /> </p>
@@ -104,7 +110,7 @@ export default function Civic() {
              <Text value="Report an issue" /> </PillLink>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-3 [&>div]:!rounded-tile [&>div]:!shadow-none [&>div:not(.bg-lime)]:border [&>div:not(.bg-lime)]:border-line">
           <StatTile
             accent
             value={stats?.total ?? "—"}
@@ -114,21 +120,21 @@ export default function Civic() {
             value={stats ? stats.official_number : "—"}
             label={`${tr("with an official CPGRAMS number")} · ${stats?.confirmed_by_others ?? 0} ${tr("confirmed by neighbours")}`}
           />
-          <Card tint="peach" className="flex flex-col justify-between gap-3">
+          <Card className="flex flex-col justify-between gap-3 !rounded-tile border-2 border-act !bg-act-soft !shadow-none">
             <div>
-              <strong className="font-serif text-2xl font-normal">
+              <strong className="font-serif text-2xl font-bold leading-tight">
                  <Text value="See a problem on your street?" /> </strong>
               <p className="m-0 text-sm text-ink-soft">
                  <Text value="For roads, water, electricity or sanitation, take a photo or speak." /> </p>
             </div>
-            <PillLink to="/civic/new" className="self-start">
+            <PillLink to="/civic/new" className="w-full !min-h-12 sm:w-auto sm:self-start">
               <Plus size={18} aria-hidden="true" />
                <Text value="Report an issue" /> </PillLink>
           </Card>
         </div>
       )}
 
-      <Card className="flex flex-col gap-3 !p-4">
+      <Card className="flex flex-col gap-3 !rounded-none border-y border-line !bg-transparent !px-0 !py-3 !shadow-none">
         <div
           className="flex gap-2 overflow-x-auto pb-1"
           role="group"
@@ -166,8 +172,8 @@ export default function Civic() {
         <div className="flex min-w-0 flex-col gap-4">
           <CivicMap reports={reports ?? []} onSelect={onSelect} onNearMe={onNearMe} />
           {openByDept.length > 0 && (
-            <Card className="flex flex-col gap-3">
-              <h2 className="m-0 font-serif text-2xl font-normal"> <Text value="Open issues by department" /> </h2>
+            <Card className="flex flex-col gap-3 !rounded-card border border-line !bg-card !shadow-none">
+              <h2 className="m-0 font-serif text-xl font-bold"> <Text value="Open issues by department" /> </h2>
               {openByDept.map(([dept, open]) => {
                 const total = stats?.by_department[dept] ?? open;
                 const pct = total ? Math.round(((total - open) / total) * 100) : 0;
@@ -177,7 +183,7 @@ export default function Civic() {
                       <strong className="min-w-0 break-words">{dept}</strong>
                       <span className="text-ink-soft">{open}  <Text value="open of" /> {total}</span>
                     </div>
-                    <div className="h-2.5 overflow-hidden rounded-full bg-[#efe8dc]" role="img" aria-label={`${pct}% ${tr("no longer open")}`}>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-line" role="img" aria-label={`${pct}% ${tr("no longer open")}`}>
                       <div className="h-full rounded-full bg-ok" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
@@ -199,23 +205,23 @@ export default function Civic() {
             reports.map((r) => {
               const meta = statusMeta(r.status);
               return (
-                <Card key={r.id} className="flex flex-col gap-2.5 !rounded-[22px] !p-4">
+                <Card key={r.id} className={`flex flex-col gap-2.5 !rounded-tile border border-l-[6px] border-line !bg-card !p-4 !shadow-none ${toneEdge[meta.tone] ?? ""}`}>
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
-                    <span className="min-w-0 break-words font-semibold uppercase tracking-wider">
+                    <span className="min-w-0 break-words font-semibold">
                       {r.department} · <Text value={r.severity} />
                     </span>
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${toneClass[meta.tone]}`}><Text value={meta.label} /></span>
+                    <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${toneClass[meta.tone]}`}><Text value={meta.label} /></span>
                   </div>
-                  <h3 className="m-0 break-words font-serif text-2xl font-normal">
+                  <h3 className="m-0 break-words font-serif text-xl font-bold leading-snug">
                     <Link to={"/civic/" + encodeURIComponent(r.id)} className="text-ink no-underline hover:underline">{lang !== "en" && r.language === lang && r.title_local ? r.title_local : r.title}</Link>
                   </h3>
                   {r.address && <p className="m-0 line-clamp-2 text-sm text-ink-soft">{r.address}</p>}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-dashed border-line pt-2">
                     <button
                       type="button"
                       disabled={votingId === r.id || r.profile_id === profileId}
                       onClick={() => void support(r.id)}
-                      className="!min-h-11 !rounded-full !bg-peach !px-3.5 !py-1.5 text-sm !text-saffron-text"
+                      className="!min-h-11 !rounded-full border border-saffron !bg-peach !px-3.5 !py-1.5 text-sm !text-saffron-text"
                     >
                       <ThumbsUp size={15} aria-hidden="true" /> {r.supporters}  <Text value="· +1 Here too" /> </button>
                     <Link to={"/civic/" + encodeURIComponent(r.id)} className="inline-flex min-h-11 items-center text-sm font-semibold"> <Text value="Track timeline →" /> </Link>

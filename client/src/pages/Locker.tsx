@@ -155,15 +155,15 @@ export default function Locker() {
                   Icon: Landmark,
                 },
               ].map(({ title, sub, Icon }) => (
-                <Card key={title} className="flex items-start gap-3.5 !p-4">
+                <Card key={title} className="flex items-start gap-3.5 !rounded-tile border border-line !bg-card !p-4 !shadow-none">
                   <span
                     aria-hidden="true"
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-peach text-saffron-text"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-saffron bg-peach text-saffron-text"
                   >
                     <Icon size={20} />
                   </span>
                   <div className="flex flex-col gap-0.5">
-                    <strong className="font-serif text-lg font-normal text-ink">
+                    <strong className="font-serif text-lg font-bold text-ink">
                       <Text value={title} />
                     </strong>
                     <p className="m-0 text-xs text-ink-soft"><Text value={sub} /></p>
@@ -175,10 +175,10 @@ export default function Locker() {
         </div>
       ) : (
         <>
-          <Card className="flex flex-col gap-4 overflow-hidden !bg-[#1a1917] !text-paper">
+          <Card className="flex flex-col gap-4 overflow-hidden !rounded-card !bg-ink !text-paper !shadow-none">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="m-0 text-paper"> <Text value="Scan into locker" /> </h2>
-              <label className="m-0 flex max-w-full flex-wrap items-center gap-2 text-xs font-semibold text-[#cfc6b8]">
+              <h2 className="m-0 font-serif font-bold text-paper"> <Text value="Scan into locker" /> </h2>
+              <label className="m-0 flex max-w-full flex-wrap items-center gap-2 text-xs font-semibold text-paper/80">
                 <span> <Text value="Document type" /> </span>
                 <select
                   value={docType}
@@ -194,12 +194,12 @@ export default function Locker() {
                 </select>
               </label>
             </div>
-            <div className="relative mx-auto flex min-h-44 w-full max-w-md flex-col items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+            <div className="relative mx-auto flex min-h-44 w-full max-w-md flex-col items-center justify-center gap-3 rounded-tile border border-dashed border-white/30 bg-white/5 p-6 text-center">
               <span aria-hidden="true" className="pointer-events-none absolute left-3 top-3 h-7 w-7 rounded-tl-xl border-l-4 border-t-4 border-lime" />
               <span aria-hidden="true" className="pointer-events-none absolute right-3 top-3 h-7 w-7 rounded-tr-xl border-r-4 border-t-4 border-lime" />
               <span aria-hidden="true" className="pointer-events-none absolute bottom-3 left-3 h-7 w-7 rounded-bl-xl border-b-4 border-l-4 border-lime" />
               <span aria-hidden="true" className="pointer-events-none absolute bottom-3 right-3 h-7 w-7 rounded-br-xl border-b-4 border-r-4 border-lime" />
-              <p className="m-0 text-sm text-[#e8e1d5]">
+              <p className="m-0 text-sm text-paper/90">
                  <Text value="Place your document inside the frame so all four corners are visible. Automatically resized to JPG (<200 KB) & PDF (<300 KB)." /> </p>
               <div className="flex flex-wrap justify-center gap-2.5">
                 {canCamera && (
@@ -245,11 +245,11 @@ export default function Locker() {
           ) : (
             <>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="m-0 font-serif text-3xl font-normal"> <Text value="My locker" /> </h2>
+                <h2 className="m-0 font-serif text-3xl font-bold"> <Text value="My locker" /> </h2>
                 <span className="text-sm text-ink-soft"> <Text value="Secure, just for you" /> </span>
               </div>
-              <StatTile accent value={items.length} label={translate("documents in your locker", lang)} />
-              <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              <div className="[&>div]:!flex-row [&>div]:!items-baseline [&>div]:!gap-3 [&>div]:!rounded-tile [&>div]:!px-4 [&>div]:!py-3 [&>div>span:first-child]:!text-4xl"><StatTile accent value={items.length} label={translate("documents in your locker", lang)} /></div>
+              <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
                 {items.map((d, i) => (
                   <li key={d.id}>
                     <LockerItemCard item={d} index={i} isNew={last?.id === d.id} profileId={profileId} onDelete={() => void remove(d.id)} />

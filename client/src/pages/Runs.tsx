@@ -30,7 +30,7 @@ export function ActivityTimeline({ items, lang = "en" }: { items: ActivityItem[]
       {items.map((item) => {
         const Icon = icons[item.type];
         return (
-          <li key={item.type + item.id} className="flex flex-wrap items-start gap-3 rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_#ede5da]">
+          <li key={item.type + item.id} className="flex flex-wrap items-start gap-3 rounded-tile border border-line bg-card p-4">
             <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-peach text-saffron-text">
               <Icon size={18} />
             </span>
@@ -177,7 +177,7 @@ export default function Runs() {
                 sub: "Watch Buddy fill official portals step-by-step while you approve final submission.",
                 Icon: Bot,
                 tint: "bg-act-soft",
-                iconBg: "bg-white text-[#2A5FC4]",
+                iconBg: "bg-card text-act",
               },
               {
                 title: "CPGRAMS Grievance Tracking",
@@ -190,7 +190,7 @@ export default function Runs() {
                 title: "Eligibility & Policy Alerts",
                 sub: "Get notified when new schemes or revised circulars match your family profile.",
                 Icon: Bell,
-                tint: "bg-[#f2f8e1]",
+                tint: "bg-ok-soft",
                 iconBg: "bg-lime text-ink",
               },
             ].map(({ title, sub, Icon, tint, iconBg }) => (

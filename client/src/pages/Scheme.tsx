@@ -98,15 +98,15 @@ export default function Scheme() {
     <>
       {loading && (
         <>
-          <Card tint="peach" className="mb-6 flex flex-col gap-3">
+          <Card className="mb-6 flex flex-col gap-3 !rounded-card border border-line border-t-[6px] !border-t-act !bg-card !shadow-none">
             <Link
               to="/schemes"
               className="inline-flex min-h-11 items-center self-start font-semibold"
             >
               <Text value={"← My schemes"} />
             </Link>
-            <p className="m-0 inline-flex items-center gap-1.5 self-start rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink-soft">
-              <Landmark size={14} aria-hidden="true" className="shrink-0" />
+            <p className="m-0 inline-flex items-center gap-1.5 self-start text-sm font-semibold text-ink-soft">
+              <Landmark size={16} aria-hidden="true" className="shrink-0 text-act" />
               GOVERNMENT SCHEME
             </p>
             <h1>{fallbackTitle || "Scheme details"}</h1>
@@ -117,21 +117,21 @@ export default function Scheme() {
       {error && <ErrorBox error={error} retry={() => retryAction.current()} />}{" "}
       {scheme && (
         <>
-          <Card tint="peach" className="mb-6 flex flex-col gap-3">
+          <Card className="mb-6 flex flex-col gap-3 !rounded-card border border-line border-t-[6px] !border-t-act !bg-card !shadow-none">
             <Link to="/schemes" className="inline-flex min-h-11 items-center self-start font-semibold">
               <Text value={"← My schemes"} />
             </Link>
-            <p className="m-0 inline-flex items-center gap-1.5 self-start rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink-soft">
-              <Landmark size={14} aria-hidden="true" className="shrink-0" />
+            <p className="m-0 inline-flex items-center gap-1.5 self-start text-sm font-semibold text-ink-soft">
+              <Landmark size={16} aria-hidden="true" className="shrink-0 text-act" />
               {scheme.ministry || scheme.state || "GOVERNMENT SCHEME"}
             </p>
-            <h1>{scheme.name}</h1>
-            <p className="m-0 max-w-[65ch]">{scheme.brief}</p>
+            <h1 className="!m-0 font-serif !font-bold leading-tight">{scheme.name}</h1>
+            <p className="m-0 max-w-[65ch] text-ink-soft">{scheme.brief}</p>
             <div><SourceLink url={scheme.source_url}>
               <Text value={"Read official source ↗"} />
             </SourceLink></div>
-            <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t border-[#f3d2b8] pt-4">
-              <div className="flex flex-wrap gap-2.5">
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-line pt-4">
+              <div className="flex w-full flex-wrap gap-2.5 sm:w-auto [&>button:first-child]:min-h-12 [&>button:first-child]:flex-1 [&>button:first-child]:text-base">
                 <PillButton
                   tone="saffron"
                   onClick={() => void run()}
@@ -180,7 +180,7 @@ export default function Scheme() {
             <Text value="Use another official portal" />
           </button>
           {apply && (
-            <section className="panel">
+            <section className="panel !rounded-card !border !border-dashed !border-act !bg-act-soft/40 !shadow-none">
               <h2>
                 <Text value={"Choose the application portal"} />
               </h2>
@@ -250,7 +250,7 @@ export default function Scheme() {
             </section>
           )}
           <div
-            className="tabs flex gap-2 overflow-x-auto pb-1"
+            className="tabs -mx-1 flex gap-2 overflow-x-auto border-b border-line px-1 pb-2"
             role="tablist"
             aria-label="Scheme information"
           >
@@ -296,7 +296,7 @@ export default function Scheme() {
             ))}
           </div>
           <div role="tabpanel" id="scheme-tab" aria-labelledby={"tab-" + tab.replaceAll(" ", "-")}>
-          <Card className="mb-6">
+          <Card className="mb-6 !rounded-none !rounded-b-card border-x border-b border-line !bg-card !shadow-none">
             {tab === "Benefits" ? (
               <>
                 <Markdown text={scheme.details_md} />
