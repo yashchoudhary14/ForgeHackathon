@@ -51,6 +51,8 @@ async def update_profile(profile_id: str, body: ProfileUpdate):
             })
         if body.language is not None:
             profile.language = body.language
+            from ..agents.executor import manager
+            manager.set_language(profile.id, body.language)
         if body.mode is not None:
             profile.mode = body.mode
         await session.commit()

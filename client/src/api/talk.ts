@@ -2,9 +2,10 @@ import { BASE } from "./client";
 import { createSseParser } from "./sse";
 import { responseError } from "./errors";
 import type { Citation, ProfileData } from "./types";
+import type { BuddyAction } from "../buddy/actions";
 
 /** Languages POST /talk accepts as `lang` (server schemas.Lang). */
-export const talkLangs = ["en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml", "pa", "od"];
+export const talkLangs = ["en", "hi", "bn", "as", "ta", "te", "mr", "gu", "kn", "ml", "pa", "od"];
 
 export type TalkCard =
   | {
@@ -16,7 +17,7 @@ export type TalkCard =
       citations?: Citation[];
     }
   | { kind: "run"; run_id: string; title?: string }
-  // report_id is null when Sahayak suggests opening the report flow (nothing filed yet).
+  // report_id is null when Buddy suggests opening the report flow (nothing filed yet).
   | { kind: "report"; report_id: string | null; title?: string }
   | { kind: "question"; field: string; options: string[]; label?: string }
   | { kind: "document_request"; doc_type: string; reason?: string };
@@ -29,6 +30,8 @@ export type TalkStage =
   | "preparing_audio";
 
 export type TalkEvent =
+  | { type: "action"; action: BuddyAction }
+  | { type: "audio"; audio_url: string }
   | { type: "transcript"; text: string; lang?: string }
   | { type: "progress"; stage: TalkStage }
   | { type: "delta"; text: string }
@@ -48,6 +51,8 @@ export interface TalkInput {
   text?: string;
   audio?: Blob;
   lang?: string;
+  context?: { page: string; run_id: string | null; pending_step: string | null; onboarding?: boolean };
+  stream_audio?: boolean;
 }
 
 /** Builds the request body: multipart when audio is present, JSON otherwise. */
@@ -55,7 +60,7 @@ export function talkBody(input: TalkInput): {
   body: BodyInit;
   headers: Record<string, string>;
 } {
-  // Languages the server cannot speak (e.g. Assamese UI) are not sent; the server then detects.
+  // Unknown language codes are omitted so speech detection can choose safely.
   const lang = input.lang && talkLangs.includes(input.lang) ? input.lang : undefined;
   if (input.audio) {
     const form = new FormData();
@@ -63,6 +68,8 @@ export function talkBody(input: TalkInput): {
     const ext = input.audio.type.includes("ogg") ? "ogg" : input.audio.type.includes("mp4") ? "m4a" : "webm";
     form.set("audio", input.audio, "speech." + ext);
     if (lang) form.set("lang", lang);
+    if (input.context) form.set("context", JSON.stringify(input.context));
+    if (input.stream_audio) form.set("stream_audio", "true");
     return { body: form, headers: {} };
   }
   return {
@@ -70,6 +77,8 @@ export function talkBody(input: TalkInput): {
       profile_id: input.profile_id,
       text: input.text ?? "",
       ...(lang ? { lang } : {}),
+      ...(input.context ? { context: input.context } : {}),
+      ...(input.stream_audio ? { stream_audio: true } : {}),
     }),
     headers: { "Content-Type": "application/json" },
   };

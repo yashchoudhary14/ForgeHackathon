@@ -6,7 +6,9 @@ import { Loading } from "./components";
 import { BottomNav, PillNav } from "./nav";
 import { EmptyState } from "./ui";
 import { tt } from "./ui-strings";
-import ModeChoice from "./ModeChoice";
+import BuddyWelcome from "./buddy/BuddyWelcome";
+import BuddyDock from "./buddy/BuddyDock";
+import { BuddyProvider } from "./buddy/context";
 import Home from "./pages/Home";
 
 const Schemes = lazy(() => import("./pages/Schemes"));
@@ -82,12 +84,14 @@ function NotFound() {
 
 export default function AppRoutes() {
   return (
+    <BuddyProvider>
     <Routes>
-      <Route path="/welcome" element={<ModeChoice />} />
+      <Route path="/welcome" element={<BuddyWelcome />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/talk" element={<Talk />} />
+        <Route path="/profile" element={<BuddyWelcome profile />} />
         <Route path="/locker" element={<Locker />} />
         <Route path="/civic" element={<Civic />} />
         <Route path="/civic/new" element={<CivicNew />} />
@@ -102,5 +106,7 @@ export default function AppRoutes() {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+    <BuddyDock />
+    </BuddyProvider>
   );
 }

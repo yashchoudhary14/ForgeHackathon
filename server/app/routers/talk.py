@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import re
 from contextlib import aclosing, suppress
 from weakref import WeakValueDictionary
 
@@ -11,11 +12,12 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from starlette.datastructures import UploadFile
 
-from ..agents.talk import TalkTools, detect_text_language, requested_language, respond, safe_text
+from ..agents.talk import ONBOARDING_FIELDS, UI_ROUTES, TalkTools, detect_text_language, requested_language, respond, safe_text
 from ..db import SessionLocal
-from ..models import ChatMessage, Profile
+from ..models import AgentRun, ChatMessage, Profile
 from ..schemas import ProfileData, TalkIn
 from ..services import crypto, sarvam
+from ..services import myscheme
 from .chat import sse
 
 log = logging.getLogger(__name__)
@@ -24,6 +26,60 @@ KEEPALIVE_SECONDS = 10
 # One worker: serialize overlapping turns so they cannot race on profile language,
 # facts or consent. Weak entries disappear once no request references the lock.
 _profile_locks: WeakValueDictionary = WeakValueDictionary()
+
+
+async def spoken_events(events, language: str, enabled: bool):
+    """Race the next model/tool event against first-sentence speech.
+
+    In particular, a slow scheme match must not hold back already available audio.
+    The caller removes spoken_text before exposing the event to the client.
+    """
+    pending, speech = None, None
+    accumulated, sentence = "", ""
+    iterator = events.__aiter__()
+    try:
+        pending = asyncio.create_task(anext(iterator))
+        while pending is not None:
+            done, _ = await asyncio.wait({pending, speech} if speech else {pending}, return_when=asyncio.FIRST_COMPLETED)
+            if speech and speech in done:
+                try:
+                    url = speech.result()
+                    if url:
+                        yield {"type": "audio", "audio_url": url, "spoken_text": sentence}
+                except Exception:
+                    log.warning("First-sentence speech unavailable")
+                speech = None
+            if pending not in done:
+                continue
+            try:
+                event = pending.result()
+            except StopAsyncIteration:
+                pending = None
+                break
+            pending = None
+            if enabled and event["type"] == "delta":
+                accumulated += event["text"]
+                match = re.match(r"^(.{8,}?[.!?।])(?:\s|$)", accumulated, re.S)
+                if match:
+                    sentence = match[1]
+                    speech = asyncio.create_task(sarvam.tts_to_file(sentence, language))
+                    enabled = False
+            yield event
+            pending = asyncio.create_task(anext(iterator))
+        if speech:
+            try:
+                url = await speech
+                if url:
+                    yield {"type": "audio", "audio_url": url, "spoken_text": sentence}
+            except Exception:
+                log.warning("First-sentence speech unavailable")
+    finally:
+        for task in (pending, speech):
+            if task and not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+        await iterator.aclose()
 
 
 async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db):
@@ -57,6 +113,8 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
     if audio is not None:
         db.add(ChatMessage(session_id=session_id, role="transcript", content=language))
     profile.language, profile.mode = language, "talk"
+    from ..agents.executor import manager
+    manager.set_language(profile.id, language)
     await db.commit()
     yield {"type": "transcript", "text": text, "lang": language}
 
@@ -69,14 +127,41 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
     db.add(ChatMessage(session_id=session_id, role="user", content=message))
     await db.commit()
     tools = TalkTools(db, profile, message, history)
+    if body.context:
+        page = body.context.page
+        tools.context = {"page": page if page in UI_ROUTES else "/runs/:id" if re.fullmatch(r"/runs/[\w-]+", page) else "/schemes/:slug" if re.fullmatch(r"/schemes/[\w-]+", page) else "/",
+                         "onboarding": body.context.onboarding}
+        current_scheme = re.fullmatch(r"/schemes/([A-Za-z0-9_-]{1,200})", page)
+        if current_scheme:
+            try:
+                async with asyncio.timeout(4):
+                    detail = await myscheme.get_scheme(current_scheme[1], lang="en", index=False)
+                tools.context["scheme_slug"] = detail.slug  # only a verified official slug reaches Gemini
+                tools.known_slugs.add(detail.slug)
+            except Exception:
+                log.warning("Current scheme context unavailable")
+        if body.context.run_id:
+            run = await db.get(AgentRun, body.context.run_id)
+            if run and run.profile_id == profile.id:
+                # IDs and human answers are never model context. Resolve current state locally.
+                live = manager.get(run.id)
+                tools.context.update({"run_active": run.status not in {"done", "failed", "aborted"},
+                                      "pending_step": live.pending.get("kind") if live and live.pending else None})
+    if tools.context.get("onboarding"):
+        yield {"type": "progress", "stage": "saving_profile"}
+        tools.profile_question = next((field for field in ONBOARDING_FIELDS if getattr(tools.profile, field) is None), None)
+        await tools.save_profile_facts()
     reply, cards = None, []
-    async with aclosing(respond(message, language, history, tools)) as events:
+    first_sentence = ""
+    async with aclosing(spoken_events(respond(message, language, history, tools), language, body.stream_audio)) as events:
         async for event in events:
             if event["type"] == "reply":
                 reply = event
             else:
                 if event["type"] == "card":
                     cards.append(event["card"])
+                if event["type"] == "audio":
+                    first_sentence = event.pop("spoken_text")
                 yield event
     if reply is None:
         raise ValueError("Talk returned no final reply")
@@ -91,7 +176,9 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
     audio_url = None
     yield {"type": "progress", "stage": "preparing_audio"}
     try:
-        audio_url = await sarvam.tts_to_file(reply["text"], language)
+        remaining = reply["text"][len(first_sentence):].strip() if first_sentence and reply["text"].startswith(first_sentence) else reply["text"]
+        if remaining:
+            audio_url = await sarvam.tts_to_file(remaining, language)
     except Exception:
         log.warning("talk speech unavailable for language %s", language)
     yield {"type": "done", "text": reply["text"], "lang": language,
@@ -138,8 +225,12 @@ async def talk(request: Request):
     audio, content_type = None, "audio/webm"
     try:
         if request.headers.get("content-type", "").startswith("multipart/form-data"):
-            async with request.form(max_files=1, max_fields=3) as form:
+            async with request.form(max_files=1, max_fields=5) as form:
                 values = {k: form[k] for k in ("profile_id", "text", "lang") if k in form}
+                if "context" in form:
+                    values["context"] = json.loads(str(form["context"]))
+                if "stream_audio" in form:
+                    values["stream_audio"] = form["stream_audio"]
                 body = TalkIn.model_validate(values)
                 upload = form.get("audio")
                 if upload is not None:

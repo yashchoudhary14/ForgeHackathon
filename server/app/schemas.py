@@ -288,10 +288,20 @@ class ProfileUpdate(BaseModel):
     mode: Literal["talk", "manual"] | None = None
 
 
+class TalkContext(BaseModel):
+    # Values/portal text are deliberately excluded, especially OTP and CAPTCHA.
+    page: str = Field(default="/", max_length=240)
+    run_id: str | None = Field(default=None, max_length=32)
+    pending_step: Literal["captcha", "otp", "login", "missing_field", "confirm_submit", "confirm_upload", "payment"] | None = None
+    onboarding: bool = False
+
+
 class TalkIn(BaseModel):
     profile_id: str = Field(min_length=1, max_length=32)
     text: str | None = Field(default=None, max_length=12000)
     lang: Lang | None = None
+    context: TalkContext | None = None
+    stream_audio: bool = False
 
 
 class TalkReply(BaseModel):

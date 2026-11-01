@@ -250,6 +250,9 @@ export interface UploadDocument {
   meta?: { readable?: boolean; issues?: string[] } | null;
 }
 export interface Human {
+  request_id?: string;
+  doc_type?: string;
+  capture_required?: boolean;
   kind: HumanKind;
   message?: string;
   field?: string | null;
@@ -271,11 +274,11 @@ export type ServerMessage =
   | { type: "done"; receipt: Receipt }
   | { type: "error"; message: string };
 export type ClientMessage =
-  | { type: "human_input"; value: string }
+  | { type: "human_input"; value: string; request_id?: string }
   | { type: "click"; x: number; y: number }
   | { type: "type"; text: string }
   | { type: "key"; key: string }
-  | { type: "resume" | "approve" | "approve_duplicate" | "abort" };
+  | { type: "resume" | "approve" | "approve_duplicate" | "abort"; request_id?: string };
 
 export interface NotificationOut {
   id: number;
