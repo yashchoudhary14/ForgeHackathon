@@ -161,7 +161,7 @@ export default function CardView({
       <div className={box}>
         <div className="flex items-center gap-2">
           <VerdictChip verdict={card.verdict} />
-          <span className="font-serif text-xl">{card.name}</span>
+          <span className="min-w-0 font-serif text-xl">{card.name}</span>
         </div>
         {card.summary && <p className="m-0 text-[15px]">{card.summary}</p>}
         <Link className={link} to={"/schemes/" + encodeURIComponent(card.slug)}>

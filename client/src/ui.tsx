@@ -143,7 +143,7 @@ export function VerdictChip({
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold",
+        "inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold",
         verdictStyle[v],
       )}
     >
