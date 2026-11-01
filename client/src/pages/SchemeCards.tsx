@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import type { MatchResult } from "../api/types";
 import { Citations } from "../components";
-import { useApp } from "../context";
+import { Text, useApp } from "../context";
 import { Card, StatTile, VerdictChip } from "../ui";
 import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
@@ -44,7 +44,7 @@ export function MatchCards({ matches }: { matches: MatchResult[] }) {
             </h2>
             {m.scheme.brief && <p className="m-0">{m.scheme.brief}</p>}
             <details open={m.reasons.length > 0 && m.reasons.length < 4}>
-              <summary>Why this matches you</summary>
+              <summary><Text value="Why this matches you" /></summary>
               {m.reasons.map((r, i) => (
                 <div key={i} className="mb-2">
                   <p className="m-0">
@@ -68,7 +68,7 @@ export function MatchCards({ matches }: { matches: MatchResult[] }) {
             </details>
             {m.documents_needed.length > 0 && (
               <div className="flex flex-col gap-2 text-sm">
-                <strong>Documents you’ll need</strong>
+                <strong><Text value="Documents you’ll need" /></strong>
                 <ul className="m-0 flex list-none flex-wrap gap-2 p-0">{m.documents_needed.map((doc, i) => <li key={`${doc}-${i}`} className="rounded-full bg-paper px-3 py-1 text-xs font-medium text-ink shadow-[inset_0_0_0_1px_#ede5da]">{doc}</li>)}</ul>
               </div>
             )}
