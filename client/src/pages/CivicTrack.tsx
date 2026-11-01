@@ -20,7 +20,7 @@ import { Card, EmptyState, Eyebrow } from "../ui";
 
 const badgeStyle = {
   citizen: "bg-ok-soft text-ok",
-  system: "bg-act-soft text-act",
+  system: "bg-act-soft text-[#1f4fa8]",
   official: "bg-warn-soft text-warn",
 };
 const dotStyle = { citizen: "bg-ok", system: "bg-act", official: "bg-saffron" };
@@ -32,7 +32,7 @@ export function CivicTimelineView({ report }: { report: Pick<ReportOut, "events"
   if (!report.events?.length)
     return <EmptyState title={tr("No updates yet")}> <Text value="Updates from citizens and the department will appear here." /> </EmptyState>;
   return (
-    <ol className="relative m-0 flex list-none flex-col gap-3.5 pl-6 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-0.5 before:bg-line">
+    <ol className="relative m-0 flex list-none flex-col gap-3.5 pl-6 before:absolute before:bottom-3 before:left-2 before:top-3 before:w-0.5 before:bg-[#e5dccf]">
       {report.events.map((ev) => {
         const badge = sourceBadge(ev);
         if (badge.kind === "system") badge.label = tt(lang, "brandName");
@@ -41,7 +41,7 @@ export function CivicTimelineView({ report }: { report: Pick<ReportOut, "events"
         return (
           <li key={ev.id} className="relative">
             <span aria-hidden="true" className={`absolute -left-[22px] top-4 h-3.5 w-3.5 rounded-full border-[3px] border-paper ${dotStyle[badge.kind]}`} />
-            <Card className={"flex flex-col gap-1.5 !rounded-tile border border-line !bg-card !p-4 !shadow-none " + (badge.kind === "official" ? "border-l-4 !border-l-saffron !bg-peach" : "")}>
+            <Card className={"flex flex-col gap-1.5 !rounded-[18px] !p-4 " + (badge.kind === "official" ? "border-l-4 border-saffron !bg-[#fffaf5]" : "")}>
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-semibold ${badgeStyle[badge.kind]}`}>{badge.kind === "official" && <Landmark size={14} aria-hidden="true" className="shrink-0" />}{badge.kind === "official" ? tr("Official CPGRAMS reply") : tr(badge.kind === "citizen" ? "Citizen" : badge.label)}</span>
                 <time dateTime={ev.created_at}>{new Date(ev.created_at).toLocaleString(lang)}</time>
@@ -159,7 +159,7 @@ export default function CivicTrack() {
 
       <Card tint="peach" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-lg bg-peach px-2.5 py-1 text-xs font-semibold text-saffron-text"><Text value={meta.label} /></span>
+          <span className="rounded-full bg-[#FFE7D3] px-3 py-1 text-xs font-semibold text-saffron-text"><Text value={meta.label} /></span>
           <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold">{report.department}</span>
           <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold capitalize"><Text value={report.category} /> · <Text value={report.severity} /></span>
           {report.official_ref && (
@@ -182,7 +182,7 @@ export default function CivicTrack() {
                 <Bell size={16} aria-hidden="true" />  <Text value="Follow" /> </button>
             )}
             {mine && !report.official_ref && !closed && (
-              <button type="button" disabled={busy} onClick={() => void startRun(fileReport)} className="!min-h-11 !bg-act !px-4 text-sm !text-white">
+              <button type="button" disabled={busy} onClick={() => void startRun(fileReport)} className="!min-h-11 !bg-[#2a5fc4] !px-4 text-sm !text-white">
                 <Bot size={16} aria-hidden="true" />  <Text value="File on CPGRAMS" /> </button>
             )}
             {mine && report.official_ref && (
@@ -219,7 +219,7 @@ export default function CivicTrack() {
               <CheckCircle2 size={18} aria-hidden="true" />  <Text value="Fixed" /> </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="inline-flex min-h-11 max-w-full cursor-pointer items-center gap-2 rounded-full border border-line bg-card px-4 text-sm font-semibold">
+            <label className="inline-flex min-h-11 max-w-full cursor-pointer items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold shadow-[inset_0_0_0_1px_#d9cfc0]">
               <Upload size={16} aria-hidden="true" className="shrink-0" />
               <span className="truncate">{evidencePhoto ? evidencePhoto.name : tr("Attach photo proof")}</span>
               <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" disabled={busy} onChange={(e) => setEvidencePhoto(e.target.files?.[0] || null)} />

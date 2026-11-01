@@ -59,17 +59,17 @@ export default function ModeChoice() {
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {options.map(([mode, title, sub, Icon]) => (
-          <Card key={mode} tint={mode === "talk" ? "peach" : undefined} className={mode === "talk" ? "!border-2 !border-saffron" : undefined}>
+          <Card key={mode} tint={mode === "talk" ? "peach" : undefined}>
             <button
               type="button"
               disabled={busy !== ""}
               onClick={() => void choose(mode)}
               className="!flex !h-auto w-full !flex-col !items-start !gap-3 !rounded-none !bg-transparent !p-0 text-left !text-ink"
             >
-              <span className={mode === "talk" ? "grid h-12 w-12 place-items-center rounded-full bg-saffron text-ink" : "grid h-12 w-12 place-items-center rounded-full bg-act text-white"}>
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-ink text-paper">
                 <Icon aria-hidden="true" />
               </span>
-              <span className="font-serif text-2xl font-bold leading-tight">
+              <span className="font-serif text-2xl font-normal">
                 {tt(lang, title)}
               </span>
               <span className="font-normal text-ink-soft">

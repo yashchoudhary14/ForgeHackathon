@@ -8,18 +8,17 @@ import { safeUrl } from "./api/client";
 export const cx = (...parts: (string | false | undefined | null)[]) =>
   parts.filter(Boolean).join(" ");
 
-export type PillTone = "dark" | "saffron" | "act" | "lime" | "light" | "ghost" | "inverse";
+export type PillTone = "dark" | "saffron" | "act" | "lime" | "light" | "ghost";
 export const tones: Record<PillTone, string> = {
-  dark: "bg-ink text-paper hover:bg-[#232c4f]",
-  saffron: "bg-saffron text-ink hover:bg-[#ffb41f]",
-  act: "bg-act text-white hover:bg-[#24359a]",
+  dark: "bg-ink text-paper",
+  saffron: "bg-saffron text-ink",
+  act: "bg-[#2a5fc4] text-white",
   lime: "bg-lime text-ink",
-  light: "bg-white text-ink border border-[#b9c1d4] hover:border-ink",
-  ghost: "bg-transparent text-ink border-2 border-ink",
-  inverse: "bg-transparent text-white border-2 border-white/70 hover:border-white hover:bg-white/10",
+  light: "bg-white text-ink shadow-[inset_0_0_0_1px_#d9cfc0]",
+  ghost: "bg-transparent text-ink shadow-[inset_0_0_0_1px_#17140f]",
 };
 export const pillBase =
-  "pill-control inline-flex min-h-12 min-w-11 items-center justify-center gap-2 rounded-full px-6 text-[0.95rem] font-semibold leading-tight no-underline transition-[transform,background-color,border-color] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-text disabled:opacity-100";
+  "pill-control inline-flex min-h-12 min-w-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold no-underline transition-transform duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none disabled:cursor-not-allowed disabled:bg-[#e6dec8] disabled:text-[#5c5346] disabled:opacity-100";
 
 export function TextSizeToggle() {
   const { lang, largeText, setLargeText } = useApp();
@@ -31,8 +30,8 @@ export function TextSizeToggle() {
       title={tt(lang, "largeText")}
       onClick={() => setLargeText(!largeText)}
       className={cx(
-        "text-size-toggle min-h-11 min-w-11 rounded-full border px-3 text-sm font-bold",
-        largeText ? "border-act bg-act-soft text-act" : "border-[#b9c1d4] bg-white text-ink",
+        "text-size-toggle min-h-11 min-w-11 rounded-full px-3 text-sm font-bold shadow-[inset_0_0_0_1px_#d9cfc0]",
+        largeText ? "bg-lime text-ink" : "bg-white text-ink",
       )}
     >
        <Text value="A+" /> </button>
@@ -61,10 +60,7 @@ export function SourceLink({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className={cx(
-        "source-link inline-flex min-h-11 min-w-11 max-w-full flex-wrap items-center gap-1.5 rounded-[8px] border px-3 py-1 text-sm font-semibold text-act underline-offset-4 hover:underline",
-        official ? "border-[#c3cbf0] bg-act-soft" : "border-line bg-white",
-      )}
+      className="source-link inline-flex min-h-11 min-w-11 max-w-full flex-wrap items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-saffron-text shadow-[inset_0_0_0_1px_#d9cfc0]"
     >
       <Icon size={14} aria-hidden="true" className="shrink-0" />
       {official && <span>{tt(lang, "officialSource")}</span>}
@@ -100,12 +96,12 @@ export function Card({
   return (
     <Tag
       className={cx(
-        "min-w-0 rounded-card border p-5 sm:p-6",
+        "min-w-0 rounded-[28px] p-5 sm:p-6",
         tint === "peach"
-          ? "border-[#f5dd9e] bg-peach"
+          ? "bg-peach"
           : tint === "blue"
-            ? "border-[#c3cbf0] bg-act-soft"
-            : "border-line bg-card",
+            ? "bg-act-soft"
+            : "bg-white shadow-[inset_0_0_0_1px_#ede5da]",
         className,
       )}
     >
@@ -124,10 +120,10 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 
 export type Verdict = "eligible" | "likely" | "not_eligible" | "unknown";
 const verdictStyle: Record<Verdict, string> = {
-  eligible: "text-ok",
-  likely: "text-warn",
-  not_eligible: "text-bad",
-  unknown: "text-ink-soft",
+  eligible: "bg-ok-soft text-ok",
+  likely: "bg-warn-soft text-warn",
+  not_eligible: "bg-bad-soft text-bad",
+  unknown: "bg-[#efe8dc] text-[#3e372e]",
 };
 const verdictLabel: Record<Verdict, string> = {
   eligible: "verdictEligible",
@@ -147,7 +143,7 @@ export function VerdictChip({
   return (
     <span
       className={cx(
-        "verdict-stamp stamp shrink-0 text-sm",
+        "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold",
         verdictStyle[v],
       )}
     >
@@ -168,11 +164,11 @@ export function StatTile({
   return (
     <div
       className={cx(
-        "flex flex-col gap-1.5 rounded-tile border p-4",
-        accent ? "border-[#f2c94c] bg-lime" : "border-line bg-card",
+        "flex flex-col gap-1 rounded-[22px] p-4",
+        accent ? "bg-lime" : "bg-white shadow-[inset_0_0_0_1px_#ede5da]",
       )}
     >
-      <span className="font-serif text-5xl font-bold leading-none tabular-nums">{value}</span>
+      <span className="font-serif text-5xl leading-none">{value}</span>
       <span className="text-sm text-ink-soft">{label}</span>
     </div>
   );
@@ -214,7 +210,7 @@ export function ChatBubble({
         "stream-entry max-w-[85%] px-4 py-3 text-base",
         from === "user"
           ? "self-end rounded-[22px_22px_6px_22px] bg-ink text-paper"
-          : "self-start rounded-[22px_22px_22px_6px] border border-line bg-card text-ink",
+          : "self-start rounded-[22px_22px_22px_6px] bg-peach text-ink",
       )}
     >
       {children}
@@ -236,15 +232,15 @@ export function EmptyState({
   return (
     <div
       role="status"
-      className="flex flex-col items-center gap-3 rounded-card border-2 border-dashed border-[#c3cad9] bg-card/60 p-8 text-center text-ink-soft"
+      className="flex flex-col items-center gap-3 rounded-[22px] border border-dashed border-[#d9cfc0] p-8 text-center text-ink-soft"
     >
       {icon && (
-        <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-full bg-act-soft text-act">
+        <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-full bg-peach text-saffron-text">
           {icon}
         </span>
       )}
       {title && (
-        <strong className="font-serif text-2xl font-semibold leading-tight text-ink">
+        <strong className="font-serif text-2xl font-normal text-ink">
           {title}
         </strong>
       )}
@@ -297,20 +293,20 @@ export function ProfileRequiredCard({
   return (
     <div
       role="status"
-      className="relative flex flex-col justify-between gap-5 overflow-hidden rounded-card border border-line bg-card p-6 pl-7 before:absolute before:inset-y-0 before:left-0 before:w-1.5 before:bg-act before:content-[''] md:flex-row md:items-center"
+      className="flex flex-col justify-between gap-5 rounded-[28px] border border-[#f3d2b8] bg-gradient-to-br from-peach/70 via-white to-white p-6 md:flex-row md:items-center"
     >
       <div className="flex items-start gap-4">
         <span
           aria-hidden="true"
-          className="grid h-14 w-14 shrink-0 place-items-center rounded-tile bg-act-soft text-act"
+          className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-peach text-saffron-text shadow-[inset_0_0_0_1px_#f3d2b8]"
         >
           <UserCheck size={26} />
         </span>
         <div className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-act">
+          <span className="text-xs font-semibold uppercase tracking-wider text-saffron-text">
             {tt(lang, "profilePassEyebrow")}
           </span>
-          <strong className="font-serif text-2xl font-semibold leading-tight text-ink">
+          <strong className="font-serif text-2xl font-normal text-ink">
             <Text value={copy.title} />
           </strong>
           <p className="m-0 max-w-[58ch] text-sm text-ink-soft">
@@ -331,7 +327,7 @@ export function ProfileRequiredCard({
           to="/talk"
           className={cx(pillBase, tones.light, "!px-5")}
         >
-          <Mic size={18} aria-hidden="true" className="text-act" />
+          <Mic size={18} aria-hidden="true" className="text-saffron-text" />
           {tt(lang, "talkMode")}
         </Link>
       </div>

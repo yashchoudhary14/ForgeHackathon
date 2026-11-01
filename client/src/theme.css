@@ -1,44 +1,55 @@
-/* "Stamp pad" design system: Indian public paperwork made friendly. */
+/* "Dawn" design system: tokens from the System mockup. */
 @theme {
-  --color-paper: #f4f6fa;
-  --color-ink: #141b34;
-  --color-ink-soft: #4a5372;
+  --color-paper: #fbf6ee;
+  --color-ink: #17140f;
+  --color-ink-soft: #4e463c;
   --color-card: #ffffff;
-  --color-line: #dce1ec;
-  --color-disabled: #e3e7f0;
-  --color-disabled-text: #5b6380;
-  --color-saffron: #f2a007;
-  --color-saffron-text: #8a5300;
-  --color-act: #2b3fb5;
-  --color-act-soft: #e8ebfa;
-  --color-lime: #ffd45c;
-  --color-peach: #fff4da;
-  --color-ok: #1e7b4f;
-  --color-ok-soft: #e1f3ea;
-  --color-warn: #8a5300;
-  --color-warn-soft: #fff4da;
-  --color-bad: #b3261e;
-  --color-bad-soft: #fce8e6;
+  --color-line: #ede5da;
+  --color-disabled: #e6dec8;
+  --color-disabled-text: #5c5346;
+  --color-saffron: #e8731c;
+  --color-saffron-text: #9a4a12;
+  --color-act: #3d7bea;
+  --color-act-soft: #eef3ff;
+  --color-lime: #d6f35e;
+  --color-peach: #fff1e6;
+  --color-ok: #155c42;
+  --color-ok-soft: #ddf3e9;
+  --color-warn: #7a4a00;
+  --color-warn-soft: #fff0d1;
+  --color-bad: #8d1f17;
+  --color-bad-soft: #fde4e0;
   --font-serif: "Baloo 2", "Baloo Da 2", system-ui, sans-serif;
   --font-sans: "Hind", "Hind Siliguri", system-ui, sans-serif;
-  --radius-card: 18px;
-  --radius-tile: 14px;
-  /* Stamp-pad block: indigo ink pooling towards navy. */
-  --background-image-dawn: linear-gradient(160deg, #2b3fb5 0%, #1f2c80 55%, #141b34 100%);
+  --radius-card: 28px;
+  --radius-tile: 22px;
+  --background-image-dawn: linear-gradient(
+    90deg,
+    #f7a35c 0%,
+    #ffc994 35%,
+    #ffe3ee 65%,
+    #e5d8fa 100%
+  );
 }
 /* Components override legacy base styles; utilities retain the final say. */
 @layer components {
 :root {
-  --paper: #f4f6fa;
-  --ink: #141b34;
-  --ink-soft: #4a5372;
-  --saffron: #f2a007;
-  --act: #2b3fb5;
-  --lime: #ffd45c;
-  --dawn: linear-gradient(160deg, #2b3fb5 0%, #1f2c80 55%, #141b34 100%);
+  --paper: #fbf6ee;
+  --ink: #17140f;
+  --ink-soft: #4e463c;
+  --saffron: #e8731c;
+  --act: #3d7bea;
+  --lime: #d6f35e;
+  --dawn: linear-gradient(
+    90deg,
+    #f7a35c 0%,
+    #ffc994 35%,
+    #ffe3ee 65%,
+    #e5d8fa 100%
+  );
   font-family: "Hind", "Hind Siliguri", system-ui, sans-serif;
-  color: #141b34;
-  background: #f4f6fa;
+  color: #17140f;
+  background: #fbf6ee;
   font-size: 17px;
   line-height: 1.55;
   scroll-padding-block: 6rem 8rem;
@@ -47,44 +58,45 @@
   font-size: 19.5px;
 }
 body {
-  background: #f4f6fa;
-  color: #141b34;
+  background: #fbf6ee;
+  color: #17140f;
   font-size: 1rem;
 }
 html[lang="hi"] h1,
-html[lang="hi"] h2 {
-  font-family: "Baloo 2", system-ui, sans-serif;
-  font-weight: 600;
-}
+html[lang="hi"] h2,
 html[lang="bn"] h1,
-html[lang="bn"] h2,
-html[lang="as"] h1,
-html[lang="as"] h2 {
-  font-family: "Baloo Da 2", "Baloo 2", system-ui, sans-serif;
+html[lang="bn"] h2 {
+  font-family: "Baloo 2", "Baloo Da 2", sans-serif;
   font-weight: 600;
 }
 h1,
 h2,
 .serif {
   font-family: "Baloo 2", "Baloo Da 2", system-ui, sans-serif;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  color: #141b34;
+}
+html[lang="bn"],
+html[lang="as"] {
+  font-family: "Hind Siliguri", "Hind", system-ui, sans-serif;
+}
+html[lang="bn"] :is(h1, h2, h3, .serif, .font-serif),
+html[lang="as"] :is(h1, h2, h3, .serif, .font-serif) {
+  font-family: "Baloo Da 2", "Baloo 2", sans-serif;
 }
 h1, .page-heading h1 {
-  font-size: clamp(1.9rem, 4.5vw, 2.6rem);
-  line-height: 1.1;
+  font-size: clamp(1.85rem, 4.5vw, 2.75rem);
+  line-height: 1.15;
   margin-bottom: 0.5rem;
   max-width: 760px;
 }
 .home-display {
-  font-size: clamp(2.4rem, 7vw, 4.25rem);
-  line-height: 1.02;
-  letter-spacing: -0.02em;
+  font-size: clamp(2.35rem, 7vw, 4.5rem);
+  line-height: 1.08;
 }
 h2 {
-  font-size: 1.55rem;
-  line-height: 1.15;
+  font-size: 1.6rem;
+  line-height: 1.2;
 }
 h3 {
   font-size: 1.125rem;
@@ -92,43 +104,24 @@ h3 {
   line-height: 1.35;
 }
 a {
-  color: #2b3fb5;
+  color: #9a4a12;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
   min-width: 44px;
 }
 *:focus-visible {
-  outline: 2px solid #2b3fb5;
-  outline-offset: 2px;
-}
-/* On the indigo block an indigo ring would vanish; use marigold there. */
-.on-ink *:focus-visible {
-  outline-color: #ffd45c;
-}
-/* Rubber stamp: double-ruled ink border, slightly askew, like a passbook entry. */
-.stamp {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border: 3px double currentColor;
-  border-radius: 8px;
-  padding: 0.15rem 0.6rem;
-  font-family: "Baloo 2", "Baloo Da 2", system-ui, sans-serif;
-  font-weight: 700;
-  line-height: 1.3;
-  transform: rotate(-2deg);
-  background: transparent;
-  mix-blend-mode: multiply;
+  outline: 3px solid #3d7bea;
+  outline-offset: 3px;
 }
 .muted,
 small {
-  color: #4a5372;
+  color: #4e463c;
 }
 /* legacy components restyled */
 button {
-  background: #141b34;
-  color: #f4f6fa;
+  background: #17140f;
+  color: #fbf6ee;
   border-radius: 999px;
   min-height: 48px;
   padding: 0.6rem 1.3rem;
@@ -136,8 +129,8 @@ button {
 }
 button.secondary {
   background: #fff;
-  color: #141b34;
-  border-color: #c9d0df;
+  color: #17140f;
+  border-color: #d9cfc0;
 }
 button, .pill-control {
   min-width: 44px;
@@ -149,50 +142,50 @@ button:enabled:active, .pill-control:active {
 button:disabled {
   background: var(--color-disabled) !important;
   color: var(--color-disabled-text) !important;
-  border-color: #c9d0df !important;
+  border-color: #d9cfc0 !important;
   opacity: 1 !important;
   filter: none;
   transform: none;
 }
 input:disabled, select:disabled, textarea:disabled {
   background: var(--paper);
-  color: #5b6380;
+  color: #5c5346;
   opacity: 1;
 }
 label:has(> input[type="file"]):focus-within {
-  outline: 2px solid #2b3fb5;
-  outline-offset: 2px;
+  outline: 3px solid #2a5fc4;
+  outline-offset: 3px;
 }
 label:has(> input[type="file"]:disabled) {
-  background: #e3e7f0;
-  color: #5b6380;
+  background: #e6dec8;
+  color: #5c5346;
   cursor: not-allowed;
 }
 input,
 select,
 textarea {
-  border-radius: 12px;
-  border: 1px solid #b9c1d4;
-  color: #141b34;
+  border-radius: 18px;
+  border: 1px solid #d9cfc0;
+  color: #17140f;
 }
 .panel {
   background: #fff;
-  border: 1px solid #dce1ec;
-  border-radius: 18px;
-  box-shadow: none;
+  border: 0;
+  border-radius: 28px;
+  box-shadow: inset 0 0 0 1px #ede5da;
 }
 .empty {
-  border-color: #b9c1d4;
-  border-radius: 14px;
-  color: #4a5372;
+  border-color: #d9cfc0;
+  border-radius: 22px;
+  color: #4e463c;
 }
 .eyebrow,
 .step-label {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   letter-spacing: 0.06em;
   text-transform: none;
   font-weight: 600;
-  color: #4a5372;
+  color: #5c5346;
 }
 .eyebrow, .step-label {
   /* Mixed bilingual labels must not track or uppercase Indic syllables. */
@@ -204,43 +197,43 @@ textarea {
   width: 100%;
   min-height: 64px;
   margin: 0;
-  border: 2px solid #2b3fb5;
-  border-radius: 999px;
-  background: #e8ebfa;
-  color: #141b34;
+  border: 1px solid #f3d2b8;
+  border-radius: 18px;
+  background: #fff1e6;
+  color: #17140f;
   font-size: 1.125rem;
 }
 .mic.recording {
-  background: #fce8e6;
-  border-color: #b3261e;
-  color: #b3261e;
+  background: #fde4e0;
+  border-color: #8d1f17;
+  color: #8d1f17;
 }
 .mic.recording svg { animation: pulse 1.2s ease-in-out infinite alternate; }
 .tabs { padding: 0.25rem 0.25rem 0.5rem; }
 .tabs button {
   flex-shrink: 0;
   background: white;
-  color: #141b34;
-  border: 1px solid #c9d0df;
+  color: #17140f;
+  border: 1px solid #d9cfc0;
 }
 .tabs button[aria-selected="true"] {
-  background: #141b34;
-  color: #f4f6fa;
-  border-color: #141b34;
+  background: #17140f;
+  color: #fbf6ee;
+  border-color: #17140f;
 }
 .browser-frame {
   overflow: hidden;
-  border: 1px solid #c9d0df;
-  border-radius: 18px;
+  border: 1px solid #d9cfc0;
+  border-radius: 24px;
   background: #fff;
-  box-shadow: none;
+  box-shadow: 0 8px 24px rgb(23 20 15 / 6%);
 }
 .browser-address {
   flex-wrap: wrap;
   border-radius: 0;
-  border-bottom: 1px solid #dce1ec;
-  background: #f4f6fa;
-  color: #4a5372;
+  border-bottom: 1px solid #ede5da;
+  background: #fbf6ee;
+  color: #4e463c;
   padding: 0.65rem 0.9rem;
   font-family: ui-monospace, monospace;
   font-size: 0.75rem;
@@ -248,10 +241,10 @@ textarea {
 .browser, .browser-panel .browser {
   border-radius: 0;
   background: #fff;
-  color: #4a5372;
+  color: #4e463c;
 }
 .browser-frame[data-takeover="true"] {
-  outline: 3px solid #1e7b4f;
+  outline: 3px solid #155c42;
   outline-offset: 2px;
 }
 .connection {
@@ -259,24 +252,24 @@ textarea {
   gap: 0.5rem;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  background: #fff4da;
-  color: #8a5300;
+  background: #fff0d1;
+  color: #7a4a00;
   font-size: 0.75rem;
   font-weight: 600;
 }
-.connection::before { background: #8a5300; flex-shrink: 0; }
-.connection.online { background: #e1f3ea; color: #1e7b4f; }
-.connection.online::before { background: #1e7b4f; animation: pulse 1.5s ease-in-out infinite alternate; }
-.connection[data-ended="true"] { background: #e9ecf3; color: #4a5372; }
-.connection[data-ended="true"]::before { background: #4a5372; }
-.run-guidance { background: #e8ebfa; color: #2b3fb5; border-radius: 18px; }
+.connection::before { background: #7a4a00; flex-shrink: 0; }
+.connection.online { background: #ddf3e9; color: #155c42; }
+.connection.online::before { background: #155c42; animation: pulse 1.5s ease-in-out infinite alternate; }
+.connection[data-ended="true"] { background: #efe8dc; color: #4e463c; }
+.connection[data-ended="true"]::before { background: #4e463c; }
+.run-guidance { background: #eef3ff; color: #1f4fa8; border-radius: 18px; }
 .prose a, .receipt a { display: inline-flex; min-height: 44px; align-items: center; }
 .prose li { margin-block: 0.375rem; }
 .prose p, .explanation p { max-width: 65ch; }
 .explanation audio { min-height: 48px; }
-.swipe-track[data-disabled="true"] { background: #e3e7f0; }
-.swipe-track[data-disabled="true"] .swipe-label { color: #5b6380; }
-.swipe-track[data-disabled="true"] .swipe-handle { background: #fff; color: #5b6380; }
+.swipe-track[data-disabled="true"] { background: #e6dec8; }
+.swipe-track[data-disabled="true"] .swipe-label { color: #5c5346; }
+.swipe-track[data-disabled="true"] .swipe-handle { background: #fff; color: #5c5346; }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -284,21 +277,21 @@ textarea {
 .stream-entry { animation: fadeIn 200ms ease-out both; }
 .badge.eligible,
 .badge.done {
-  background: #e1f3ea;
-  color: #1e7b4f;
+  background: #ddf3e9;
+  color: #155c42;
 }
 .badge.likely,
 .badge.needs_human,
 .badge.awaiting_approval {
-  background: #fff4da;
-  color: #8a5300;
+  background: #fff0d1;
+  color: #7a4a00;
 }
 .badge {
-  background: #e9ecf3;
-  color: #3a4262;
+  background: #efe8dc;
+  color: #3e372e;
 }
 progress {
-  accent-color: #f2a007;
+  accent-color: #e8731c;
 }
 /* orb */
 @keyframes orb-breathe {
@@ -323,12 +316,13 @@ progress {
   border-radius: 50%;
   background: radial-gradient(
     circle at 35% 30%,
-    #fff8e1 0%,
-    #ffd45c 35%,
-    #f2a007 75%,
-    #c67f00 100%
+    #fff 0%,
+    #ffe3ee 18%,
+    #d8c6ff 45%,
+    #9fc2ff 68%,
+    #ff9a4d 100%
   );
-  box-shadow: 0 10px 30px rgb(242 160 7 / 30%);
+  box-shadow: 0 20px 50px #e8731c40;
 }
 .orb[data-state="idle"] {
   animation: orb-breathe 4s ease-in-out infinite;
@@ -337,23 +331,23 @@ progress {
 .orb[data-state="speaking"] {
   animation: orb-breathe 1.2s ease-in-out infinite;
 }
-.orb[data-state="speaking"]::after { border-color: #2b3fb5; }
+.orb[data-state="speaking"]::after { border-color: #3d7bea; }
 .orb[data-state="listening"]::after,
 .orb[data-state="speaking"]::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 3px solid #f2a007;
+  border: 3px solid #e8731c;
   animation: orb-ring 1.4s ease-out infinite;
 }
 .orb[data-state="speaking"] {
   background: radial-gradient(
     circle at 35% 30%,
-    #e8ebfa 0%,
-    #8f9be0 35%,
-    #2b3fb5 75%,
-    #1f2c80 100%
+    #fff 0%,
+    #e5d8fa 30%,
+    #9fb8f5 65%,
+    #3d7bea 100%
   );
 }
 .swipe-handle {
@@ -421,26 +415,18 @@ button {
   line-height: 44px !important;
   border-radius: 999px;
   background: #fff;
-  color: #141b34;
+  color: #17140f;
 }
-.leaflet-container .leaflet-control-attribution { background: #fff; color: #4a5372; }
-.leaflet-container .leaflet-control-attribution a { display: inline-flex; min-height: 44px; align-items: center; color: #2b3fb5; }
+.leaflet-container .leaflet-control-attribution { background: #fff; color: #4e463c; }
+.leaflet-container .leaflet-control-attribution a { display: inline-flex; min-height: 44px; align-items: center; color: #9a4a12; }
 .leaflet-container .leaflet-popup-close-button { min-width: 44px; min-height: 44px; }
 .leaflet-container .leaflet-popup-content { padding-right: 1rem; }
 /* Explicit language spans and inherited language both retain Indic vowel marks,
    including utility-styled headings and mixed-language labels. */
-:is(h1, h2, h3, .serif, .font-serif):lang(hi) {
-  font-family: "Baloo 2", system-ui, sans-serif;
-}
-:is(h1, h2, h3, .serif, .font-serif):is(:lang(bn), :lang(as)) {
-  font-family: "Baloo Da 2", "Baloo 2", system-ui, sans-serif;
-}
-:is(:lang(bn), :lang(as)) { font-family: "Hind Siliguri", "Hind", system-ui, sans-serif; }
-/* Display headings stay semibold even where pages ask for font-normal. */
-.font-serif { font-weight: 600; }
 :is(h1, h2, h3, .serif, .font-serif):is(:lang(hi), :lang(bn), :lang(as)) {
+  font-family: "Baloo 2", "Baloo Da 2", sans-serif;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.4;
   letter-spacing: normal;
 }
 :lang(hi), :lang(bn), :lang(as) {
@@ -456,36 +442,4 @@ button {
     scroll-behavior: auto !important;
   }
   button:enabled:active, .pill-control:active { transform: none; }
-}
-@layer components {
-/* Official receipt: form paper with a tear-off edge and a passbook-style ruled reference. */
-.receipt {
-  background-image: repeating-linear-gradient(0deg, transparent 0 31px, rgb(43 63 181 / 5%) 31px 32px);
-}
-.receipt::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 8px;
-  background: radial-gradient(circle at 6px -2px, #f4f6fa 5px, transparent 5.5px) 0 0 / 14px 8px repeat-x, #2b3fb5;
-}
-.receipt > h2 { margin-top: 0.75rem; }
-.receipt .receipt-citations { list-style: none; margin: 0; padding: 0; }
-.receipt li > p:first-child strong {
-  display: inline-block;
-  font-family: "Baloo 2", "Baloo Da 2", system-ui, sans-serif;
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-  padding: 0.1rem 0.6rem;
-  border-bottom: 2px dashed #2b3fb5;
-  color: #141b34;
-}
-.receipt .receipt-url { font-weight: 400; color: #4a5372; }
-.receipt blockquote { margin: 0.75rem 0; }
-.receipt a[target] { flex-direction: column; align-items: flex-start; font-weight: 600; }
-.receipt a:has(> img) { display: block; margin-top: 0.75rem; }
-.verdict-stamp { background: #fff; }
-.on-ink .stamp { mix-blend-mode: normal; border-color: #ffd45c; color: #ffd45c; }
 }

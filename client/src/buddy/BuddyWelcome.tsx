@@ -9,7 +9,6 @@ import { Card } from "../ui";
 import { profileFields } from "./actions";
 import { buddyText } from "./strings";
 import { tt } from "../ui-strings";
-import { Keyboard, Mic } from "lucide-react";
 
 export default function BuddyWelcome({
   profile = false,
@@ -105,19 +104,12 @@ export default function BuddyWelcome({
     residence: [["rural", ui("village")], ["urban", ui("city")]],
   };
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-5 px-4 pb-32 pt-6">
-      <div className="flex items-start gap-4">
-        <span aria-hidden="true" className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-act text-white ring-4 ring-saffron ring-offset-4 ring-offset-paper">
-          <Mic size={28} />
-        </span>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <h1 className="m-0 font-serif text-4xl font-bold leading-[1.05] text-act">{ui("name")}</h1>
-          <p className="m-0 text-base leading-relaxed text-ink">{ui("greeting")}</p>
-        </div>
-      </div>
-      <label className="flex flex-col gap-1.5 text-sm font-semibold text-ink-soft">
+    <div className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-10">
+      <h1>{ui("name")}</h1>
+      <p>{ui("greeting")}</p>
+      <label>
         {tt(lang, "profileLanguage")}
-        <select value={lang} onChange={(e) => setLang(e.target.value as Lang)} className="!min-h-12 !rounded-tile !border-2 !border-line !bg-card !text-base !text-ink">
+        <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
           {Object.entries(languages).map(([code, label]) => (
             <option key={code} value={code}>
               {label}
@@ -126,25 +118,15 @@ export default function BuddyWelcome({
         </select>
       </label>
       {!manual ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button
-            disabled={busy}
-            onClick={() => void voice()}
-            className="flex !min-h-24 !flex-col !items-start !justify-between gap-3 !rounded-card !bg-act !px-5 !py-4 text-left !text-lg font-semibold leading-snug !text-white"
-          >
-            <span aria-hidden="true" className="grid h-11 w-11 place-items-center rounded-full bg-saffron text-ink">
-              <Mic size={22} />
-            </span>
+        <div className="flex flex-wrap gap-3">
+          <button disabled={busy} onClick={() => void voice()}>
             {ui("voice")}
           </button>
           <button
             disabled={busy}
-            className="secondary flex !min-h-24 !flex-col !items-start !justify-between gap-3 !rounded-card !border-2 !border-act !bg-card !px-5 !py-4 text-left !text-lg font-semibold leading-snug !text-act"
+            className="secondary"
             onClick={() => setManual(true)}
           >
-            <span aria-hidden="true" className="grid h-11 w-11 place-items-center rounded-full bg-act-soft text-act">
-              <Keyboard size={22} />
-            </span>
             {ui("manual")}
           </button>
         </div>
@@ -233,7 +215,7 @@ export default function BuddyWelcome({
       )}
       {!profile && (
         <button
-          className="secondary self-start !border-0 !bg-transparent !px-1 !text-ink-soft underline underline-offset-4 !shadow-none"
+          className="secondary self-start"
           disabled={busy}
           onClick={() => {
             setMode(mode || "manual");

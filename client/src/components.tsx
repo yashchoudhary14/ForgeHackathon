@@ -22,12 +22,12 @@ export function ErrorBox({
 }) {
   const { t } = useApp();
   return (
-    <div className="my-4 flex flex-col justify-between gap-4 rounded-card border border-[#f2c4bf] border-l-[6px] border-l-bad bg-bad-soft p-5 text-bad sm:flex-row sm:items-center" role="alert">
+    <div className="my-4 flex flex-col justify-between gap-4 rounded-[24px] border border-[#f5c2bc] bg-bad-soft/70 p-5 text-bad sm:flex-row sm:items-center" role="alert">
       <div className="flex min-w-0 items-start gap-3">
         <AlertTriangle size={24} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />
         <div>
-          <strong className="font-serif text-lg font-semibold leading-tight"><Text value="Let’s try that again" /></strong>
-          <p className="m-0 mt-1 max-w-[65ch] text-ink">
+          <strong><Text value="Let’s try that again" /></strong>
+          <p className="m-0 mt-1 max-w-[65ch]">
             <Text value={friendlyError(error)} />
           </p>
         </div>
@@ -45,14 +45,14 @@ export function Loading({ message }: { message?: string } = {}) {
   return (
     <div role="status" aria-live="polite" className="my-4">
       <Card className="flex flex-col gap-4">
-        <p className="m-0 inline-flex min-h-11 items-center gap-2 self-start rounded-full border border-[#c3cbf0] bg-act-soft px-3.5 py-2 text-sm font-semibold text-act">
+        <p className="m-0 inline-flex items-center gap-2 self-start rounded-full bg-paper px-3 py-2 text-sm font-medium text-ink-soft">
           <Loader2 size={18} aria-hidden="true" className="shrink-0 animate-spin motion-reduce:animate-none" />
           {message ? <Text value={message} /> : t.loading}
         </p>
         <div aria-hidden="true" className="flex flex-col gap-3 animate-pulse motion-reduce:animate-none">
-          <span className="h-6 w-2/3 rounded-[8px] bg-line" />
-          <span className="h-4 w-full rounded-[8px] bg-line/70" />
-          <span className="h-4 w-4/5 rounded-[8px] bg-line/70" />
+          <span className="h-6 w-2/3 rounded-2xl bg-line/80" />
+          <span className="h-4 w-full rounded-2xl bg-line/80" />
+          <span className="h-4 w-4/5 rounded-2xl bg-line/80" />
         </div>
       </Card>
     </div>
@@ -80,7 +80,7 @@ export function Markdown({ text }: { text: string }) {
 }
 export function Citations({ items }: { items: Citation[] }) {
   return (
-    <ol className="citations m-0 flex flex-col gap-1 marker:font-bold marker:text-act">
+    <ol className="citations">
       {items.map((c, i) => (
         <li key={i}>
           <Quote citation={c} />
@@ -91,7 +91,7 @@ export function Citations({ items }: { items: Citation[] }) {
 }
 export function Quote({ citation }: { citation: Citation }) {
   return (
-    <blockquote className="m-0 mt-2 rounded-[8px] border border-line border-l-4 border-l-saffron bg-paper px-3.5 py-2.5 text-sm text-ink-soft">
+    <blockquote className="m-0 mt-2 rounded-2xl border-l-4 border-saffron bg-paper/90 px-3.5 py-2.5 text-sm text-ink-soft">
       <p className="m-0 text-ink">“{citation.quote}”</p>
       <footer className="mt-2 flex flex-wrap items-center gap-2">
         <SourceLink url={citation.source_url}>
@@ -118,7 +118,7 @@ export function ClaimSections({ data }: { data: ExplainOut }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {groups.map(([title, items]) => (
-        <section key={title} className="flex min-w-0 flex-col gap-2 rounded-3xl bg-card p-5 shadow-[inset_0_0_0_1px_#dce1ec]">
+        <section key={title} className="flex min-w-0 flex-col gap-2 rounded-3xl bg-card p-5 shadow-[inset_0_0_0_1px_#ede5da]">
           <h3 className="m-0 font-serif text-xl font-normal"><Text value={title} /></h3>
           <ul className="m-0 flex flex-col gap-3 pl-5 text-sm">
             {items.map((c, i) => (
@@ -136,7 +136,7 @@ export function ClaimSections({ data }: { data: ExplainOut }) {
 /** Compare mode: what changed between the old and new document, both sides quoted. */
 export function ChangeList({ changes }: { changes: DocumentChange[] }) {
   return (
-    <section className="flex flex-col gap-3 rounded-3xl bg-card p-5 shadow-[inset_0_0_0_1px_#dce1ec]">
+    <section className="flex flex-col gap-3 rounded-3xl bg-card p-5 shadow-[inset_0_0_0_1px_#ede5da]">
       <span className="eyebrow"> <Text value="What changed" /> </span>
       {changes.map((c, i) => (
         <article key={i} className="flex min-w-0 flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0">
@@ -149,11 +149,11 @@ export function ChangeList({ changes }: { changes: DocumentChange[] }) {
           <p className="m-0 text-sm">{c.description}</p>
           {c.impact && <p className="m-0 text-sm text-ink-soft">{c.impact}</p>}
           <div className="grid gap-2 md:grid-cols-2">
-            <div className="min-w-0 rounded-2xl border border-[#f2c4bf] bg-bad-soft/60 p-3 text-bad">
+            <div className="min-w-0 rounded-2xl border border-[#f5c2bc] bg-bad-soft/60 p-3 text-bad">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold"><History size={16} aria-hidden="true" className="shrink-0" /> <Text value="Before" /> </span>
               <Quote citation={c.old_citation} />
             </div>
-            <div className="min-w-0 rounded-2xl border border-[#b7e0cb] bg-ok-soft/60 p-3 text-ok">
+            <div className="min-w-0 rounded-2xl border border-[#b8e4cf] bg-ok-soft/60 p-3 text-ok">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold"><ArrowRight size={16} aria-hidden="true" className="shrink-0" /> <Text value="Now" /> </span>
               <Quote citation={c.new_citation} />
             </div>
@@ -174,7 +174,7 @@ export function Explanation({ data }: { data: ExplainOut }) {
           </span>
           <h2 className="m-0 font-serif text-3xl font-normal">{data.title}</h2>
           {data.audio_url && (
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#f5dd9e] bg-peach p-3 text-saffron-text">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#f3d2b8] bg-peach p-3 text-saffron-text">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold">
                 <Volume2 size={18} aria-hidden="true" />
                 <Text value={"Listen"} />

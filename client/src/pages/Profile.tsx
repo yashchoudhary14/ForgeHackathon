@@ -42,7 +42,7 @@ function ActivityLinks({ items, lang }: { items: ActivityItem[]; lang: Lang }) {
           </>
         );
         const className =
-          "block min-h-11 border-b border-dashed border-line py-3 text-ink";
+          "block min-h-11 border-b border-[#e8dfd2] py-3 text-ink";
         return (
           <li key={`${item.type}-${item.id}`}>
             {link.to ? (
@@ -224,11 +224,11 @@ export default function Profile() {
 
   return (
     <div className="flex flex-col gap-6" lang={lang}>
-      <Card className="flex flex-col gap-5 !rounded-card border-2 border-ink border-t-[12px] !bg-card p-6 !shadow-none">
+      <Card className="flex flex-col gap-5 border border-[#f3d2b8] bg-gradient-to-br from-peach/70 via-white to-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <span
-              className="grid h-20 w-16 shrink-0 place-items-center rounded-md border-2 border-dashed border-act bg-act-soft font-serif text-2xl font-bold text-act"
+              className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[#ffe7d3] text-2xl font-semibold text-ink shadow-[inset_0_0_0_1px_#f3d2b8]"
               aria-hidden="true"
             >
               {initials || <PersonIcon size={30} />}
@@ -237,14 +237,14 @@ export default function Profile() {
               <div className="flex flex-wrap items-center gap-2">
                 <Eyebrow>{tt(lang, "profilePassEyebrow")}</Eyebrow>
                 {!loading && !loadError && (
-                  <span className="inline-flex -rotate-2 items-center gap-1 rounded-lg border-[3px] border-double border-ok bg-card px-2 py-0.5 text-xs font-bold text-ok motion-reduce:rotate-0">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-lime px-3 py-0.5 text-xs font-semibold text-ink">
                     <ShieldCheck size={14} aria-hidden="true" />
                     {completeness}% · {profileFields.length - missing.length}/
                     {profileFields.length}
                   </span>
                 )}
               </div>
-              <h1 className="m-0 font-serif !font-bold leading-tight">{tt(lang, "profileTitle")}</h1>
+              <h1 className="m-0">{tt(lang, "profileTitle")}</h1>
               {profile?.sensitive?.full_name && (
                 <p className="m-0 text-lg font-semibold">
                   {profile.sensitive.full_name}
@@ -265,7 +265,7 @@ export default function Profile() {
         </div>
         <fieldset
           disabled={busy || loading || loadError}
-          className="m-0 grid gap-4 border-0 border-t border-dashed border-line p-0 pt-4 sm:grid-cols-2"
+          className="m-0 grid gap-4 border-0 p-0 sm:grid-cols-2"
         >
           <label className="min-w-0 flex-1" htmlFor="profile-language">
             {tt(lang, "profileLanguage")}
@@ -313,11 +313,11 @@ export default function Profile() {
               id="profile-completeness"
               value={completeness}
               max={100}
-              className="!h-3 w-full overflow-hidden rounded-full accent-[var(--color-ok)]"
+              className="!h-3 w-full overflow-hidden rounded-full"
             />
           </div>
         )}
-        <div className="-mx-6 -mb-6 grid grid-cols-2 border-t-2 border-ink sm:grid-cols-4 [&>a]:!m-0 [&>a]:!min-h-12 [&>a]:!justify-start [&>a]:!rounded-none [&>a]:!border-0 [&>a]:!bg-transparent [&>a]:!px-4 [&>a]:!shadow-none [&>a:nth-child(odd)]:border-r [&>a:nth-child(odd)]:border-line [&>a:nth-child(-n+2)]:border-b [&>a:nth-child(-n+2)]:border-line sm:[&>a]:border-r sm:[&>a]:border-line sm:[&>a:nth-child(-n+2)]:border-b-0">
+        <div className="flex flex-wrap gap-2.5 border-t border-[#f3d2b8]/70 pt-3">
           <PillLink to="/locker" tone="light" className="!min-h-11 !px-4 text-xs">
             {tt(lang, "profileDocuments")}
             {documents !== null ? ` · ${documents}` : ""}
@@ -348,12 +348,12 @@ export default function Profile() {
         </div>
       )}
       {saveError && (
-        <p role="alert" className="text-bad">
+        <p role="alert" className="text-[#8c2b0b]">
           {tt(lang, "profileSaveError")}
         </p>
       )}
       {saved && (
-        <p role="status" className="text-ok">
+        <p role="status" className="text-[#155c42]">
           {tt(lang, "profileSaved")}
         </p>
       )}
@@ -381,8 +381,8 @@ export default function Profile() {
               </label>
               <div className="grid gap-5 lg:grid-cols-2">
                 {profileGroups.map((group) => (
-                  <Card key={group.title} className="!rounded-card border border-line !bg-card !shadow-none">
-                    <h2 className="-mx-5 mb-5 border-b-2 border-ink px-5 pb-3 font-serif text-2xl font-bold sm:-mx-6 sm:px-6">
+                  <Card key={group.title}>
+                    <h2 className="mb-5 font-serif text-3xl">
                       {tt(lang, group.title)}
                     </h2>
                     <div className="grid gap-x-4 sm:grid-cols-2">
@@ -461,12 +461,12 @@ export default function Profile() {
                 <p
                   id="profile-validation"
                   role="alert"
-                  className="mt-4 text-bad"
+                  className="mt-4 text-[#8c2b0b]"
                 >
                   {tt(lang, "profileInvalid")} {tt(lang, `field_${invalid}`)}
                 </p>
               )}
-              <PillButton type="submit" className="mt-5 !min-h-12 w-full text-base sm:w-auto">
+              <PillButton type="submit" className="mt-5">
                 {tt(
                   lang,
                   busy
@@ -478,8 +478,8 @@ export default function Profile() {
               </PillButton>
             </fieldset>
           </form>
-          <Card className="flex flex-col gap-3 !rounded-card border-l-[6px] border-saffron !bg-peach !shadow-none">
-            <h2 className="m-0 font-serif text-2xl font-bold">
+          <Card tint="peach" className="flex flex-col gap-3">
+            <h2 className="m-0 font-serif text-2xl">
               {tt(lang, "profileMissing")}
             </h2>
             <p className="m-0 text-ink-soft">
@@ -502,7 +502,7 @@ export default function Profile() {
                         el.focus();
                       }
                     }}
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-dashed border-saffron-text bg-card px-3.5 py-1.5 text-xs font-semibold text-saffron-text no-underline transition-colors hover:bg-saffron/15"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#f3d2b8] bg-white px-3.5 py-1.5 text-xs font-semibold text-saffron-text no-underline transition-colors hover:bg-saffron/15"
                   >
                     <Plus size={14} aria-hidden="true" />
                     {tt(lang, `field_${field}`)}
@@ -520,7 +520,7 @@ export default function Profile() {
       )}
       {profileId && (
         <>
-          <Card className="!rounded-tile border border-line !bg-transparent !shadow-none">
+          <Card>
             <div className="flex flex-wrap gap-3">
               <PillLink to="/locker" tone="light">
                 {tt(lang, "profileDocuments")}
@@ -532,7 +532,7 @@ export default function Profile() {
               </PillLink>
               <a
                 href="#profile-reports"
-                className="inline-flex min-h-12 items-center rounded-full border border-line bg-card px-6 font-semibold text-ink"
+                className="inline-flex min-h-12 items-center rounded-full border border-[#d9cfc0] px-6 font-semibold text-ink"
               >
                 {tt(lang, "profileReports")}
                 {activity ? ` · ${reports.length}` : ""}
@@ -553,13 +553,13 @@ export default function Profile() {
             )}
           </Card>
           <div className="grid gap-5 md:grid-cols-2">
-            <Card className="!rounded-card border border-line !bg-card !shadow-none">
-              <h2 className="font-serif font-bold">{tt(lang, "profileApplications")}</h2>
+            <Card>
+              <h2>{tt(lang, "profileApplications")}</h2>
               {activity && <ActivityLinks items={applications} lang={lang} />}
             </Card>
             <section id="profile-reports" className="scroll-mt-28">
-              <Card className="!rounded-card border border-line !bg-card !shadow-none">
-                <h2 className="font-serif font-bold">{tt(lang, "profileReports")}</h2>
+              <Card>
+                <h2>{tt(lang, "profileReports")}</h2>
                 {activity && <ActivityLinks items={reports} lang={lang} />}
               </Card>
             </section>
@@ -573,7 +573,7 @@ export default function Profile() {
           {(activityError || documentsError) && retry}
         </>
       )}
-      <Card className="!rounded-none border-t border-line !bg-transparent !px-0 !shadow-none">
+      <Card>
         <PillButton tone="ghost" disabled={busy} onClick={() => setReset(true)}>
           {tt(lang, "profileReset")}
         </PillButton>

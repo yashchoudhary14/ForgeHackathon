@@ -295,24 +295,26 @@ export default function Run() {
       {error && !run ? (
         <section
           role="alert"
-          className="mb-6 flex flex-col gap-4 rounded-card border-2 border-saffron/60 bg-peach p-6"
+          className="mb-6 flex flex-col gap-4 rounded-[28px] border border-[#f3d2b8] bg-peach/70 p-6"
         >
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-saffron-text">
                <Text value="SESSION NOT FOUND" /> </span>
-            <h2 className="m-0 font-serif text-2xl font-bold leading-tight text-ink">
+            <h2 className="m-0 font-serif text-2xl font-normal text-ink">
                <Text value="We couldn’t find that live application session" /> </h2>
             <p className="m-0 text-sm text-ink-soft"><Text value={error} /></p>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
               to="/schemes"
-              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-act px-5 !text-white text-sm font-semibold no-underline"
+              style={{ color: "#17140f" }}
+              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-saffron px-5 text-sm font-semibold text-ink no-underline"
             >
                <Text value="Start a new application →" /> </Link>
             <Link
               to="/runs"
-              className="inline-flex min-h-12 items-center gap-2 rounded-full border-2 border-act bg-card px-5 text-sm font-semibold !text-act no-underline"
+              style={{ color: "#17140f" }}
+              className="inline-flex min-h-12 items-center gap-2 rounded-full border border-line bg-white px-5 text-sm font-semibold text-ink no-underline"
             >
                <Text value="View my activity" /> </Link>
             <button
@@ -330,7 +332,7 @@ export default function Run() {
       {run && (
         <>
           <div className="card-top">
-            <h2 className="font-serif !text-2xl font-bold leading-tight">{run.goal}</h2>
+            <h2>{run.goal}</h2>
             <span className={"badge " + run.status}>
               <Text value={run.status.replaceAll("_", " ")} />
             </span>
@@ -348,7 +350,7 @@ export default function Run() {
             <ErrorBox error={run.error} retry={() => setEpoch((e) => e + 1)} />
           )}{" "}
           {!isTerminal(run.status) && connection !== "Unavailable" && (
-            <div className="run-guidance !rounded-tile border border-ok/30 !bg-ok-soft !text-ink [&>svg]:shrink-0 [&>svg]:text-ok">
+            <div className="run-guidance">
               <ShieldCheck size={20} aria-hidden="true" />
               <p>
                 <strong>
@@ -362,7 +364,7 @@ export default function Run() {
           {!human &&
             !isTerminal(run.status) &&
             connection !== "Unavailable" && (
-              <section className="panel control-status !rounded-card border-2 border-dashed !border-act/40 !bg-act-soft !shadow-none" aria-live="polite">
+              <section className="panel control-status" aria-live="polite">
                 <h2>
                   <Text
                     value={
@@ -407,21 +409,21 @@ export default function Run() {
             />
           )}
           <div className="run-grid">
-            <section className="panel browser-panel !rounded-card border border-line !bg-card !shadow-none">
-              <h2 className="font-serif font-bold">
+            <section className="panel browser-panel">
+              <h2>
                 <Text value={"Live browser"} />
               </h2>
-              <div className={"browser-frame overflow-hidden rounded-tile border-[3px] " + (takeover ? "border-saffron" : "border-ink")} data-takeover={takeover}>
-              <div className="browser-address !rounded-none !bg-ink !text-white [&>svg]:text-saffron">
+              <div className="browser-frame" data-takeover={takeover}>
+              <div className="browser-address">
                 <Globe size={16} aria-hidden="true" className="shrink-0" />
                 <span>{run.portal_url}</span>
-                <span className={"inline-flex items-center rounded-full px-3 py-1 font-sans text-xs font-semibold " + (takeover ? "bg-saffron text-ink" : "bg-act-soft text-act")}>
+                <span className={"inline-flex items-center rounded-full px-3 py-1 font-sans text-xs font-semibold " + (takeover ? "bg-lime text-ink" : "bg-act-soft text-[#1f4fa8]")}>
                   <Text
                     value={takeover ? "You are in control" : "Watch live"}
                   />
                 </span>
               </div>
-              <div className="browser !rounded-none !bg-ink">
+              <div className="browser">
                 {!hasFrame && (
                   <p className="browser-wait" role="status">
                     <Monitor size={36} aria-hidden="true" />
@@ -528,12 +530,12 @@ export default function Run() {
               )}
             </section>
             <section
-              className="panel timeline !rounded-card border border-line !bg-card !shadow-none"
+              className="panel timeline"
               ref={timeline}
               aria-label={tr("Application steps")}
               aria-live="polite"
             >
-              <h2 className="font-serif font-bold !bg-card">
+              <h2>
                 <Text value={"Step by step"} />
               </h2>
               {run.steps.length === 0 ? (
@@ -543,7 +545,7 @@ export default function Run() {
                   />
                 </p>
               ) : (
-                <ol className="[&>li]:!border-act/30 [&_small]:text-ink-soft">
+                <ol>
                   {run.steps.map((step) => (
                     <li key={step.idx}>
                       <small>

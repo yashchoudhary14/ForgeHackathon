@@ -92,7 +92,6 @@ export default function Home() {
       Icon: FileText,
       tint: "",
       iconBg: "bg-peach text-saffron-text",
-      rule: "bg-saffron",
     },
     {
       title: "homeAct",
@@ -100,9 +99,8 @@ export default function Home() {
       to: "/schemes",
       cta: "Find & apply to schemes",
       Icon: Bot,
-      tint: "",
-      iconBg: "bg-act-soft text-act",
-      rule: "bg-act",
+      tint: "bg-act-soft",
+      iconBg: "bg-white text-[#2A5FC4] shadow-xs",
     },
     {
       title: "homeCivic",
@@ -110,9 +108,8 @@ export default function Home() {
       to: "/civic",
       cta: "Report a civic issue",
       Icon: MapPin,
-      tint: "",
-      iconBg: "bg-ok-soft text-ok",
-      rule: "bg-ok",
+      tint: "bg-[#f2f8e1]",
+      iconBg: "bg-lime text-ink",
     },
   ];
   const roleChips = [
@@ -146,41 +143,41 @@ export default function Home() {
 
   return (
     <div className="-mx-4 -mt-5 md:-mx-8">
-      <section className="on-ink relative overflow-hidden bg-dawn px-5 pb-10 pt-8 text-white md:rounded-b-card md:px-8 md:pb-16 md:pt-14">
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rotate-[-8deg] rounded-full border-[6px] border-double border-white/10 md:h-96 md:w-96"
-        />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+      <section
+        className="px-5 pb-14 pt-10 md:px-8 md:pb-16 md:pt-16"
+        style={{
+          background:
+            "linear-gradient(180deg,#F7A35C 0%,#FFC994 38%,#FBE6D2 70%,#FBF6EE 100%)",
+        }}
+      >
+        <div className="mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="flex flex-col items-start gap-4 text-left">
-            <div className="flex flex-wrap items-center gap-2 [&_.eyebrow]:!text-[#c9cff0]">
+            <div className="flex flex-wrap items-center gap-2">
               <Eyebrow>{tt(lang, "brandName")}</Eyebrow>
-              <span className="stamp text-sm !text-lime">
+              <span className="rounded-full border border-[#f3d2b8] bg-[#ffe7d3] px-3.5 py-1 text-xs font-semibold text-saffron-text">
                 {tt(lang, "homeEyebrow")}
               </span>
             </div>
-            <h1 className="home-display m-0 !text-white">
+            <h1 className="home-display m-0">
               {tt(lang, "homeTitle")}
               <br />
-              <em className="not-italic text-[#c9cff0]">{tt(lang, "homeAccent")}</em>
+              <em>{tt(lang, "homeAccent")}</em>
             </h1>
-            <p className="m-0 max-w-xl text-lg text-[#dfe3f7] sm:text-xl">
+            <p className="m-0 max-w-xl text-lg text-ink-soft sm:text-xl">
               {tt(lang, "homeDescription")}
             </p>
-            <div className="mt-3 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-              <PillLink to="/talk" tone="saffron" className="!min-h-[60px] !px-8 !text-lg !font-bold shadow-[0_6px_0_#b87900] active:translate-y-[3px] active:!shadow-[0_3px_0_#b87900]">
-                <span aria-hidden="true" className="grid h-9 w-9 place-items-center rounded-full bg-ink text-lime">
-                  <Mic size={20} />
-                </span>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <PillLink to="/talk" className="!min-h-14 !px-7 text-base">
+                <Mic size={20} aria-hidden="true" />
                 {tt(lang, "chooseTalk")}
               </PillLink>
-              <PillLink to="/profile" tone="inverse" className="!min-h-14 !px-6">
+              <PillLink to="/profile" tone="light" className="!min-h-14 !px-6">
                 {tt(lang, "chooseManual")} →
               </PillLink>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-card border border-line bg-card p-5 text-left text-ink shadow-[0_18px_40px_rgb(8_12_40/0.35)]">
+          <div className="flex flex-col gap-4 rounded-[28px] border border-white/80 bg-white/90 p-5 text-left shadow-lg backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="relative shrink-0">
@@ -192,9 +189,9 @@ export default function Home() {
                   />
                 </div>
                 <div>
-                  <span className="text-xs font-semibold tracking-wide text-act">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-saffron-text">
                      <Text value="TRY BUDDY RIGHT NOW" /> </span>
-                  <h2 className="m-0 font-serif text-xl font-semibold leading-tight text-ink">
+                  <h2 className="m-0 font-serif text-xl font-normal text-ink">
                      <Text value="Speak or tap a citizen starter" /> </h2>
                 </div>
               </div>
@@ -212,31 +209,31 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="flex flex-col gap-0 rounded-tile border border-line bg-paper text-sm [&>button+button]:border-t [&>button+button]:border-dashed [&>button+button]:border-[#c3cad9]">
+            <div className="flex flex-col gap-2 rounded-2xl bg-peach/70 p-3.5 text-sm">
               <button
                 type="button"
                 onClick={() =>
                   askSample(tr("Tell me about PM-KISAN"))
                 }
-                className="secondary flex !min-h-12 w-full items-center justify-between gap-2 !rounded-none !border-0 !bg-transparent !px-3.5 !py-2 text-left text-sm font-semibold !text-ink hover:!bg-act-soft"
+                className="secondary flex !min-h-11 w-full items-center justify-between gap-2 !rounded-xl border border-[#f3d2b8] !bg-white !px-3.5 !py-2 text-left text-xs font-semibold !text-ink"
               >
                 <span> <Text value="“Tell me about PM-KISAN”" /> </span>
-                <ArrowRight size={16} aria-hidden="true" className="shrink-0 text-act" />
+                <ArrowRight size={14} aria-hidden="true" className="shrink-0 text-saffron-text" />
               </button>
               <button
                 type="button"
                 onClick={() =>
                   askSample(tr("What schemes can a student in Bihar get?"))
                 }
-                className="secondary flex !min-h-12 w-full items-center justify-between gap-2 !rounded-none !border-0 !bg-transparent !px-3.5 !py-2 text-left text-sm font-semibold !text-ink hover:!bg-act-soft"
+                className="secondary flex !min-h-11 w-full items-center justify-between gap-2 !rounded-xl border border-[#f3d2b8] !bg-white !px-3.5 !py-2 text-left text-xs font-semibold !text-ink"
               >
                 <span> <Text value="“What schemes can a student in Bihar get?”" /> </span>
-                <ArrowRight size={16} aria-hidden="true" className="shrink-0 text-act" />
+                <ArrowRight size={14} aria-hidden="true" className="shrink-0 text-saffron-text" />
               </button>
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-semibold text-ink-soft">
+              <span className="text-xs font-semibold text-ink-soft">
                  <Text value="Explore schemes by citizen role:" /> </span>
               <div className="grid grid-cols-2 gap-2">
                 {roleChips.map(({ key, query, Icon }) => (
@@ -246,12 +243,12 @@ export default function Home() {
                     onClick={() =>
                       navigate(`/schemes?q=${encodeURIComponent(query)}`)
                     }
-                    className="secondary flex !min-h-11 items-center justify-start gap-2 !rounded-full !border !border-[#b9c1d4] !bg-white !px-3.5 !py-2 text-left text-sm font-semibold !text-ink hover:!border-act"
+                    className="secondary flex !min-h-11 items-center justify-start gap-2 !rounded-full border border-line !bg-paper !px-3.5 !py-2 text-left text-xs font-semibold !text-ink hover:border-saffron"
                   >
                     <Icon
                       size={15}
                       aria-hidden="true"
-                      className="shrink-0 text-act"
+                      className="shrink-0 text-saffron-text"
                     />
                     <span>{tt(lang, key)}</span>
                   </button>
@@ -262,7 +259,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-10 pt-6 md:px-8 md:pt-8">
+      <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-10 md:px-8">
         {profileId ? (
           <PersonalSummary key={profileId} />
         ) : (
@@ -272,21 +269,20 @@ export default function Home() {
           <Eyebrow> <Text value="ONE ASSISTANT, THREE JOBS" /> </Eyebrow>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
-          {jobs.map(({ title, text, to, cta, Icon, tint, iconBg, rule }) => (
-            <Card key={title} className={`relative flex flex-col gap-3 overflow-hidden pt-6 ${tint}`}>
-              <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1.5 ${rule}`} />
+          {jobs.map(({ title, text, to, cta, Icon, tint, iconBg }) => (
+            <Card key={title} className={`flex flex-col gap-3 ${tint}`}>
               <span
                 aria-hidden="true"
-                className={`grid h-12 w-12 place-items-center rounded-tile ${iconBg}`}
+                className={`grid h-12 w-12 place-items-center rounded-2xl ${iconBg}`}
               >
                 <Icon size={22} />
               </span>
-              <h2 className="m-0 font-serif text-[1.75rem] font-bold leading-tight">{tt(lang, title)}</h2>
+              <h2 className="m-0 font-serif text-3xl font-normal">{tt(lang, title)}</h2>
               <p className="m-0 flex-1 text-ink-soft">{tt(lang, text)}</p>
               <Link
                 to={to}
-                style={{ color: "#2b3fb5" }}
-                className="mt-auto inline-flex min-h-11 items-center gap-1.5 pt-2 text-base font-semibold no-underline underline-offset-4 hover:underline"
+                style={{ color: "#17140f" }}
+                className="mt-auto inline-flex min-h-11 items-center gap-1.5 pt-2 text-sm font-semibold text-ink no-underline"
               >
                 <span><Text value={cta} /></span>
                 <ArrowRight size={16} aria-hidden="true" />

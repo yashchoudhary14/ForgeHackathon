@@ -86,7 +86,7 @@ export function AlertsPanel({
               key={n.id}
               className={
                 "flex flex-col gap-1 rounded-[22px] p-4 " +
-                (n.read ? "border border-line bg-card" : "border border-l-4 border-saffron bg-peach")
+                (n.read ? "bg-white shadow-[inset_0_0_0_1px_#ede5da]" : "bg-peach")
               }
             >
               <div className="flex items-start justify-between gap-2">

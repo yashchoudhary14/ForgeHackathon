@@ -22,12 +22,12 @@ export default function TalkHeader({
 }) {
   const navigate = useNavigate();
   return (
-    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-card px-4 py-3">
-      <div className="flex flex-col items-start gap-1">
-        <strong className="font-serif text-2xl font-bold leading-none tracking-[-0.01em] text-act">
+    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line/60 bg-paper/95 px-4 py-3 backdrop-blur">
+      <div className="flex items-center gap-2">
+        <strong className="font-serif text-2xl font-normal tracking-[-0.02em] text-ink">
            <Text value="Buddy" /> <span className="text-saffron">.</span>
         </strong>
-        <span className="rounded-[8px] border border-saffron/50 bg-peach px-2 py-0.5 text-xs font-semibold text-saffron-text">
+        <span className="rounded-full border border-[#f3d2b8] bg-peach px-2.5 py-1 text-xs font-semibold text-saffron-text">
           {tt(lang, "voiceCompanion")}
         </span>
       </div>
@@ -41,7 +41,7 @@ export default function TalkHeader({
           type="button"
           aria-label={tt(lang, "close")}
           onClick={() => navigate("/")}
-          className="secondary !min-h-11 shrink-0 !rounded-full !bg-card !px-3 !py-1.5 text-xs font-semibold !text-ink"
+          className="secondary !min-h-11 shrink-0 !rounded-full !bg-white/90 !px-3 !py-1.5 text-xs font-semibold !text-ink"
         >
           <X size={18} aria-hidden="true" />
           <span className="hidden sm:inline">{tt(lang, "exitTalk")}</span>

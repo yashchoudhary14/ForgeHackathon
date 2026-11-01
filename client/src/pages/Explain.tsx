@@ -223,7 +223,7 @@ export default function Explain() {
 
         {inputTab === "upload" && (
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="flex flex-col justify-between gap-3 rounded-2xl border border-dashed border-line bg-paper p-5">
+            <div className="flex flex-col justify-between gap-3 rounded-2xl border border-dashed border-[#d9cfc0] bg-paper p-5">
               <div>
                 <span className="mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-peach text-saffron-text">
                   <FileUp
