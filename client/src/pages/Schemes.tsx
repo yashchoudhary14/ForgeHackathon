@@ -1,4 +1,4 @@
-import { Text } from "../context";
+import { useTranslation, Text, useApp } from "../context";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -14,7 +14,6 @@ import {
 import { post, request, streamMatches } from "../api/client";
 import { applyMatchEvent } from "../api/match-state";
 import type { MatchResult, ProfileData, ProfileOut, SearchOut } from "../api/types";
-import { useApp } from "../context";
 import { Empty, ErrorBox, Loading } from "../components";
 import { MatchCards, MatchStats } from "./SchemeCards";
 import { AlertsPanel } from "./Alerts";
@@ -36,6 +35,7 @@ const QUICK_STATES = [
 ];
 
 export default function Schemes() {
+  const tr = useTranslation();
   const { profileId, setProfileId, t, lang } = useApp();
   const [searchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
@@ -180,10 +180,10 @@ export default function Schemes() {
   }
 
   const presetChips = [
-    { label: "Farmer · किसान", Icon: Sprout, role: "farmer" },
-    { label: "Student · छात्र", Icon: GraduationCap, role: "student" },
-    { label: "Woman · महिला", Icon: HeartHandshake, role: "woman" },
-    { label: "Senior Citizen · वरिष्ठ", Icon: UserCheck, role: "senior" },
+    { label: "Farmer", Icon: Sprout, role: "farmer" },
+    { label: "Student", Icon: GraduationCap, role: "student" },
+    { label: "Woman", Icon: HeartHandshake, role: "woman" },
+    { label: "Senior Citizen", Icon: UserCheck, role: "senior" },
   ] as const;
 
   return (
@@ -221,16 +221,15 @@ export default function Schemes() {
 
             <div className="grid gap-3 rounded-2xl bg-white/85 p-4 sm:grid-cols-3 lg:grid-cols-[1fr_1.4fr_1fr_auto] lg:items-end">
               <label className="m-0 text-xs font-semibold text-ink-soft">
-                State · राज्य
-                <select
+                 <Text value="State" /> <select
                   value={quickState}
                   onChange={(e) => setQuickState(e.target.value)}
                   className="!mb-0 !mt-1 !min-h-11 !rounded-xl text-sm"
                 >
-                  <option value="">Choose your state</option>
+                  <option value=""> <Text value="Choose your state" /> </option>
                   {QUICK_STATES.filter(Boolean).map((st) => (
                     <option key={st} value={st}>
-                      {st}
+                      <Text value={st} />
                     </option>
                   ))}
                 </select>
@@ -238,8 +237,7 @@ export default function Schemes() {
 
               <div className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-ink-soft">
-                  Citizen Role · भूमिका
-                </span>
+                   <Text value="Citizen Role" /> </span>
                 <div className="flex flex-wrap gap-1.5">
                   {(
                     [
@@ -261,15 +259,14 @@ export default function Schemes() {
                           : "secondary !bg-paper !text-ink")
                       }
                     >
-                      {label}
+                      <Text value={label} />
                     </button>
                   ))}
                 </div>
               </div>
 
               <label className="m-0 text-xs font-semibold text-ink-soft">
-                Category · वर्ग
-                <select
+                 <Text value="Category" /> <select
                   value={quickCategory}
                   onChange={(e) =>
                     setQuickCategory(
@@ -283,17 +280,16 @@ export default function Schemes() {
                   }
                   className="!mb-0 !mt-1 !min-h-11 !rounded-xl text-sm"
                 >
-                  <option value="general">General</option>
-                  <option value="obc">OBC</option>
-                  <option value="sc">SC</option>
-                  <option value="st">ST</option>
-                  <option value="bpl">BPL Household</option>
+                  <option value="general"> <Text value="General" /> </option>
+                  <option value="obc"> <Text value="OBC" /> </option>
+                  <option value="sc"> <Text value="SC" /> </option>
+                  <option value="st"> <Text value="ST" /> </option>
+                  <option value="bpl"> <Text value="BPL Household" /> </option>
                 </select>
               </label>
 
               <label className="m-0 text-xs font-semibold text-ink-soft">
-                Age
-                <input
+                 <Text value="Age" /> <input
                   type="number"
                   min={0}
                   max={120}
@@ -310,14 +306,12 @@ export default function Schemes() {
                 onClick={handleQuickMatch}
                 className="w-full lg:w-auto"
               >
-                Match my schemes →
-              </PillButton>
+                 <Text value="Match my schemes →" /> </PillButton>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold text-ink-soft">
-                Or choose your role:
-              </span>
+                 <Text value="Or choose your role:" /> </span>
               {presetChips.map(({ label, Icon, role }) => (
                 <button
                   key={label}
@@ -331,7 +325,7 @@ export default function Schemes() {
                     aria-hidden="true"
                     className="text-saffron-text"
                   />
-                  <span>{label}</span>
+                  <span><Text value={label} /></span>
                 </button>
               ))}
             </div>
@@ -362,9 +356,7 @@ export default function Schemes() {
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder={
-                  lang === "hi"
-                    ? "ज़रूरत या योजना का नाम"
-                    : "Search by need or scheme name"
+                  tr("Search by need or scheme name")
                 }
               />
             </label>
@@ -373,7 +365,7 @@ export default function Schemes() {
               <input
                 value={state}
                 onChange={(e) => setState(e.target.value)}
-                placeholder={lang === "hi" ? "कोई भी राज्य" : "Any state"}
+                placeholder={tr("Any state")}
               />
             </label>
             <button disabled={busy} className="mb-4 justify-self-start">
@@ -399,7 +391,7 @@ export default function Schemes() {
         />
       )}{" "}
       {busy && mode === "search" ? (
-        <Loading message="Searching official government schemes…" />
+        <Loading message={tr("Searching official government schemes…")} />
       ) : mode === "match" ? (
         <MatchResults
           matches={matches}
@@ -439,11 +431,11 @@ export default function Schemes() {
                           className="shrink-0 text-saffron-text"
                         />
                         <span className="line-clamp-1">
-                          {s.ministry || s.state || "Government of India"}
+                          {s.ministry || s.state || tr("Government of India")}
                         </span>
                       </span>
                       <span className="rounded-full bg-peach px-2.5 py-0.5 text-[11px] font-semibold text-saffron-text">
-                        {s.state ? s.state : "Central"}
+                        {s.state ? s.state : tr("Central")}
                       </span>
                     </div>
                     <h2 className="m-0 font-serif text-2xl font-normal leading-snug">
@@ -472,18 +464,15 @@ export default function Schemes() {
                         ))}
                         {extraTags > 0 && (
                           <span className="rounded-full bg-peach px-2.5 py-1 text-xs font-semibold text-saffron-text">
-                            +{extraTags} more
-                          </span>
+                            +{extraTags}  <Text value="more" /> </span>
                         )}
                       </div>
                     )}
                     <div className="mt-auto flex flex-wrap gap-2 pt-2">
                       <PillLink to={"/schemes/" + slug} tone="dark">
-                        Check eligibility & apply →
-                      </PillLink>
+                         <Text value="Check eligibility & apply →" /> </PillLink>
                       <PillLink to={"/explain?scheme=" + slug} tone="light">
-                        Explain
-                      </PillLink>
+                         <Text value="Explain" /> </PillLink>
                     </div>
                   </Card>
                 );
@@ -526,12 +515,13 @@ export function MatchResults({
   error: string;
   progress: string;
 }) {
+  const tr = useTranslation();
   const { lang } = useApp();
   return (
-    <section aria-label="Scheme matches" aria-busy={busy}>
+    <section aria-label={tr("Scheme matches")} aria-busy={busy}>
       {progress && (
         <p className="muted" role="status" aria-live="polite">
-          {progress}
+          <Text value={progress} />
         </p>
       )}
       {!profileId ? (

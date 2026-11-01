@@ -67,7 +67,7 @@ export const profileEn = {
   option_st: "Scheduled Tribe (ST)",
   option_pvtg: "Particularly Vulnerable Tribal Group (PVTG)",
   option_dnt: "Denotified Tribe (DNT)",
-  homeEyebrow: "For every citizen · हर नागरिक का साथी",
+  homeEyebrow: "For every citizen",
   homeTitle: "Your rights, explained.",
   homeAccent: "Your forms, done.",
   homeDescription:
@@ -80,8 +80,8 @@ export const profileEn = {
     "Get help applying. You review and approve the final submission.",
   homeCivic: "Speak up",
   homeCivicText: "Report a local issue and track replies from the department.",
-  roleFarmer: "Farmer · किसान",
-  roleStudent: "Student · छात्र",
+  roleFarmer: "Farmer",
+  roleStudent: "Student",
   roleWomen: "Women & Family",
   roleSenior: "Senior Citizen",
 };

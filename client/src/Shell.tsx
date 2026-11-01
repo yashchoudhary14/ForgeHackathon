@@ -1,7 +1,7 @@
+import { useTranslation, useApp, Text } from "./context";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation, Link } from "react-router-dom";
 import { listNotifications } from "./api/alerts";
-import { useApp, Text } from "./context";
 import { Loading } from "./components";
 import { BottomNav, MobileHeader, PillNav } from "./nav";
 import { EmptyState } from "./ui";
@@ -45,6 +45,7 @@ export function useUnread(profileId: string) {
 }
 
 function Layout() {
+  const tr = useTranslation();
   const { profileId, lang } = useApp();
   const unread = useUnread(profileId);
   const { pathname } = useLocation();
@@ -67,7 +68,7 @@ function Layout() {
             : "app-page mx-auto w-full max-w-6xl px-4 pb-6 pt-5 md:px-8"
         }
       >
-        <Suspense fallback={<Loading message="Opening your page…" />}>
+        <Suspense fallback={<Loading message={tr("Opening your page…")} />}>
           <Outlet />
         </Suspense>
         {!bare && (

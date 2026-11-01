@@ -1,7 +1,7 @@
+import { Text, useApp } from "./context";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { tt } from "./ui-strings";
-import { useApp } from "./context";
 import { ExternalLink, Landmark, Mic, UserCheck } from "lucide-react";
 import { safeUrl } from "./api/client";
 
@@ -34,8 +34,7 @@ export function TextSizeToggle() {
         largeText ? "bg-lime text-ink" : "bg-white text-ink",
       )}
     >
-      A+
-    </button>
+       <Text value="A+" /> </button>
   );
 }
 
@@ -183,13 +182,14 @@ export function Orb({
   state?: OrbState;
   size?: number;
 }) {
+  const { lang } = useApp();
   return (
     <div
       className="orb"
       data-state={state}
       style={{ width: size, height: size }}
       role="img"
-      aria-label={state}
+      aria-label={tt(lang, `orb_${state}`)}
     />
   );
 }
@@ -307,10 +307,10 @@ export function ProfileRequiredCard({
             {tt(lang, "profilePassEyebrow")}
           </span>
           <strong className="font-serif text-2xl font-normal text-ink">
-            {copy.title}
+            <Text value={copy.title} />
           </strong>
           <p className="m-0 max-w-[58ch] text-sm text-ink-soft">
-            {copy.subtitle}
+            <Text value={copy.subtitle} />
           </p>
         </div>
       </div>

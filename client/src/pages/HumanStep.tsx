@@ -1,6 +1,6 @@
 import type { ClientMessage, Human } from "../api/types";
 import { GuideCard, SwipeToConfirm } from "../guide";
-import { useApp } from "../context";
+import { Text, useApp } from "../context";
 import { tt } from "../ui-strings";
 import { formatKb } from "../api/locker";
 
@@ -26,7 +26,7 @@ export default function HumanStep({
 }) {
   const { lang } = useApp();
   const gl = human.guide?.lang || lang;
-  const ui = (k: string) => tt(gl, k);
+  const ui = (k: string) => tt(lang, k);
   const title =
     human.guide?.title ||
     (human.kind === "confirm_submit"
@@ -60,7 +60,7 @@ export default function HumanStep({
           <div className="flex flex-col gap-1 rounded-[14px] bg-white p-3">
             <span className="text-sm text-ink-soft">{ui("attachDoc")}</span>
             <strong className="font-serif text-xl font-normal capitalize">
-              {doc.title || doc.doc_type.replaceAll("_", " ")}
+              {doc.title || <Text value={doc.doc_type.replaceAll("_", " ")} />}
             </strong>
             <span className="text-sm text-ink-soft">
               {String(doc.format).toUpperCase()}

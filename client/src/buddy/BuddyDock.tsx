@@ -557,12 +557,6 @@ export default function BuddyDock() {
     { key: "starterNotice", Icon: FileText },
     { key: "starterCivic", Icon: MapPin },
   ] as const;
-  const quickLangs: { code: Lang; short: string }[] = [
-    { code: "en", short: "EN" },
-    { code: "hi", short: "हिं" },
-    { code: "bn", short: "বাং" },
-    { code: "as", short: "অস" },
-  ];
 
   function handleMicPointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     if (e.button !== 0) return;
@@ -626,29 +620,8 @@ export default function BuddyDock() {
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
-                <div className="hidden items-center rounded-full border border-line bg-white p-0.5 sm:flex">
-                  {quickLangs.map(({ code, short }) => (
-                    <button
-                      key={code}
-                      type="button"
-                      onClick={() =>
-                        void setLanguage(code).catch((err: Error) =>
-                          setError(err.message),
-                        )
-                      }
-                      className={
-                        "!min-h-9 !min-w-9 !rounded-full !px-2.5 !py-1 text-xs font-semibold " +
-                        (lang === code
-                          ? "!bg-ink !text-paper"
-                          : "!bg-transparent !text-ink-soft")
-                      }
-                    >
-                      {short}
-                    </button>
-                  ))}
-                </div>
                 <select
-                  aria-label="Language"
+                  aria-label={tt(lang, "profileLanguage")}
                   value={lang}
                   className="!m-0 !min-h-11 !w-auto !max-w-28 !rounded-full !px-2.5 !py-1 text-xs font-semibold"
                   onChange={(e) =>

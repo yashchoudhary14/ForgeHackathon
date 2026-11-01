@@ -1,3 +1,4 @@
+import { useTranslation, Text } from "../context";
 import { useEffect, useRef, useState } from "react";
 import { Camera, X } from "lucide-react";
 
@@ -13,6 +14,7 @@ export default function CameraCapture({
   guidance?: string;
   labels?: { close: string; capture: string; choose: string };
 }) {
+  const tr = useTranslation();
   const video = useRef<HTMLVideoElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -62,7 +64,7 @@ export default function CameraCapture({
       tabIndex={-1}
       role="dialog"
       aria-modal="true"
-      aria-label="Camera"
+      aria-label={tr("Camera")}
       className="fixed inset-0 z-50 flex flex-col bg-ink"
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
@@ -84,7 +86,7 @@ export default function CameraCapture({
         <div className="pointer-events-none absolute inset-x-4 top-4 flex items-center justify-between">
           <span className="w-11" />
           <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-paper backdrop-blur">
-            {labels?.capture || "Scan document · कागज़ स्कैन करें"}
+            {labels?.capture || tr("Scan document")}
           </span>
           <span className="w-11" />
         </div>
@@ -96,7 +98,7 @@ export default function CameraCapture({
         </div>
         {error && (
           <p role="alert" className="absolute inset-x-4 top-16 rounded-2xl bg-white p-3 text-ink">
-            {error}
+            <Text value={error} />
           </p>
         )}
       </div>
@@ -104,7 +106,7 @@ export default function CameraCapture({
       <div className="flex items-center justify-between p-4">
         <button
           type="button"
-          aria-label={labels?.close || "Close"}
+          aria-label={labels?.close || tr("Close")}
           onClick={onClose}
           className="!min-h-12 !w-12 !rounded-full !bg-white !p-0 !text-ink"
         >
@@ -112,7 +114,7 @@ export default function CameraCapture({
         </button>
         <button
           type="button"
-          aria-label={labels?.capture || "Take photo"}
+          aria-label={labels?.capture || tr("Take photo")}
           disabled={!ready}
           onClick={snap}
           className="!h-16 !w-16 !rounded-full !bg-lime !p-0 !text-ink"
@@ -120,8 +122,8 @@ export default function CameraCapture({
           <Camera />
         </button>
         <label className="inline-flex min-h-12 cursor-pointer items-center rounded-full bg-white px-4 text-ink">
-          {labels?.choose || "Choose photo"}
-          <input aria-label={labels?.choose || "Choose a photo or PDF"} className="sr-only" type="file" accept="image/*,application/pdf" onChange={(e) => { const file = e.target.files?.[0]; if (file) onCapture(file); }} />
+          {labels?.choose || tr("Choose photo")}
+          <input aria-label={labels?.choose || tr("Choose a photo or PDF")} className="sr-only" type="file" accept="image/*,application/pdf" onChange={(e) => { const file = e.target.files?.[0]; if (file) onCapture(file); }} />
         </label>
       </div>
     </div>

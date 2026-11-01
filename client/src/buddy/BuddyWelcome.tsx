@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { post, request } from "../api/client";
 import { saveMode } from "../api/profile";
 import type { Lang, ProfileData, ProfileOut } from "../api/types";
-import { languages, useApp } from "../context";
-import { Card } from "../ui";
+import { Text, languages, useApp } from "../context";
 import { useBuddy } from "./context";
+import { Card } from "../ui";
 import { profileFields } from "./actions";
 import { buddyText } from "./strings";
+import { tt } from "../ui-strings";
 
 export default function BuddyWelcome({
   profile = false,
@@ -18,6 +19,7 @@ export default function BuddyWelcome({
   const { setOnboarding, setOpen } = useBuddy();
   const [manual, setManual] = useState(profile);
   const [data, setData] = useState<ProfileData>({});
+  const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const navigate = useNavigate();
@@ -29,7 +31,11 @@ export default function BuddyWelcome({
       void request<ProfileOut>(`/profile/${encodeURIComponent(profileId)}`, {
         signal: abort.signal,
       })
-        .then((out) => setData(out.data))
+        .then((out) => {
+          if (abort.signal.aborted) return;
+          setData(out.data);
+          setFullName(out.sensitive?.full_name ?? "");
+        })
         .catch((e: Error) => {
           if (!abort.signal.aborted) setError(e.message);
         });
@@ -61,7 +67,12 @@ export default function BuddyWelcome({
     setBusy(true);
     setError("");
     try {
-      const payload = { data, language: lang, mode: mode || "manual" };
+      const payload = {
+        data,
+        sensitive: { full_name: fullName.trim() },
+        language: lang,
+        mode: mode || "manual",
+      };
       const result = profileId
         ? await request<ProfileOut>(
             `/profile/${encodeURIComponent(profileId)}`,
@@ -80,64 +91,24 @@ export default function BuddyWelcome({
     }
   }
   const options: Partial<Record<keyof ProfileData, [string, string][]>> = {
-    gender: [
-      [
-        "male",
-        lang === "hi"
-          ? "पुरुष"
-          : lang === "bn" || lang === "as"
-            ? "পুরুষ"
-            : "Male",
-      ],
-      [
-        "female",
-        lang === "hi"
-          ? "महिला"
-          : lang === "bn" || lang === "as"
-            ? "মহিলা"
-            : "Female",
-      ],
-      [
-        "transgender",
-        lang === "hi"
-          ? "ट्रांसजेंडर"
-          : lang === "bn" || lang === "as"
-            ? "ট্রান্সজেন্ডার"
-            : "Transgender",
-      ],
-    ],
+    gender: ["male", "female", "transgender"].map((value) => [
+      value, tt(lang, `option_${value}`),
+    ]),
     is_student: [
-      ["true", ui("yes")],
-      [
-        "false",
-        lang === "hi" ? "नहीं" : lang === "bn" || lang === "as" ? "না" : "No",
-      ],
+      ["true", tt(lang, "profileYes")],
+      ["false", tt(lang, "profileNo")],
     ],
     caste: ["general", "obc", "sc", "st", "pvtg", "dnt"].map((value) => [
-      value,
-      value.toUpperCase(),
+      value, lang === "en" ? value.toUpperCase() : tt(lang, `option_${value}`),
     ]),
-    residence: [
-      [
-        "rural",
-        lang === "hi"
-          ? "गाँव"
-          : lang === "bn" || lang === "as"
-            ? "গ্রাম"
-            : "Village",
-      ],
-      [
-        "urban",
-        lang === "hi" ? "शहर" : lang === "bn" || lang === "as" ? "শহর" : "City",
-      ],
-    ],
+    residence: [["rural", ui("village")], ["urban", ui("city")]],
   };
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-10">
       <h1>{ui("name")}</h1>
       <p>{ui("greeting")}</p>
       <label>
-        Language
+        {tt(lang, "profileLanguage")}
         <select value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
           {Object.entries(languages).map(([code, label]) => (
             <option key={code} value={code}>
@@ -168,6 +139,15 @@ export default function BuddyWelcome({
               void save();
             }}
           >
+            <label>
+              {tt(lang, "fullName")}
+              <input
+                type="text"
+                autoComplete="name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+            </label>
             {profileFields.map((field) => {
               const choices = options[field];
               const label = ui(field === "state" ? "state" : field);
@@ -249,7 +229,7 @@ export default function BuddyWelcome({
       )}
       {error && (
         <p role="alert" className="text-bad">
-          {error}
+          <Text value={error} />
         </p>
       )}
     </div>

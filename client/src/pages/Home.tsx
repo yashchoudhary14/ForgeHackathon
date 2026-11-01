@@ -1,3 +1,4 @@
+import { Text, useTranslation, useApp } from "../context";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -12,7 +13,6 @@ import {
   UserCheck,
   Volume2,
 } from "lucide-react";
-import { useApp } from "../context";
 import { request } from "../api/client";
 import type { ProfileOut } from "../api/types";
 import { Card, Eyebrow, Orb, PillButton, ProfileRequiredCard } from "../ui";
@@ -80,6 +80,7 @@ function PersonalSummary() {
 
 /** Dawn home introduces the app; saved details are edited on /profile. */
 export default function Home() {
+  const tr = useTranslation();
   const { lang, profileId } = useApp();
   const navigate = useNavigate();
   const jobs = [
@@ -189,18 +190,16 @@ export default function Home() {
                 </div>
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wider text-saffron-text">
-                    TRY BUDDY RIGHT NOW · अभी पूछें
-                  </span>
+                     <Text value="TRY BUDDY RIGHT NOW" /> </span>
                   <h2 className="m-0 font-serif text-xl font-normal text-ink">
-                    Speak or tap a citizen starter
-                  </h2>
+                     <Text value="Speak or tap a citizen starter" /> </h2>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() =>
                   askSample(
-                    "मुझे किसान सम्मान निधि और मेरे परिवार के लिए योजनाओं के बारे में बताओ",
+                    tr("Tell me about PM-KISAN and schemes for my family"),
                   )
                 }
                 className="secondary !min-h-11 shrink-0 !rounded-full !px-3.5 !py-1.5 text-xs font-semibold"
@@ -214,29 +213,28 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() =>
-                  askSample("मुझे किसान सम्मान निधि के बारे में बताओ")
+                  askSample(tr("Tell me about PM-KISAN"))
                 }
                 className="secondary flex !min-h-11 w-full items-center justify-between gap-2 !rounded-xl border border-[#f3d2b8] !bg-white !px-3.5 !py-2 text-left text-xs font-semibold !text-ink"
               >
-                <span>“मुझे किसान सम्मान निधि के बारे में बताओ”</span>
+                <span> <Text value="“Tell me about PM-KISAN”" /> </span>
                 <ArrowRight size={14} aria-hidden="true" className="shrink-0 text-saffron-text" />
               </button>
               <button
                 type="button"
                 onClick={() =>
-                  askSample("What schemes can a student in Bihar get?")
+                  askSample(tr("What schemes can a student in Bihar get?"))
                 }
                 className="secondary flex !min-h-11 w-full items-center justify-between gap-2 !rounded-xl border border-[#f3d2b8] !bg-white !px-3.5 !py-2 text-left text-xs font-semibold !text-ink"
               >
-                <span>“What schemes can a student in Bihar get?”</span>
+                <span> <Text value="“What schemes can a student in Bihar get?”" /> </span>
                 <ArrowRight size={14} aria-hidden="true" className="shrink-0 text-saffron-text" />
               </button>
             </div>
 
             <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold text-ink-soft">
-                Explore schemes by citizen role:
-              </span>
+                 <Text value="Explore schemes by citizen role:" /> </span>
               <div className="grid grid-cols-2 gap-2">
                 {roleChips.map(({ key, query, Icon }) => (
                   <button
@@ -268,7 +266,7 @@ export default function Home() {
           <ProfileRequiredCard context="activity" />
         )}
         <div className="flex flex-col gap-2 pt-2">
-          <Eyebrow>ONE ASSISTANT, THREE JOBS · एक साथी, तीन काम</Eyebrow>
+          <Eyebrow> <Text value="ONE ASSISTANT, THREE JOBS" /> </Eyebrow>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {jobs.map(({ title, text, to, cta, Icon, tint, iconBg }) => (
@@ -286,7 +284,7 @@ export default function Home() {
                 style={{ color: "#17140f" }}
                 className="mt-auto inline-flex min-h-11 items-center gap-1.5 pt-2 text-sm font-semibold text-ink no-underline"
               >
-                <span>{cta}</span>
+                <span><Text value={cta} /></span>
                 <ArrowRight size={16} aria-hidden="true" />
               </Link>
             </Card>

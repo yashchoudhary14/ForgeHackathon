@@ -1,4 +1,4 @@
-import { Text } from "./context";
+import { useTranslation, Text, useApp } from "./context";
 import { Component, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AlertTriangle, ArrowRight, History, Loader2, Mic, Square, Volume2 } from "lucide-react";
@@ -11,7 +11,6 @@ import type {
   ExplainOut,
   SttOut,
 } from "./api/types";
-import { useApp } from "./context";
 import { friendlyError } from "./api/errors";
 import { Card, EmptyState, PillButton, SourceLink } from "./ui";
 export function ErrorBox({
@@ -63,7 +62,7 @@ export function Empty({ children }: { children: ReactNode }) {
   return <EmptyState>{children}</EmptyState>;
 }
 export function Markdown({ text }: { text: string }) {
-  const { lang } = useApp();
+  const tr = useTranslation();
   return (
     <div className="prose">
       <ReactMarkdown
@@ -74,9 +73,7 @@ export function Markdown({ text }: { text: string }) {
         }}
       >
         {text.replace(/<br\s*\/?>/gi, "\n\n") ||
-          (lang === "hi"
-            ? "इस भाग की जानकारी अभी उपलब्ध नहीं है।"
-            : "No information has been published for this section.")}
+          tr("No information has been published for this section.")}
       </ReactMarkdown>
     </div>
   );
@@ -105,12 +102,12 @@ export function Quote({ citation }: { citation: Citation }) {
   );
 }
 const claimGroups: [keyof ExplainOut, string][] = [
-  ["rights", "Your rights · आपके अधिकार"],
-  ["duties", "Your duties · आपकी ज़िम्मेदारियाँ"],
-  ["restrictions", "Restrictions · पाबंदियाँ"],
-  ["deadline_details", "Deadlines · अंतिम तिथि"],
-  ["how_to_apply", "How to apply · आवेदन कैसे करें"],
-  ["document_details", "Documents · ज़रूरी दस्तावेज़"],
+  ["rights", "Your rights"],
+  ["duties", "Your duties"],
+  ["restrictions", "Restrictions"],
+  ["deadline_details", "Deadlines"],
+  ["how_to_apply", "How to apply"],
+  ["document_details", "Documents"],
 ];
 /** Explainer sections where every claim carries its verified quote. */
 export function ClaimSections({ data }: { data: ExplainOut }) {
@@ -122,7 +119,7 @@ export function ClaimSections({ data }: { data: ExplainOut }) {
     <div className="grid gap-3 md:grid-cols-2">
       {groups.map(([title, items]) => (
         <section key={title} className="flex min-w-0 flex-col gap-2 rounded-3xl bg-card p-5 shadow-[inset_0_0_0_1px_#ede5da]">
-          <h3 className="m-0 font-serif text-xl font-normal">{title}</h3>
+          <h3 className="m-0 font-serif text-xl font-normal"><Text value={title} /></h3>
           <ul className="m-0 flex flex-col gap-3 pl-5 text-sm">
             {items.map((c, i) => (
               <li key={i} className="break-words">
@@ -140,24 +137,24 @@ export function ClaimSections({ data }: { data: ExplainOut }) {
 export function ChangeList({ changes }: { changes: DocumentChange[] }) {
   return (
     <section className="flex flex-col gap-3 rounded-3xl bg-card p-5 shadow-[inset_0_0_0_1px_#ede5da]">
-      <span className="eyebrow">What changed · पुराने से तुलना</span>
+      <span className="eyebrow"> <Text value="What changed" /> </span>
       {changes.map((c, i) => (
         <article key={i} className="flex min-w-0 flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="m-0 font-serif text-xl font-normal">{c.title}</h3>
             {c.affects_profile === true && (
-              <span className="rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn">Affects you · आप पर असर</span>
+              <span className="rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn"> <Text value="Affects you" /> </span>
             )}
           </div>
           <p className="m-0 text-sm">{c.description}</p>
           {c.impact && <p className="m-0 text-sm text-ink-soft">{c.impact}</p>}
           <div className="grid gap-2 md:grid-cols-2">
             <div className="min-w-0 rounded-2xl border border-[#f5c2bc] bg-bad-soft/60 p-3 text-bad">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold"><History size={16} aria-hidden="true" className="shrink-0" />Before · <span lang="hi">पहले</span></span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold"><History size={16} aria-hidden="true" className="shrink-0" /> <Text value="Before" /> </span>
               <Quote citation={c.old_citation} />
             </div>
             <div className="min-w-0 rounded-2xl border border-[#b8e4cf] bg-ok-soft/60 p-3 text-ok">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold"><ArrowRight size={16} aria-hidden="true" className="shrink-0" />Now · <span lang="hi">अब</span></span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold"><ArrowRight size={16} aria-hidden="true" className="shrink-0" /> <Text value="Now" /> </span>
               <Quote citation={c.new_citation} />
             </div>
           </div>
@@ -167,25 +164,26 @@ export function ChangeList({ changes }: { changes: DocumentChange[] }) {
   );
 }
 export function Explanation({ data }: { data: ExplainOut }) {
+  const tr = useTranslation();
   return (
     <div lang={data.language} className="explanation grid items-start gap-5 lg:grid-cols-[1.2fr_1fr]">
       <div className="flex flex-col gap-4">
         <article className="rounded-3xl bg-card p-6 shadow-[0_10px_30px_rgba(23,20,15,0.06),0_1px_0_rgba(23,20,15,0.05)] flex flex-col gap-4">
           <span className="eyebrow">
-            <Text value={"In plain language"} /> · इन आसान शब्दों में
+            <Text value={"In plain language"} />
           </span>
           <h2 className="m-0 font-serif text-3xl font-normal">{data.title}</h2>
           {data.audio_url && (
             <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#f3d2b8] bg-peach p-3 text-saffron-text">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold">
                 <Volume2 size={18} aria-hidden="true" />
-                <Text value={"Listen"} /> · सुनें
+                <Text value={"Listen"} />
               </span>
               <audio
                 controls
                 preload="none"
                 src={assetUrl(data.audio_url)}
-                aria-label="Listen to this explanation · सुनें"
+                aria-label={tr("Listen to this explanation")}
                 className="!m-0 h-12 min-w-0 basis-48 flex-1"
               />
             </div>
@@ -225,14 +223,13 @@ export function Explanation({ data }: { data: ExplainOut }) {
       <aside className="flex flex-col gap-4">
         <section className="rounded-3xl bg-peach p-6 flex flex-col gap-2">
           <span className="eyebrow">
-            What this means for you · आपके लिए क्या बदला
-          </span>
+             <Text value="What this means for you" /> </span>
           <h3 className="m-0 font-serif text-2xl font-normal">
             <Text value={"What this means for you"} />
           </h3>
           <p className="m-0 text-sm leading-relaxed">
             {data.what_it_means_for_you ||
-              "Add your profile details on the home page or Talk mode to get personalized impact notes for your household."}
+              tr("Add your profile details on the home page or Talk mode to get personalized impact notes for your household.")}
           </p>
           {!!data.personal_impacts?.length && (
             <ul className="m-0 flex flex-col gap-2 pl-5 text-sm">
@@ -247,8 +244,7 @@ export function Explanation({ data }: { data: ExplainOut }) {
         </section>
         <section className="rounded-3xl bg-card p-6 shadow-[0_10px_30px_rgba(23,20,15,0.06),0_1px_0_rgba(23,20,15,0.05)] flex flex-col gap-3">
           <span className="eyebrow">
-            Every line is backed by a quote · आधिकारिक प्रमाण
-          </span>
+             <Text value="Every line is backed by a quote" /> </span>
           <Citations items={data.citations} />
         </section>
       </aside>

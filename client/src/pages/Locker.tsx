@@ -1,3 +1,4 @@
+import { useTranslation, Text, useApp } from "../context";
 import { useEffect, useState } from "react";
 import { Camera, FileCheck2, Landmark, ShieldCheck, Upload } from "lucide-react";
 import { request } from "../api/client";
@@ -5,7 +6,6 @@ import { deleteLockerItem, uploadForm } from "../api/locker";
 import type { LockerItem } from "../api/locker";
 import { saveMode } from "../api/profile";
 import { ErrorBox, Loading } from "../components";
-import { useApp } from "../context";
 import {
   Card,
   EmptyState,
@@ -32,6 +32,7 @@ const docOptions = [
 ];
 
 export default function Locker() {
+  const tr = useTranslation();
   const { profileId, setProfileId, mode, setMode, lang } = useApp();
   const [items, setItems] = useState<LockerItem[] | null>(null);
   const [error, setError] = useState("");
@@ -107,12 +108,10 @@ export default function Locker() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <Eyebrow>Locker · सुरक्षित, सिर्फ़ आपके लिए</Eyebrow>
-        <h1>Your documents</h1>
+        <Eyebrow> <Text value="Locker · Secure, just for you" /> </Eyebrow>
+        <h1> <Text value="Your documents" /> </h1>
         <p className="m-0 text-ink-soft">
-          Scan a paper with your camera. Buddy names it, checks it is
-          readable and makes a small copy that fits government portals.
-        </p>
+           <Text value="Scan a paper with your camera. Buddy names it, checks it is readable and makes a small copy that fits government portals." /> </p>
       </div>
       {!profileId ? (
         <div className="flex flex-col gap-5">
@@ -131,26 +130,26 @@ export default function Locker() {
             }
           />
           <div className="flex flex-col gap-3">
-            <Eyebrow>WHAT YOU CAN STORE IN YOUR LOCKER · दस्तावेज़ सूची</Eyebrow>
+            <Eyebrow> <Text value="WHAT YOU CAN STORE IN YOUR LOCKER" /> </Eyebrow>
             <div className="grid gap-3 sm:grid-cols-2">
               {[
                 {
-                  title: "Aadhaar Card · आधार कार्ड",
+                  title: "Aadhaar Card",
                   sub: "Store an identity document for applications.",
                   Icon: ShieldCheck,
                 },
                 {
-                  title: "Income Certificate · आय प्रमाण पत्र",
+                  title: "Income Certificate",
                   sub: "Keep proof of income available for welfare applications.",
                   Icon: FileCheck2,
                 },
                 {
-                  title: "Caste Certificate · जाति प्रमाण पत्र",
+                  title: "Caste Certificate",
                   sub: "Store a certificate that a scholarship or welfare scheme may request.",
                   Icon: FileCheck2,
                 },
                 {
-                  title: "Bank Passbook / Land Record · खतौनी",
+                  title: "Bank Passbook / Land Record",
                   sub: "Keep bank or land documents together for applications.",
                   Icon: Landmark,
                 },
@@ -164,9 +163,9 @@ export default function Locker() {
                   </span>
                   <div className="flex flex-col gap-0.5">
                     <strong className="font-serif text-lg font-normal text-ink">
-                      {title}
+                      <Text value={title} />
                     </strong>
-                    <p className="m-0 text-xs text-ink-soft">{sub}</p>
+                    <p className="m-0 text-xs text-ink-soft"><Text value={sub} /></p>
                   </div>
                 </Card>
               ))}
@@ -177,9 +176,9 @@ export default function Locker() {
         <>
           <Card className="flex flex-col gap-4 overflow-hidden !bg-[#1a1917] !text-paper">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="m-0 text-paper">Scan into locker · कागज़ स्कैन करें</h2>
+              <h2 className="m-0 text-paper"> <Text value="Scan into locker" /> </h2>
               <label className="m-0 flex max-w-full flex-wrap items-center gap-2 text-xs font-semibold text-[#cfc6b8]">
-                <span>Document type</span>
+                <span> <Text value="Document type" /> </span>
                 <select
                   value={docType}
                   disabled={busy}
@@ -188,7 +187,7 @@ export default function Locker() {
                 >
                   {docOptions.map(([v, txt]) => (
                     <option key={v} value={v} className="text-ink">
-                      {txt}
+                      <Text value={txt} />
                     </option>
                   ))}
                 </select>
@@ -200,18 +199,15 @@ export default function Locker() {
               <span aria-hidden="true" className="pointer-events-none absolute bottom-3 left-3 h-7 w-7 rounded-bl-xl border-b-4 border-l-4 border-lime" />
               <span aria-hidden="true" className="pointer-events-none absolute bottom-3 right-3 h-7 w-7 rounded-br-xl border-b-4 border-r-4 border-lime" />
               <p className="m-0 text-sm text-[#e8e1d5]">
-                Place your document inside the frame so all four corners are visible. Automatically resized to JPG (&lt;200 KB) &amp; PDF (&lt;300 KB).
-              </p>
+                 <Text value="Place your document inside the frame so all four corners are visible. Automatically resized to JPG (<200 KB) & PDF (<300 KB)." /> </p>
               <div className="flex flex-wrap justify-center gap-2.5">
                 {canCamera && (
                   <button type="button" disabled={busy} onClick={() => setCamera(true)} className="!bg-lime !text-ink">
-                    <Camera size={18} aria-hidden="true" /> Open camera
-                  </button>
+                    <Camera size={18} aria-hidden="true" />  <Text value="Open camera" /> </button>
                 )}
                 <label className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-white px-6 font-semibold text-ink">
                   <Upload size={18} aria-hidden="true" />
-                  Take or choose a photo
-                  <input
+                   <Text value="Take or choose a photo" /> <input
                     type="file"
                     accept="image/*,application/pdf"
                     capture="environment"
@@ -226,7 +222,7 @@ export default function Locker() {
                 </label>
               </div>
             </div>
-            {busy && <Loading message="Reading your document…" />}
+            {busy && <Loading message={tr("Reading your document…")} />}
             {last && !busy && (
               <p
                 role="status"
@@ -235,8 +231,8 @@ export default function Locker() {
                   (last.meta?.readable === false ? "bg-warn-soft text-warn" : "bg-lime text-ink")
                 }
               >
-                {last.title || label(last.doc_type)}
-                {last.meta?.readable === false ? " · hard to read, try again" : " · सीधा और साफ़ है (readable & ready)"}
+                {last.title || tr(label(last.doc_type))}
+                {last.meta?.readable === false ? tr(" · hard to read, try again") : tr(" · readable & ready")}
               </p>
             )}
           </Card>
@@ -244,12 +240,12 @@ export default function Locker() {
           {!items ? (
             !error && <Loading />
           ) : items.length === 0 ? (
-            <EmptyState title="Nothing here yet">Your scanned documents will be listed here.</EmptyState>
+            <EmptyState title={tr("Nothing here yet")}> <Text value="Your scanned documents will be listed here." /> </EmptyState>
           ) : (
             <>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="m-0 font-serif text-3xl font-normal">My locker · मेरा लॉकर</h2>
-                <span className="text-sm text-ink-soft">सुरक्षित, सिर्फ़ आपके लिए</span>
+                <h2 className="m-0 font-serif text-3xl font-normal"> <Text value="My locker" /> </h2>
+                <span className="text-sm text-ink-soft"> <Text value="Secure, just for you" /> </span>
               </div>
               <StatTile accent value={items.length} label="documents in your locker" />
               <ul className="m-0 flex list-none flex-col gap-3 p-0">

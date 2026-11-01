@@ -1,8 +1,8 @@
-import { Text } from "../context";
+import { translate } from "../i18n";
+import { Text, useApp } from "../context";
 import { useEffect, useRef, useState } from "react";
 import { streamChat } from "../api/client";
 import type { Citation } from "../api/types";
-import { useApp } from "../context";
 import { tt } from "../ui-strings";
 import { Citations, Empty, ErrorBox, Markdown, MicButton } from "../components";
 type Message = {
@@ -97,7 +97,7 @@ export default function Ask() {
     <>
       <div className="page-heading">
         <span className="eyebrow">
-          <Text value={"ASK / बेझिझक पूछें"} />
+          <Text value={"ASK / Ask freely"} />
         </span>
         <h1>{t.ask}</h1>
         <p className="muted">
@@ -135,10 +135,8 @@ export default function Ask() {
                 text={
                   m.text ||
                   (busy && m.role === "assistant"
-                    ? lang === "hi"
-                      ? "आपका सवाल पढ़ रहे हैं और आधिकारिक स्रोत जाँच रहे हैं…"
-                      : "Reading your question and checking official sources…"
-                    : "No answer received.")
+                    ? translate("Reading your question and checking official sources…", lang)
+                    : translate("No answer received.", lang))
                 }
               />
               {m.citations.length > 0 && <Citations items={m.citations} />}

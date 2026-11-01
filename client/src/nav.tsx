@@ -56,6 +56,7 @@ export function PersonIcon({ size = 20, className }: { size?: number; className?
 }
 
 export function BrandWordmark({ compact = false }: { compact?: boolean }) {
+  const { lang } = useApp();
   return (
     <Link
       to="/"
@@ -70,9 +71,11 @@ export function BrandWordmark({ compact = false }: { compact?: boolean }) {
       >
         Buddy<span className="text-saffron">.</span>
       </span>
-      <span className="rounded-full border border-[#f3d2b8] bg-peach px-2.5 py-0.5 text-xs font-semibold text-saffron-text">
-        साथी · বন্ধু
-      </span>
+      {lang !== "en" && ["hi", "bn", "as"].includes(lang) && (
+        <span className="rounded-full border border-[#f3d2b8] bg-peach px-2.5 py-0.5 text-xs font-semibold text-saffron-text">
+          {tt(lang, "brandName")}
+        </span>
+      )}
     </Link>
   );
 }

@@ -1,9 +1,9 @@
+import { useTranslation, useApp } from "./context";
 import { useRef, useState } from "react";
 import type { ReactNode, KeyboardEvent } from "react";
 import { ChevronRight, ChevronsRight, ShieldAlert, Volume2 } from "lucide-react";
 import { assetUrl } from "./api/client";
 import { tt } from "./ui-strings";
-import { useApp } from "./context";
 
 export function GuideCard({
   title,
@@ -40,7 +40,7 @@ export function GuideCard({
           <>
             <button
               type="button"
-              aria-label={tt(lang || uiLang, "playAudio")}
+              aria-label={tt(uiLang, "playAudio")}
               onClick={() => void audio.current?.play().catch(() => {})}
               className="!min-h-12 grid h-12 w-12 place-items-center rounded-full !bg-white !p-0 !text-[#1f4fa8]"
             >
@@ -79,6 +79,7 @@ export function SwipeToConfirm({
   onConfirm: () => void;
   disabled?: boolean;
 }) {
+  const tr = useTranslation();
   const track = useRef<HTMLDivElement>(null);
   const [x, setX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -119,7 +120,7 @@ export function SwipeToConfirm({
         aria-valuemax={100}
         aria-valuenow={done ? 100 : Math.round((x / (max() || 1)) * 100)}
         aria-disabled={disabled || done}
-        aria-valuetext={done ? "Confirmed" : label}
+        aria-valuetext={done ? tr("Confirmed") : label}
         onKeyDown={onKey}
         onPointerDown={(e) => {
           if (disabled || done) return;

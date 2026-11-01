@@ -1,3 +1,4 @@
+import { useTranslation, Text, useApp } from "../context";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bell, Bot, MapPin, ThumbsUp } from "lucide-react";
@@ -7,7 +8,6 @@ import type { ReportOut } from "../api/civic";
 import { request, withOwner } from "../api/client";
 import type { ActivityItem, Lang, RunOut } from "../api/types";
 import { ErrorBox, Loading } from "../components";
-import { Text, useApp } from "../context";
 import { translate } from "../i18n";
 import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
@@ -43,7 +43,7 @@ export function ActivityTimeline({ items, lang = "en" }: { items: ActivityItem[]
                     {tt(lang, "official")}
                   </span>
                 )}
-                <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString()}</time>
+                <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString(lang)}</time>
               </div>
             </div>
             <OpenLink link={item.link} lang={lang} />
@@ -55,11 +55,11 @@ export function ActivityTimeline({ items, lang = "en" }: { items: ActivityItem[]
 }
 
 function RunCards({ runs, lang }: { runs: RunOut[]; lang: Lang }) {
+  const tr = useTranslation();
   if (runs.length === 0)
     return (
-      <EmptyState title="No assisted applications yet" action={<PillLink to="/schemes">Browse schemes →</PillLink>}>
-        Open a scheme to start a live browser agent application.
-      </EmptyState>
+      <EmptyState title={tr("No assisted applications yet")} action={<PillLink to="/schemes"> <Text value="Browse schemes →" /> </PillLink>}>
+         <Text value="Open a scheme to start a live browser agent application." /> </EmptyState>
     );
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -68,7 +68,7 @@ function RunCards({ runs, lang }: { runs: RunOut[]; lang: Lang }) {
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className={`badge ${r.status}`}>{translate(r.status.replaceAll("_", " "), lang)}</span>
-              {r.kind && r.kind !== "application" && <small className="capitalize">{r.kind.replaceAll("_", " ")}</small>}
+              {r.kind && r.kind !== "application" && <small className="capitalize"><Text value={r.kind.replaceAll("_", " ")} /></small>}
             </div>
             <h3 className="m-0 break-words font-serif text-xl font-normal">{r.goal}</h3>
             {r.receipt?.reference_no && (
@@ -83,11 +83,11 @@ function RunCards({ runs, lang }: { runs: RunOut[]; lang: Lang }) {
 }
 
 function ReportCards({ reports }: { reports: ReportOut[] }) {
+  const tr = useTranslation();
   if (reports.length === 0)
     return (
-      <EmptyState title="No civic reports yet" action={<PillLink to="/civic/new">Report an issue →</PillLink>}>
-        Report a local water, road, electricity or sanitation problem and track it to CPGRAMS.
-      </EmptyState>
+      <EmptyState title={tr("No civic reports yet")} action={<PillLink to="/civic/new"> <Text value="Report an issue →" /> </PillLink>}>
+         <Text value="Report a local water, road, electricity or sanitation problem and track it to CPGRAMS." /> </EmptyState>
     );
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -96,14 +96,14 @@ function ReportCards({ reports }: { reports: ReportOut[] }) {
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="min-w-0 break-words font-semibold uppercase text-ink-soft">{c.department}</span>
-              <span className="rounded-full bg-peach px-2.5 py-0.5 font-semibold text-saffron-text">{statusMeta(c.status).label}</span>
+              <span className="rounded-full bg-peach px-2.5 py-0.5 font-semibold text-saffron-text"><Text value={statusMeta(c.status).label} /></span>
             </div>
             <h3 className="m-0 break-words font-serif text-xl font-normal">{c.title}</h3>
-            {c.official_ref && <small className="break-all font-mono font-bold">CPGRAMS: {c.official_ref}</small>}
+            {c.official_ref && <small className="break-all font-mono font-bold"> <Text value="CPGRAMS:" /> {c.official_ref}</small>}
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="inline-flex items-center gap-1.5 text-ink-soft"><ThumbsUp size={15} aria-hidden="true" className="shrink-0" />{c.supporters}</span>
-            <Link to={"/civic/" + encodeURIComponent(c.id)} className="inline-flex min-h-11 items-center font-semibold">Track timeline →</Link>
+            <Link to={"/civic/" + encodeURIComponent(c.id)} className="inline-flex min-h-11 items-center font-semibold"> <Text value="Track timeline →" /> </Link>
           </div>
         </Card>
       ))}
@@ -112,6 +112,7 @@ function ReportCards({ reports }: { reports: ReportOut[] }) {
 }
 
 export default function Runs() {
+  const tr = useTranslation();
   const { profileId, lang } = useApp();
   const [activity, setActivity] = useState<ActivityItem[] | null>(null);
   const [runs, setRuns] = useState<RunOut[]>([]);
@@ -201,9 +202,9 @@ export default function Runs() {
                   <Icon size={18} />
                 </span>
                 <strong className="font-serif text-xl font-normal text-ink">
-                  {title}
+                  <Text value={title} />
                 </strong>
-                <p className="m-0 text-xs text-ink-soft">{sub}</p>
+                <p className="m-0 text-xs text-ink-soft"><Text value={sub} /></p>
               </Card>
             ))}
           </div>
@@ -234,7 +235,7 @@ export default function Runs() {
           {error && <ErrorBox error={error} retry={() => void load()} />}
 
           {!activity ? (
-            <Loading message="Loading your applications, civic reports and alerts…" />
+            <Loading message={tr("Loading your applications, civic reports and alerts…")} />
           ) : tab === "all" ? (
             <ActivityTimeline items={activity} lang={lang} />
           ) : tab === "runs" ? (

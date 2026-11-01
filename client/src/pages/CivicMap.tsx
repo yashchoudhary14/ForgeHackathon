@@ -1,3 +1,4 @@
+import { useApp, useTranslation, Text } from "../context";
 import { useEffect, useRef, useState } from "react";
 import { LocateFixed } from "lucide-react";
 import type { ReportOut } from "../api/civic";
@@ -24,6 +25,8 @@ export default function CivicMap({
   onSelect?: (report: ReportOut) => void;
   onNearMe?: (lat: number, lng: number) => void;
 }) {
+  const tr = useTranslation();
+  const { lang } = useApp();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
   const layerRef = useRef<import("leaflet").LayerGroup | null>(null);
@@ -42,7 +45,7 @@ export default function CivicMap({
         scrollWheelZoom: false,
         zoomControl: false,
       });
-      L.control.zoom({ position: "bottomright" }).addTo(map);
+      L.control.zoom({ position: "bottomright", zoomInTitle: tr("Zoom in"), zoomOutTitle: tr("Zoom out") }).addTo(map);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "&copy; OpenStreetMap contributors",
         maxZoom: 19,
@@ -50,7 +53,7 @@ export default function CivicMap({
       const group = L.layerGroup().addTo(map);
       mapRef.current = map;
       layerRef.current = group;
-      renderPins(L, map, group, reports, onSelect);
+      renderPins(L, map, group, reports, onSelect, tr("Supporters"), lang);
     });
     return () => {
       cancelled = true;
@@ -58,7 +61,7 @@ export default function CivicMap({
       mapRef.current = null;
       layerRef.current = null;
     };
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -66,9 +69,9 @@ export default function CivicMap({
     if (!map || !group || typeof window === "undefined") return;
     void import("leaflet").then((L) => {
       if (!mapRef.current || !layerRef.current) return;
-      renderPins(L, mapRef.current, layerRef.current, reports, onSelect);
+      renderPins(L, mapRef.current, layerRef.current, reports, onSelect, tr("Supporters"), lang);
     });
-  }, [reports, onSelect]);
+  }, [reports, onSelect, lang]);
 
   function locateUser() {
     if (!navigator.geolocation) return;
@@ -108,15 +111,14 @@ export default function CivicMap({
       </svg>
       <div
         ref={containerRef}
-        aria-label="Civic issues map"
+        aria-label={tr("Civic issues map")}
         className="relative z-0 h-[340px] w-full !bg-transparent sm:h-[440px]"
       />
       <div className="pointer-events-none absolute inset-x-3.5 top-3.5 z-[400] flex flex-wrap items-center justify-between gap-2">
         <span className="rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-sm">
-          OpenStreetMap ·{" "}
+           <Text value="OpenStreetMap ·" /> {" "}
           {reports.filter((r) => r.lat != null && r.lng != null).length}{" "}
-          geotagged reports
-        </span>
+           <Text value="geotagged reports" /> </span>
         {typeof navigator !== "undefined" && !!navigator.geolocation && (
           <button
             type="button"
@@ -125,7 +127,7 @@ export default function CivicMap({
             className="pointer-events-auto secondary !min-h-11 !rounded-full !px-3.5 !py-1.5 text-sm shadow-sm"
           >
             <LocateFixed size={15} aria-hidden="true" />
-            {locating ? "Locating…" : "Near me"}
+            {locating ? tr("Locating…") : tr("Near me")}
           </button>
         )}
       </div>
@@ -134,22 +136,19 @@ export default function CivicMap({
           role="alert"
           className="absolute inset-x-3.5 top-32 z-[400] m-0 rounded-2xl bg-white p-3 text-sm text-bad"
         >
-          {locationError}
+          <Text value={locationError} />
         </p>
       )}
-      <div aria-label="Map legend" className="pointer-events-none absolute bottom-16 left-3.5 z-[400] flex w-fit max-w-[calc(100%-5rem)] flex-wrap gap-3 rounded-2xl border border-line bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-md backdrop-blur-md">
+      <div aria-label={tr("Map legend")} className="pointer-events-none absolute bottom-16 left-3.5 z-[400] flex w-fit max-w-[calc(100%-5rem)] flex-wrap gap-3 rounded-2xl border border-line bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-md backdrop-blur-md">
         <span className="inline-flex items-center gap-1.5">
           <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#9A4A12]" />
-          Open
-        </span>
+           <Text value="Open" /> </span>
         <span className="inline-flex items-center gap-1.5">
           <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#2A5FC4]" />
-          Filed on CPGRAMS
-        </span>
+           <Text value="Filed on CPGRAMS" /> </span>
         <span className="inline-flex items-center gap-1.5">
           <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#155C42]" />
-          Resolved
-        </span>
+           <Text value="Resolved" /> </span>
       </div>
     </div>
   );
@@ -161,6 +160,8 @@ function renderPins(
   group: import("leaflet").LayerGroup,
   reports: ReportOut[],
   onSelect?: (report: ReportOut) => void,
+  supportersLabel = "Supporters",
+  lang = "en",
 ) {
   group.clearLayers();
   const coords: [number, number][] = [];
@@ -176,7 +177,7 @@ function renderPins(
     });
     const marker = L.marker([r.lat, r.lng], { icon });
     marker.bindPopup(
-      `<strong>${escapeHtml(r.title)}</strong><br/><small>${escapeHtml(r.department)} · Supporters: ${r.supporters}</small>`,
+      `<strong>${escapeHtml(lang !== "en" && r.language === lang && r.title_local ? r.title_local : r.title)}</strong><br/><small>${escapeHtml(r.department)} · ${escapeHtml(supportersLabel)}: ${r.supporters}</small>`,
     );
     if (onSelect) marker.on("click", () => onSelect(r));
     marker.addTo(group);

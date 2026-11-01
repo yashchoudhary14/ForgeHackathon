@@ -1,10 +1,10 @@
+import { useTranslation, Text, useApp } from "../context";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, LocateFixed, MapPin, Mic, Sparkles, ThumbsUp, Upload } from "lucide-react";
 import { createReport, triageReport, voteReport } from "../api/civic";
 import type { CivicTriage, SubmissionInput, TriageOut } from "../api/civic";
 import { ErrorBox, Loading } from "../components";
-import { useApp } from "../context";
 import { tt } from "../ui-strings";
 import { PillLink } from "../nav";
 import { Card, EmptyState, Eyebrow, ProfileRequiredCard } from "../ui";
@@ -12,6 +12,7 @@ import { useRecorder } from "../useRecorder";
 import CameraCapture from "./CameraCapture";
 
 export default function CivicNew() {
+  const tr = useTranslation();
   const { profileId, lang } = useApp();
   const navigate = useNavigate();
   const [photo, setPhoto] = useState<File | null>(null);
@@ -71,7 +72,7 @@ export default function CivicNew() {
     try {
       const out = await triageReport(input);
       setTriage(out);
-      setTitle(out.title);
+      setTitle(lang !== "en" && out.language === lang && out.title_local ? out.title_local : out.title);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -116,39 +117,30 @@ export default function CivicNew() {
             to="/civic"
             className="inline-flex min-h-11 items-center self-start text-sm font-semibold"
           >
-            ← Civic map · नागरिक नक्शा
-          </Link>
-          <Eyebrow>Speak up · आवाज़ उठाएँ</Eyebrow>
+             <Text value="← Civic map" /> </Link>
+          <Eyebrow> <Text value="Speak up" /> </Eyebrow>
           <h1>
-            Report a local issue
-            <span
-              lang="hi"
-              className="mt-2 block font-sans text-xl font-medium text-ink-soft"
-            >
-              समस्या बताएँ
-            </span>
-          </h1>
+             <Text value="Report a local issue" /> </h1>
           <p className="m-0 text-ink-soft">
-            फ़ोटो लें या अपनी आवाज़ में बताएँ — विभाग और अर्ज़ी AI तैयार करेगा
-          </p>
+             <Text value="Take a photo or describe the issue by voice — AI will identify the department and draft the grievance." /> </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           {[
             {
               step: "1",
-              title: "Photo or Voice · सबूत",
+              title: "Photo or Voice",
               sub: "Attach a street photo or describe the issue in your language",
               Icon: Camera,
             },
             {
               step: "2",
-              title: "Location · जगह",
+              title: "Location",
               sub: "Pinpoint your street so neighbours can support with +1",
               Icon: LocateFixed,
             },
             {
               step: "3",
-              title: "AI CPGRAMS Triage · जाँचें",
+              title: "AI CPGRAMS Triage",
               sub: "Buddy identifies the department and drafts the formal grievance",
               Icon: Sparkles,
             },
@@ -161,9 +153,9 @@ export default function CivicNew() {
                 <Icon size={18} aria-hidden="true" className="text-saffron-text" />
               </div>
               <strong className="font-serif text-lg font-normal text-ink">
-                {stepTitle}
+                <Text value={stepTitle} />
               </strong>
-              <p className="m-0 text-xs text-ink-soft">{sub}</p>
+              <p className="m-0 text-xs text-ink-soft"><Text value={sub} /></p>
             </Card>
           ))}
         </div>
@@ -174,29 +166,24 @@ export default function CivicNew() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <Link to="/civic" className="inline-flex min-h-11 items-center text-sm font-semibold">← Civic map · नागरिक नक्शा</Link>
-        <Eyebrow>Speak up · आवाज़ उठाएँ</Eyebrow>
+        <Link to="/civic" className="inline-flex min-h-11 items-center text-sm font-semibold"> <Text value="← Civic map" /> </Link>
+        <Eyebrow> <Text value="Speak up" /> </Eyebrow>
         <h1>
-          Report a local issue
-          <span lang="hi" className="mt-2 block font-sans text-xl font-medium text-ink-soft">
-            समस्या बताएँ
-          </span>
-        </h1>
-        <p className="m-0 text-ink-soft">फ़ोटो लें या अपनी आवाज़ में बताएँ — विभाग और अर्ज़ी AI तैयार करेगा</p>
+           <Text value="Report a local issue" /> </h1>
+        <p className="m-0 text-ink-soft"> <Text value="Take a photo or describe the issue by voice — AI will identify the department and draft the grievance." /> </p>
       </div>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="m-0 flex items-center gap-2 text-2xl"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-peach font-sans text-sm font-semibold text-saffron-text">1</span> Photo or voice · <span lang="hi">सबूत</span></h2>
-        {photoPreview && <div className="flex items-center gap-3"><img src={photoPreview} alt="Your attached evidence photo" className="h-20 w-20 rounded-2xl border border-line object-cover" /><span className="text-sm text-ink-soft">Photo attached</span></div>}
+        <h2 className="m-0 flex items-center gap-2 text-2xl"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-peach font-sans text-sm font-semibold text-saffron-text">1</span>  <Text value="Photo or voice" /> </h2>
+        {photoPreview && <div className="flex items-center gap-3"><img src={photoPreview} alt={tr("Your attached evidence photo")} className="h-20 w-20 rounded-2xl border border-line object-cover" /><span className="text-sm text-ink-soft"> <Text value="Photo attached" /> </span></div>}
         <div className="flex flex-wrap gap-2.5">
           {typeof navigator !== "undefined" && !!navigator.mediaDevices && (
             <button type="button" disabled={busy} onClick={() => setCamera(true)}>
-              <Camera size={18} aria-hidden="true" /> Take photo
-            </button>
+              <Camera size={18} aria-hidden="true" />  <Text value="Take photo" /> </button>
           )}
           <label className="inline-flex min-h-12 max-w-full cursor-pointer items-center gap-2 rounded-full bg-paper px-5 font-semibold shadow-[inset_0_0_0_1px_#d9cfc0]">
             <Upload size={18} aria-hidden="true" className="shrink-0" />
-            <span className="truncate">{photo ? photo.name : "Upload photo"}</span>
+            <span className="truncate">{photo ? photo.name : tr("Upload photo")}</span>
             <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" disabled={busy} onChange={(e) => { setPhoto(e.target.files?.[0] || null); setTriage(null); }} />
           </label>
           <button
@@ -208,83 +195,74 @@ export default function CivicNew() {
           >
             <Mic size={18} aria-hidden="true" />
             {audio && !recorder.recording && <CheckCircle2 size={16} aria-hidden="true" className="shrink-0" />}
-            {recorder.recording ? "Stop recording" : audio ? "Voice note attached" : "Record voice"}
+            {recorder.recording ? tr("Stop recording") : audio ? tr("Voice note attached") : tr("Record voice")}
           </button>
         </div>
 
         <label className="m-0">
-          Describe what happened (optional if photo or voice attached)
-          <textarea rows={3} value={text} disabled={busy} onChange={(e) => { setText(e.target.value); setTriage(null); }} placeholder="e.g. वार्ड 14 की मुख्य पाइपलाइन से 3 दिन से पानी बह रहा है…" />
+           <Text value="Describe what happened (optional if photo or voice attached)" /> <textarea rows={3} value={text} disabled={busy} onChange={(e) => { setText(e.target.value); setTriage(null); }} placeholder={tr("e.g. The main water pipe in Ward 14 has been leaking for three days…")} />
         </label>
 
         <div className="flex flex-col gap-1.5 rounded-2xl bg-paper p-3.5">
-          <h2 className="m-0 mb-2 flex items-center gap-2 text-2xl"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white font-sans text-sm font-semibold text-saffron-text">2</span> Location · <span lang="hi">जगह</span></h2>
+          <h2 className="m-0 mb-2 flex items-center gap-2 text-2xl"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white font-sans text-sm font-semibold text-saffron-text">2</span>  <Text value="Location" /> </h2>
           <button type="button" disabled={busy || locating} onClick={detectLocation} className="secondary self-start">
             <LocateFixed size={18} aria-hidden="true" />
-            {locating ? "Locating…" : coords ? "Update location" : "Use my location"}
+            {locating ? tr("Locating…") : coords ? tr("Update location") : tr("Use my location")}
           </button>
           <p className="m-0 text-sm text-ink-soft">
             {coords
-              ? <><MapPin size={16} aria-hidden="true" className="mr-1 inline shrink-0 text-saffron-text" />{coords.lat}, {coords.lng} — the address is looked up from OpenStreetMap.</>
-              : "Location is needed to place the issue on the map and find nearby reports."}
+              ? <><MapPin size={16} aria-hidden="true" className="mr-1 inline shrink-0 text-saffron-text" />{coords.lat}, {coords.lng}  <Text value="— the address is looked up from OpenStreetMap." /> </>
+              : tr("Location is needed to place the issue on the map and find nearby reports.")}
           </p>
         </div>
 
-        <h2 className="m-0 flex items-center gap-2 text-2xl"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-peach font-sans text-sm font-semibold text-saffron-text">3</span> AI check · <span lang="hi">जाँचें</span></h2>
+        <h2 className="m-0 flex items-center gap-2 text-2xl"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-peach font-sans text-sm font-semibold text-saffron-text">3</span>  <Text value="AI check" /> </h2>
         <button type="button" disabled={busy || !hasEvidence || !coords} onClick={() => void runTriage()} className="!bg-saffron-text !text-white">
           <Sparkles size={18} aria-hidden="true" />
-          Preview AI triage · AI से जाँचें
-        </button>
+           <Text value="Preview AI triage" /> </button>
       </Card>
       {error && <ErrorBox error={error} retry={() => void (triage ? submitReport() : runTriage())} />}
-      {busy && <Loading message={triage ? "Saving your report…" : "AI is reading your report…"} />}
+      {busy && <Loading message={triage ? tr("Saving your report…") : tr("AI is reading your report…")} />}
 
       {triage && !busy && (
         <Card className="flex flex-col gap-3">
-          <Eyebrow>AI ने समझा · AI triage</Eyebrow>
+          <Eyebrow> <Text value="AI triage" /> </Eyebrow>
           <div className="flex flex-wrap gap-2">
             <span className="rounded-full bg-ok-soft px-3 py-1 text-xs font-semibold text-ok">{triage.department}</span>
             <span className="rounded-full bg-[#FFE7D3] px-3 py-1 text-xs font-semibold capitalize text-saffron-text">
-              {triage.category} · {triage.severity}
+              <Text value={triage.category} /> · <Text value={triage.severity} />
             </span>
           </div>
           <p className="m-0 text-sm text-ink-soft">{triage.severity_reason}</p>
           {triage.address && <p className="m-0 text-sm"><MapPin size={16} aria-hidden="true" className="mr-1 inline shrink-0 text-saffron-text" />{triage.address}</p>}
           <label className="m-0">
-            Report title
-            <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />
+             <Text value="Report title" /> <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />
           </label>
           <div className="rounded-2xl bg-paper p-3.5 text-sm">
-            {triage.title_local && triage.title_local !== triage.title && (
-              <p className="m-0 mb-1.5 font-medium">{triage.title_local}</p>
-            )}
             <p className="m-0 text-ink-soft">{triage.description}</p>
           </div>
           {triage.duplicates.length > 0 && (
             <div className="rounded-2xl bg-peach p-4">
               <strong className="text-saffron-text">
-                {triage.duplicates.length} similar report(s) nearby · पास में यही शिकायत पहले से दर्ज है
-              </strong>
+                {triage.duplicates.length}  <Text value="similar report(s) nearby" /> </strong>
               <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
                 {triage.duplicates.map((d) => (
                   <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3">
                     <div className="min-w-0 flex-1">
                       <Link to={"/civic/" + encodeURIComponent(d.id)} className="block break-words text-sm font-semibold">{d.title}</Link>
                       <small>
-                        {d.distance_m != null ? `${Math.round(d.distance_m)} m away · ` : ""}<ThumbsUp size={14} aria-hidden="true" className="mr-1 inline shrink-0" />{d.supporters}
+                        {d.distance_m != null ? `${Math.round(d.distance_m)} ${tr("m away")} · ` : ""}<ThumbsUp size={14} aria-hidden="true" className="mr-1 inline shrink-0" />{d.supporters}
                       </small>
                     </div>
                     <button type="button" disabled={busy} onClick={() => void supportDuplicate(d.id)} className="!min-h-11 !bg-saffron-text !px-4 !py-1.5 text-sm !text-white">
-                      <ThumbsUp size={15} aria-hidden="true" /> +1 हमारे यहाँ भी है
-                    </button>
+                      <ThumbsUp size={15} aria-hidden="true" />  <Text value="+1 Here too" /> </button>
                   </li>
                 ))}
               </ul>
             </div>
           )}
           <button type="button" disabled={busy || !title.trim()} onClick={() => void submitReport()}>
-            Confirm &amp; submit new report · नई शिकायत दर्ज करें
-          </button>
+             <Text value="Confirm & submit new report" /> </button>
           {triage.geocoding_attribution && <small>{triage.geocoding_attribution}</small>}
         </Card>
       )}
