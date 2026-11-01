@@ -1,4 +1,6 @@
 """The citizen's applications, complaints and alerts in one timeline."""
+import re
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,8 +13,16 @@ from .notifications import require_profile
 router = APIRouter(tags=["activity"])
 
 
+def run_title(goal: str | None) -> str:
+    """Service runs store the agent's full instructions as the goal; show only the service."""
+    goal = goal or ""
+    match = re.match(r"Help the citizen with (.+?)\.\s", goal)
+    title = match[1] if match else goal
+    return title if len(title) <= 90 else title[:87].rstrip() + "…"
+
+
 def merge_activity(runs, reports, notifications) -> list[ActivityItem]:
-    items = [ActivityItem(type="run", id=r.id, title=r.goal, status=r.status,
+    items = [ActivityItem(type="run", id=r.id, title=run_title(r.goal), status=r.status,
                           official=bool(r.receipt) and r.status == "done", updated_at=r.updated_at,
                           link=f"/runs/{r.id}") for r in runs]
     items += [ActivityItem(type="report", id=r.id, title=r.title, status=r.status,

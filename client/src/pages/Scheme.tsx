@@ -160,7 +160,7 @@ export default function Scheme() {
                 }
               >
                 <Mic size={16} aria-hidden="true" className="shrink-0 text-saffron-text" />
-                Ask Buddy to summarize aloud
+                <Text value="Ask Buddy to summarize aloud" />
               </PillButton>
             </div>
           </Card>

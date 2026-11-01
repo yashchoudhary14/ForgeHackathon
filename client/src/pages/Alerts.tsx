@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { listNotifications, markNotificationsRead, resolveLink } from "../api/alerts";
 import type { NotificationOut } from "../api/types";
 import { ErrorBox, Loading } from "../components";
-import { useApp } from "../context";
+import { Text, useApp } from "../context";
 import { Card, EmptyState, Eyebrow, ProfileRequiredCard, SourceLink } from "../ui";
 import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
@@ -90,7 +90,7 @@ export function AlertsPanel({
               }
             >
               <div className="flex items-start justify-between gap-2">
-                <strong className="min-w-0 break-words">{n.title}</strong>
+                <strong className="min-w-0 break-words"><Text value={n.title} /></strong>
                 {!n.read && (
                   <span className="shrink-0 rounded-full bg-saffron-text px-2 py-0.5 text-xs font-semibold text-white">
                     {tt(lang, "new")}

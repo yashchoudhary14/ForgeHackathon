@@ -1,4 +1,5 @@
 import { useTranslation, Text, useApp } from "../context";
+import { translate } from "../i18n";
 import { useEffect, useState } from "react";
 import { Camera, FileCheck2, Landmark, ShieldCheck, Upload } from "lucide-react";
 import { request } from "../api/client";
@@ -247,7 +248,7 @@ export default function Locker() {
                 <h2 className="m-0 font-serif text-3xl font-normal"> <Text value="My locker" /> </h2>
                 <span className="text-sm text-ink-soft"> <Text value="Secure, just for you" /> </span>
               </div>
-              <StatTile accent value={items.length} label="documents in your locker" />
+              <StatTile accent value={items.length} label={translate("documents in your locker", lang)} />
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
                 {items.map((d, i) => (
                   <li key={d.id}>
