@@ -23,19 +23,19 @@ export default function TalkHeader({
   const navigate = useNavigate();
   const [changing, setChanging] = useState(false);
   return (
-    <header className="flex items-center justify-between gap-2 px-4 py-3">
+    <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
       <button
         type="button"
         aria-label={tt(lang, "close")}
         onClick={() => navigate("/")}
-        className="!min-h-11 !w-11 !rounded-full !bg-white/80 !p-0 !text-ink"
+        className="!min-h-11 !w-11 shrink-0 !rounded-full !bg-white/80 !p-0 !text-ink"
       >
         <X size={20} />
       </button>
       <strong className="font-serif text-2xl font-normal">
         {tt(lang, "talkTitle")}
       </strong>
-      <span className="flex items-center gap-1 rounded-full bg-white/90 py-0.5 pl-3 pr-0.5 text-sm font-semibold">
+      <span className="flex max-w-full flex-wrap items-center gap-1 rounded-full bg-white/90 py-0.5 pl-3 pr-0.5 text-sm font-semibold">
         {changing ? (
           <select
             aria-label={tt(lang, "changeLang")}

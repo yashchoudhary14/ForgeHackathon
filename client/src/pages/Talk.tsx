@@ -115,7 +115,11 @@ export default function Talk() {
     if (value in languages) setLang(value as Lang);
   }
   const listening = recorder.recording;
-  const orb: OrbState = listening ? "listening" : speaking ? "speaking" : "idle";
+  const orb: OrbState = listening
+    ? "listening"
+    : speaking
+      ? "speaking"
+      : "idle";
   const status = listening
     ? ui("listening")
     : busy
@@ -125,7 +129,7 @@ export default function Talk() {
         : ui("holdToTalk");
   return (
     <div
-      className="flex min-h-screen flex-col"
+      className="flex h-dvh flex-col overflow-hidden"
       lang={sessionLang}
       style={{
         background:
@@ -134,7 +138,7 @@ export default function Talk() {
     >
       <TalkHeader lang={sessionLang} detected={detected} onPick={pickLang} />
       <div
-        className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4"
+        className="mx-auto flex w-full max-w-xl min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4"
         aria-live="polite"
       >
         {messages.length === 0 && (

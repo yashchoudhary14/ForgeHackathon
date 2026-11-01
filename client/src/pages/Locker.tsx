@@ -99,13 +99,13 @@ export default function Locker() {
           <Card className="flex flex-col gap-4 overflow-hidden !bg-[#1a1917] !text-paper">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="m-0 text-paper">Scan into locker · कागज़ स्कैन करें</h2>
-              <label className="m-0 flex items-center gap-2 text-xs font-semibold text-[#cfc6b8]">
+              <label className="m-0 flex max-w-full flex-wrap items-center gap-2 text-xs font-semibold text-[#cfc6b8]">
                 <span>Document type</span>
                 <select
                   value={docType}
                   disabled={busy}
                   onChange={(e) => setDocType(e.target.value)}
-                  className="!m-0 !min-h-11 !w-auto !rounded-full !border-white/20 !bg-white/10 !px-3 !py-1.5 !text-sm !text-paper"
+                  className="!m-0 !min-h-11 !w-auto min-w-0 max-w-full !rounded-full !border-white/20 !bg-white/10 !px-3 !py-1.5 !text-sm !text-paper"
                 >
                   {docOptions.map(([v, txt]) => (
                     <option key={v} value={v} className="text-ink">
@@ -163,7 +163,7 @@ export default function Locker() {
           </Card>
           {error && <ErrorBox error={error} retry={() => void load()} />}
           {!items ? (
-            <Loading />
+            !error && <Loading />
           ) : items.length === 0 ? (
             <EmptyState title="Nothing here yet">Your scanned documents will be listed here.</EmptyState>
           ) : (
