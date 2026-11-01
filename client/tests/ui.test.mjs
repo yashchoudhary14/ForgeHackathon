@@ -6,6 +6,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const server = await createServer({
   server: { middlewareMode: true, hmr: false },
+  // Match the router ESM exports used by Node and the other SSR tests.
+  ssr: { resolve: { externalConditions: ["module-sync"] } },
   appType: "custom",
   optimizeDeps: { noDiscovery: true, include: [] },
 });

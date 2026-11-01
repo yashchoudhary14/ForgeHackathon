@@ -85,30 +85,63 @@ export default function Civic() {
         <h1>Civic map &amp; local issues</h1>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatTile
-          accent
-          value={stats?.total ?? "—"}
-          label={`${byStatus.open ?? 0} open · ${byStatus.filed ?? 0} filed · ${(byStatus.resolved ?? 0) + (byStatus.closed ?? 0)} resolved`}
-        />
-        <StatTile
-          value={stats ? stats.official_number : "—"}
-          label={`with an official CPGRAMS number · ${stats?.confirmed_by_others ?? 0} confirmed by neighbours`}
-        />
-        <Card tint="peach" className="flex flex-col justify-between gap-3">
-          <div>
-            <strong className="font-serif text-2xl font-normal">See a problem on your street?</strong>
-            <p className="m-0 text-sm text-ink-soft">सड़क, पानी, बिजली या सफ़ाई — फ़ोटो लें या बोलकर बताएँ</p>
+      {stats && stats.total === 0 && (reports?.length ?? 0) === 0 ? (
+        <Card
+          tint="peach"
+          className="flex flex-col justify-between gap-4 md:flex-row md:items-center"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wider text-saffron-text">
+              NEIGHBOURHOOD ACCOUNTABILITY · जन-सुनवाई
+            </span>
+            <strong className="font-serif text-2xl font-normal text-ink">
+              Be the first in your neighbourhood to report a street, water, or
+              electricity issue
+            </strong>
+            <p className="m-0 text-sm text-ink-soft">
+              सड़क, पानी, बिजली या सफ़ाई — फ़ोटो लें या बोलकर बताएँ, Buddy विभाग
+              की पहचान कर CPGRAMS अर्ज़ी तैयार करेगा।
+            </p>
           </div>
-          <PillLink to="/civic/new" className="self-start">
+          <PillLink to="/civic/new" className="self-start md:shrink-0">
             <Plus size={18} aria-hidden="true" />
             Report an issue · शिकायत दर्ज करें
           </PillLink>
         </Card>
-      </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-3">
+          <StatTile
+            accent
+            value={stats?.total ?? "—"}
+            label={`${byStatus.open ?? 0} open · ${byStatus.filed ?? 0} filed · ${(byStatus.resolved ?? 0) + (byStatus.closed ?? 0)} resolved`}
+          />
+          <StatTile
+            value={stats ? stats.official_number : "—"}
+            label={`with an official CPGRAMS number · ${stats?.confirmed_by_others ?? 0} confirmed by neighbours`}
+          />
+          <Card tint="peach" className="flex flex-col justify-between gap-3">
+            <div>
+              <strong className="font-serif text-2xl font-normal">
+                See a problem on your street?
+              </strong>
+              <p className="m-0 text-sm text-ink-soft">
+                सड़क, पानी, बिजली या सफ़ाई — फ़ोटो लें या बोलकर बताएँ
+              </p>
+            </div>
+            <PillLink to="/civic/new" className="self-start">
+              <Plus size={18} aria-hidden="true" />
+              Report an issue · शिकायत दर्ज करें
+            </PillLink>
+          </Card>
+        </div>
+      )}
 
       <Card className="flex flex-col gap-3 !p-4">
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
+        <div
+          className="flex gap-2 overflow-x-auto pb-1"
+          role="group"
+          aria-label="Filter by status"
+        >
           {statusTabs.map(([val, lbl]) => (
             <button
               key={val}

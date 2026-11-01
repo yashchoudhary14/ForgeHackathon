@@ -7,7 +7,7 @@ import { ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
 import { tt } from "../ui-strings";
 import { PillLink } from "../nav";
-import { Card, EmptyState, Eyebrow } from "../ui";
+import { Card, EmptyState, Eyebrow, ProfileRequiredCard } from "../ui";
 import { useRecorder } from "../useRecorder";
 import CameraCapture from "./CameraCapture";
 
@@ -110,16 +110,64 @@ export default function CivicNew() {
 
   if (!profileId)
     return (
-      <div className="mx-auto flex max-w-2xl flex-col gap-4">
-        <h1>
-          Report a local issue
-          <span lang="hi" className="mt-2 block font-sans text-xl font-medium text-ink-soft">
-            समस्या बताएँ
-          </span>
-        </h1>
-        <EmptyState title={tt(lang, "needProfileTitle")} action={<PillLink to="/talk">{tt(lang, "chooseTalk")} →</PillLink>}>
-          Reports are linked to your profile so you can follow the official reply.
-        </EmptyState>
+      <div className="mx-auto flex max-w-2xl flex-col gap-5">
+        <div className="flex flex-col gap-1">
+          <Link
+            to="/civic"
+            className="inline-flex min-h-11 items-center self-start text-sm font-semibold"
+          >
+            ← Civic map · नागरिक नक्शा
+          </Link>
+          <Eyebrow>Speak up · आवाज़ उठाएँ</Eyebrow>
+          <h1>
+            Report a local issue
+            <span
+              lang="hi"
+              className="mt-2 block font-sans text-xl font-medium text-ink-soft"
+            >
+              समस्या बताएँ
+            </span>
+          </h1>
+          <p className="m-0 text-ink-soft">
+            फ़ोटो लें या अपनी आवाज़ में बताएँ — विभाग और अर्ज़ी AI तैयार करेगा
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            {
+              step: "1",
+              title: "Photo or Voice · सबूत",
+              sub: "Attach a street photo or describe the issue in your language",
+              Icon: Camera,
+            },
+            {
+              step: "2",
+              title: "Location · जगह",
+              sub: "Pinpoint your street so neighbours can support with +1",
+              Icon: LocateFixed,
+            },
+            {
+              step: "3",
+              title: "AI CPGRAMS Triage · जाँचें",
+              sub: "Buddy identifies the department and drafts the formal grievance",
+              Icon: Sparkles,
+            },
+          ].map(({ step, title: stepTitle, sub, Icon }) => (
+            <Card key={step} className="flex flex-col gap-2 !p-4">
+              <div className="flex items-center justify-between">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-peach text-xs font-bold text-saffron-text">
+                  {step}
+                </span>
+                <Icon size={18} aria-hidden="true" className="text-saffron-text" />
+              </div>
+              <strong className="font-serif text-lg font-normal text-ink">
+                {stepTitle}
+              </strong>
+              <p className="m-0 text-xs text-ink-soft">{sub}</p>
+            </Card>
+          ))}
+        </div>
+        <ProfileRequiredCard context="civic" nextPath="/civic/new" />
       </div>
     );
 

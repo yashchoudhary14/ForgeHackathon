@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
-import { Camera, Upload } from "lucide-react";
+import { Camera, FileCheck2, Landmark, ShieldCheck, Upload } from "lucide-react";
 import { request } from "../api/client";
 import { deleteLockerItem, uploadForm } from "../api/locker";
 import type { LockerItem } from "../api/locker";
+import { saveMode } from "../api/profile";
 import { ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
-import { Card, EmptyState, Eyebrow, StatTile } from "../ui";
-import { PillLink } from "../nav";
+import {
+  Card,
+  EmptyState,
+  Eyebrow,
+  PillButton,
+  ProfileRequiredCard,
+  StatTile,
+} from "../ui";
+import { tt } from "../ui-strings";
 import CameraCapture from "./CameraCapture";
 import LockerItemCard, { label } from "./LockerItemCard";
 
@@ -24,13 +32,28 @@ const docOptions = [
 ];
 
 export default function Locker() {
-  const { profileId } = useApp();
+  const { profileId, setProfileId, mode, setMode, lang } = useApp();
   const [items, setItems] = useState<LockerItem[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [camera, setCamera] = useState(false);
   const [docType, setDocType] = useState("");
   const [last, setLast] = useState<LockerItem | null>(null);
+
+  async function startLockerNow() {
+    setBusy(true);
+    setError("");
+    try {
+      const nextMode = mode || "manual";
+      const pid = await saveMode("", nextMode, lang);
+      if (!mode) setMode(nextMode);
+      setProfileId(pid);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function load(signal?: AbortSignal) {
     if (!profileId) return setItems([]);
@@ -92,9 +115,64 @@ export default function Locker() {
         </p>
       </div>
       {!profileId ? (
-        <EmptyState title="Create a profile first" action={<div className="flex flex-wrap justify-center gap-2"><PillLink to="/talk" tone="saffron">Talk to Sahayak →</PillLink><PillLink to="/" tone="light">Create profile →</PillLink></div>}>
-          Your locker belongs to your profile. Start from Talk or the home page.
-        </EmptyState>
+        <div className="flex flex-col gap-5">
+          {error && <ErrorBox error={error} retry={() => void startLockerNow()} />}
+          <ProfileRequiredCard
+            context="locker"
+            nextPath="/locker"
+            primaryAction={
+              <PillButton
+                tone="dark"
+                disabled={busy}
+                onClick={() => void startLockerNow()}
+              >
+                {tt(lang, "startLockerNow")} →
+              </PillButton>
+            }
+          />
+          <div className="flex flex-col gap-3">
+            <Eyebrow>WHAT YOU CAN STORE IN YOUR LOCKER · दस्तावेज़ सूची</Eyebrow>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                {
+                  title: "Aadhaar Card · आधार कार्ड",
+                  sub: "Store an identity document for applications.",
+                  Icon: ShieldCheck,
+                },
+                {
+                  title: "Income Certificate · आय प्रमाण पत्र",
+                  sub: "Keep proof of income available for welfare applications.",
+                  Icon: FileCheck2,
+                },
+                {
+                  title: "Caste Certificate · जाति प्रमाण पत्र",
+                  sub: "Store a certificate that a scholarship or welfare scheme may request.",
+                  Icon: FileCheck2,
+                },
+                {
+                  title: "Bank Passbook / Land Record · खतौनी",
+                  sub: "Keep bank or land documents together for applications.",
+                  Icon: Landmark,
+                },
+              ].map(({ title, sub, Icon }) => (
+                <Card key={title} className="flex items-start gap-3.5 !p-4">
+                  <span
+                    aria-hidden="true"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-peach text-saffron-text"
+                  >
+                    <Icon size={20} />
+                  </span>
+                  <div className="flex flex-col gap-0.5">
+                    <strong className="font-serif text-lg font-normal text-ink">
+                      {title}
+                    </strong>
+                    <p className="m-0 text-xs text-ink-soft">{sub}</p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
       ) : (
         <>
           <Card className="flex flex-col gap-4 overflow-hidden !bg-[#1a1917] !text-paper">

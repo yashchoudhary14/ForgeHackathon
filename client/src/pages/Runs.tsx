@@ -11,7 +11,7 @@ import { Text, useApp } from "../context";
 import { translate } from "../i18n";
 import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
-import { Card, EmptyState, Eyebrow, StatTile } from "../ui";
+import { Card, EmptyState, Eyebrow, ProfileRequiredCard, StatTile } from "../ui";
 import { AlertsPanel, OpenLink } from "./Alerts";
 
 type Tab = "all" | "runs" | "civic" | "alerts";
@@ -167,9 +167,47 @@ export default function Runs() {
       </div>
 
       {!profileId ? (
-        <EmptyState title={tt(lang, "needProfileTitle")} action={<PillLink to="/talk">{tt(lang, "talkMode")} →</PillLink>}>
-          {tt(lang, "needProfile")}
-        </EmptyState>
+        <div className="flex flex-col gap-5">
+          <ProfileRequiredCard context="activity" nextPath="/runs" />
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              {
+                title: "Live Assisted Applications",
+                sub: "Watch Buddy fill official portals step-by-step while you approve final submission.",
+                Icon: Bot,
+                tint: "bg-act-soft",
+                iconBg: "bg-white text-[#2A5FC4]",
+              },
+              {
+                title: "CPGRAMS Grievance Tracking",
+                sub: "Follow your street, water, and electricity reports through official department replies.",
+                Icon: MapPin,
+                tint: "bg-peach/60",
+                iconBg: "bg-peach text-saffron-text",
+              },
+              {
+                title: "Eligibility & Policy Alerts",
+                sub: "Get notified when new schemes or revised circulars match your family profile.",
+                Icon: Bell,
+                tint: "bg-[#f2f8e1]",
+                iconBg: "bg-lime text-ink",
+              },
+            ].map(({ title, sub, Icon, tint, iconBg }) => (
+              <Card key={title} className={`flex flex-col gap-2.5 !p-4 ${tint}`}>
+                <span
+                  aria-hidden="true"
+                  className={`grid h-10 w-10 place-items-center rounded-2xl ${iconBg}`}
+                >
+                  <Icon size={18} />
+                </span>
+                <strong className="font-serif text-xl font-normal text-ink">
+                  {title}
+                </strong>
+                <p className="m-0 text-xs text-ink-soft">{sub}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-3 gap-3">

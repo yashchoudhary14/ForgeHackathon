@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Mic, Plus, ShieldCheck } from "lucide-react";
 import { getActivity, resolveLink } from "../api/alerts";
 import { post, request } from "../api/client";
 import type { LockerItem } from "../api/locker";
@@ -13,12 +14,13 @@ import {
   numericFields,
   profileChoices,
   profileCompleteness,
+  profileFields,
   profileGroups,
   profileInitials,
   profileToForm,
 } from "../profile-form";
 import type { ProfileField, ProfileForm } from "../profile-form";
-import { Card, PillButton } from "../ui";
+import { Card, Eyebrow, PillButton } from "../ui";
 import { tt } from "../ui-strings";
 
 function ActivityLinks({ items, lang }: { items: ActivityItem[]; lang: Lang }) {
@@ -69,6 +71,8 @@ function ActivityLinks({ items, lang }: { items: ActivityItem[]; lang: Lang }) {
 export default function Profile() {
   const { lang, setLang, mode, setMode, profileId, setProfileId } = useApp();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextPath = searchParams.get("next");
   const [profile, setProfile] = useState<ProfileOut | null>(null);
   const [form, setForm] = useState<ProfileForm>(() => profileToForm({}));
   const [originalData, setOriginalData] = useState<ProfileData>({});
@@ -211,25 +215,50 @@ export default function Profile() {
 
   return (
     <div className="flex flex-col gap-6" lang={lang}>
-      <Card className="flex flex-col gap-5">
-        <div className="flex items-center gap-4">
-          <span
-            className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#ffe7d3] text-2xl font-semibold text-ink"
-            aria-hidden="true"
-          >
-            {initials || <PersonIcon size={30} />}
-          </span>
-          <div>
-            <h1 className="m-0">{tt(lang, "profileTitle")}</h1>
-            {profile?.sensitive?.full_name && (
-              <p className="m-0 text-lg">{profile.sensitive.full_name}</p>
+      <Card className="flex flex-col gap-5 border border-[#f3d2b8] bg-gradient-to-br from-peach/70 via-white to-white p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span
+              className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[#ffe7d3] text-2xl font-semibold text-ink shadow-[inset_0_0_0_1px_#f3d2b8]"
+              aria-hidden="true"
+            >
+              {initials || <PersonIcon size={30} />}
+            </span>
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Eyebrow>{tt(lang, "profilePassEyebrow")}</Eyebrow>
+                {!loading && !loadError && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-lime px-3 py-0.5 text-xs font-semibold text-ink">
+                    <ShieldCheck size={14} aria-hidden="true" />
+                    {completeness}% · {profileFields.length - missing.length}/
+                    {profileFields.length}
+                  </span>
+                )}
+              </div>
+              <h1 className="m-0">{tt(lang, "profileTitle")}</h1>
+              {profile?.sensitive?.full_name && (
+                <p className="m-0 text-lg font-semibold">
+                  {profile.sensitive.full_name}
+                </p>
+              )}
+              <p className="m-0 text-ink-soft">{tt(lang, "profileSubtitle")}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <PillLink to="/talk" tone="saffron">
+              <Mic size={18} aria-hidden="true" />
+              Complete by Voice with Buddy
+            </PillLink>
+            {nextPath && profileId && (
+              <PillLink to={nextPath} tone="dark">
+                Continue →
+              </PillLink>
             )}
-            <p className="m-0 text-ink-soft">{tt(lang, "profileSubtitle")}</p>
           </div>
         </div>
         <fieldset
           disabled={busy || loading || loadError}
-          className="m-0 flex flex-wrap gap-4 border-0 p-0"
+          className="m-0 grid gap-4 border-0 p-0 sm:grid-cols-2"
         >
           <label className="min-w-0 flex-1" htmlFor="profile-language">
             {tt(lang, "profileLanguage")}
@@ -264,18 +293,41 @@ export default function Profile() {
           </label>
         </fieldset>
         {!loading && !loadError && (
-          <div>
-            <label htmlFor="profile-completeness">
-              {tt(lang, "profileComplete")} · {completeness}%
-            </label>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-sm font-semibold">
+              <label htmlFor="profile-completeness" className="m-0">
+                {tt(lang, "profileComplete")} · {completeness}%
+              </label>
+              <span className="text-xs text-ink-soft">
+                {profileFields.length - missing.length} / {profileFields.length}{" "}
+                fields saved
+              </span>
+            </div>
             <progress
               id="profile-completeness"
               value={completeness}
               max={100}
-              className="!h-3"
+              className="!h-3 w-full overflow-hidden rounded-full"
             />
           </div>
         )}
+        <div className="flex flex-wrap gap-2.5 border-t border-[#f3d2b8]/70 pt-3">
+          <PillLink to="/locker" tone="light" className="!min-h-11 !px-4 text-xs">
+            {tt(lang, "profileDocuments")}
+            {documents !== null ? ` · ${documents}` : ""}
+          </PillLink>
+          <PillLink to="/runs" tone="light" className="!min-h-11 !px-4 text-xs">
+            {tt(lang, "profileApplications")}
+            {activity ? ` · ${applications.length}` : ""}
+          </PillLink>
+          <PillLink to="/civic" tone="light" className="!min-h-11 !px-4 text-xs">
+            {tt(lang, "profileReports")}
+            {activity ? ` · ${reports.length}` : ""}
+          </PillLink>
+          <PillLink to="/alerts" tone="light" className="!min-h-11 !px-4 text-xs">
+            {tt(lang, "navAlerts")}
+          </PillLink>
+        </div>
       </Card>
       {loading && <p role="status">{tt(lang, "loading")}</p>}
       {loadError && (
@@ -407,31 +459,43 @@ export default function Profile() {
               </PillButton>
             </fieldset>
           </form>
-          <Card tint="peach">
-            <h2>{tt(lang, "profileMissing")}</h2>
-            <p className="text-ink-soft">
+          <Card tint="peach" className="flex flex-col gap-3">
+            <h2 className="m-0 font-serif text-2xl">
+              {tt(lang, "profileMissing")}
+            </h2>
+            <p className="m-0 text-ink-soft">
               {tt(
                 lang,
                 missing.length ? "profileMissingHint" : "profileAllDone",
               )}
             </p>
             {missing.length > 0 && (
-              <ul className="m-0 grid list-none gap-1 p-0 sm:grid-cols-2">
+              <div className="flex flex-wrap gap-2">
                 {missing.map((field) => (
-                  <li key={field}>
-                    <a
-                      className="inline-flex min-h-11 items-center text-[#9a4a12] underline"
-                      href={`#profile-${field}`}
-                    >
-                      {tt(lang, `field_${field}`)}
-                    </a>
-                  </li>
+                  <a
+                    key={field}
+                    href={`#profile-${field}`}
+                    onClick={(e) => {
+                      const el = document.getElementById(`profile-${field}`);
+                      if (el) {
+                        e.preventDefault();
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        el.focus();
+                      }
+                    }}
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#f3d2b8] bg-white px-3.5 py-1.5 text-xs font-semibold text-saffron-text no-underline transition-colors hover:bg-saffron/15"
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                    {tt(lang, `field_${field}`)}
+                  </a>
                 ))}
-              </ul>
+              </div>
             )}
-            <PillLink to="/schemes" tone="light">
-              {tt(lang, "navSchemes")} →
-            </PillLink>
+            <div className="pt-1">
+              <PillLink to="/schemes" tone="light">
+                {tt(lang, "navSchemes")} →
+              </PillLink>
+            </div>
           </Card>
         </>
       )}

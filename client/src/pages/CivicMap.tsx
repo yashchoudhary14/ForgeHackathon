@@ -92,11 +92,24 @@ export default function CivicMap({
   }
 
   return (
-    <div className="relative min-h-[340px] overflow-hidden sm:min-h-[420px] rounded-[28px] bg-[#e9e3d5] shadow-[inset_0_0_0_1px_#ede5da]">
+    <div className="relative min-h-[340px] overflow-hidden rounded-[28px] bg-[#efe8dc] bg-[radial-gradient(#d8cebe_1px,transparent_1px)] [background-size:16px_16px] shadow-[inset_0_0_0_1px_#ede5da] sm:min-h-[420px]">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 600 400"
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-35"
+      >
+        <path
+          d="M275 45 L325 70 L345 120 L415 145 L445 185 L395 230 L355 275 L315 355 L285 355 L245 270 L195 210 L215 145 L250 95 Z"
+          fill="#e2d7c5"
+          stroke="#c9bba4"
+          strokeWidth="2"
+          strokeDasharray="4 4"
+        />
+      </svg>
       <div
         ref={containerRef}
         aria-label="Civic issues map"
-        className="z-0 h-[340px] w-full sm:h-[440px]"
+        className="relative z-0 h-[340px] w-full !bg-transparent sm:h-[440px]"
       />
       <div className="pointer-events-none absolute inset-x-3.5 top-3.5 z-[400] flex flex-wrap items-center justify-between gap-2">
         <span className="rounded-full bg-white/95 px-3.5 py-2 text-xs font-semibold text-ink shadow-sm">

@@ -5,7 +5,7 @@ import { request, post, safeUrl } from "../api/client";
 import type { ExplainOut, RunOut, SchemeDetail } from "../api/types";
 import { useApp } from "../context";
 import { ErrorBox, Explanation, Loading, Markdown } from "../components";
-import { Bot, Landmark, Volume2 } from "lucide-react";
+import { Bot, Landmark, Mic, Volume2 } from "lucide-react";
 import { Card, PillButton, SourceLink } from "../ui";
 export default function Scheme() {
   const { slug = "" } = useParams(),
@@ -82,12 +82,29 @@ export default function Scheme() {
       setBusy("");
     }
   }
-  if (loading)
-    return (
-      <Loading message="Loading benefits, eligibility and official application steps…" />
-    );
+  const fallbackTitle = slug
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
   return (
     <>
+      {loading && (
+        <>
+          <Card tint="peach" className="mb-6 flex flex-col gap-3">
+            <Link
+              to="/schemes"
+              className="inline-flex min-h-11 items-center self-start font-semibold"
+            >
+              <Text value={"← My schemes"} />
+            </Link>
+            <p className="m-0 inline-flex items-center gap-1.5 self-start rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink-soft">
+              <Landmark size={14} aria-hidden="true" className="shrink-0" />
+              GOVERNMENT SCHEME
+            </p>
+            <h1>{fallbackTitle || "Scheme details"}</h1>
+          </Card>
+          <Loading message="Loading benefits, eligibility and official application steps…" />
+        </>
+      )}
       {error && <ErrorBox error={error} retry={() => retryAction.current()} />}{" "}
       {scheme && (
         <>
@@ -104,21 +121,38 @@ export default function Scheme() {
             <div><SourceLink url={scheme.source_url}>
               <Text value={"Read official source ↗"} />
             </SourceLink></div>
-            <div className="actions">
-              <PillButton disabled={!!busy} onClick={explain}>
-                <Volume2 size={18} aria-hidden="true" className="shrink-0" />
-                <Text
-                  value={busy === "explain" ? "Explaining…" : "Explain to me"}
-                />
-              </PillButton>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t border-[#f3d2b8] pt-4">
+              <div className="flex flex-wrap gap-2.5">
+                <PillButton
+                  tone="saffron"
+                  onClick={() => setApply(!apply)}
+                  disabled={!!busy}
+                  aria-expanded={apply}
+                >
+                  <Bot size={18} aria-hidden="true" className="shrink-0" />
+                  <Text value={"Apply for me"} />
+                </PillButton>
+                <PillButton disabled={!!busy} onClick={explain}>
+                  <Volume2 size={18} aria-hidden="true" className="shrink-0" />
+                  <Text
+                    value={busy === "explain" ? "Explaining…" : "Explain to me"}
+                  />
+                </PillButton>
+              </div>
               <PillButton
-                tone="saffron"
-                onClick={() => setApply(!apply)}
-                disabled={!!busy}
-                aria-expanded={apply}
+                tone="light"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent("buddy:prompt", {
+                      detail: {
+                        text: `Am I eligible for ${scheme.name}? Summarize its benefits aloud.`,
+                      },
+                    }),
+                  )
+                }
               >
-                <Bot size={18} aria-hidden="true" className="shrink-0" />
-                <Text value={"Apply for me"} />
+                <Mic size={16} aria-hidden="true" className="shrink-0 text-saffron-text" />
+                Ask Buddy to summarize aloud
               </PillButton>
             </div>
           </Card>
@@ -142,7 +176,7 @@ export default function Scheme() {
               </p>
               {!profileId ? (
                 <p>
-                  <Link to="/welcome" className="inline-flex min-h-11 items-center font-semibold">
+                  <Link to="/profile" className="inline-flex min-h-11 items-center font-semibold">
                     <Text value={"Create a profile first →"} />
                   </Link>
                 </p>
@@ -207,7 +241,11 @@ export default function Scheme() {
               )}
             </section>
           )}
-          <div className="tabs" role="tablist" aria-label="Scheme information">
+          <div
+            className="tabs flex gap-2 overflow-x-auto pb-1"
+            role="tablist"
+            aria-label="Scheme information"
+          >
             {[
               "Benefits",
               "Eligibility",

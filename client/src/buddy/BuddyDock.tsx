@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Mic, Send, Volume2, X } from "lucide-react";
+import {
+  FileText,
+  MapPin,
+  Mic,
+  Send,
+  Sparkles,
+  Volume2,
+  X,
+} from "lucide-react";
 import { applyTalkEvent, streamTalk } from "../api/talk";
 import { request } from "../api/client";
 import { uploadForm } from "../api/locker";
@@ -8,7 +16,8 @@ import type { LockerItem } from "../api/locker";
 import { saveMode } from "../api/profile";
 import type { Human, Lang, SttOut } from "../api/types";
 import { languages, useApp } from "../context";
-import { Orb } from "../ui";
+import { Orb, TextSizeToggle } from "../ui";
+import { tt } from "../ui-strings";
 import { useRecorder } from "../useRecorder";
 import CameraCapture from "../pages/CameraCapture";
 import CardView from "../pages/TalkCards";
@@ -237,6 +246,17 @@ export default function BuddyDock() {
     window.addEventListener("buddy:onboard", start);
     return () => window.removeEventListener("buddy:onboard", start);
   }, [lang]);
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      const custom = e as CustomEvent<{ text?: string }>;
+      const promptText = custom.detail?.text?.trim();
+      speech.unlock();
+      setOpen(true);
+      if (promptText) void submit({ text: promptText });
+    };
+    window.addEventListener("buddy:prompt", onPrompt);
+    return () => window.removeEventListener("buddy:prompt", onPrompt);
+  }, [lang, pathname]);
   useEffect(() => {
     const reopen = () => {
       const human = live.pending.current;
@@ -515,57 +535,247 @@ export default function BuddyDock() {
     }
   }
   const human = live.human;
+  const isTalkPage = pathname.replace(/\/+$/, "") === "/talk";
+  const panelOpen = open || isTalkPage;
+  const orbState = recorder.recording
+    ? "listening"
+    : speech.speaking
+      ? "speaking"
+      : "idle";
+  const promptKey =
+    pathname === "/"
+      ? "dockPromptHome"
+      : pathname === "/schemes"
+        ? "dockPromptSchemes"
+        : pathname.startsWith("/schemes/")
+          ? "dockPromptSchemeDetail"
+          : pathname.startsWith("/explain")
+            ? "dockPromptExplain"
+            : pathname.startsWith("/civic")
+              ? "dockPromptCivic"
+              : pathname.startsWith("/locker")
+                ? "dockPromptLocker"
+                : pathname.startsWith("/profile")
+                  ? "dockPromptProfile"
+                  : "dockPromptHome";
+  const starterItems = [
+    { key: "starterSchemes", Icon: Sparkles },
+    { key: "starterNotice", Icon: FileText },
+    { key: "starterCivic", Icon: MapPin },
+  ] as const;
+  const quickLangs: { code: Lang; short: string }[] = [
+    { code: "en", short: "EN" },
+    { code: "hi", short: "हिं" },
+    { code: "bn", short: "বাং" },
+    { code: "as", short: "অস" },
+  ];
+
+  function handleMicPointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    speech.unlock();
+    held.current = false;
+    suppressClick.current = false;
+    holdTimer.current = setTimeout(() => {
+      held.current = true;
+      if (!recorder.isActive()) startMic();
+    }, HOLD_MS);
+  }
+  function handleMicPointerUp() {
+    clearTimeout(holdTimer.current);
+    if (held.current) {
+      recorder.stop();
+      suppressClick.current = true;
+    }
+  }
+  function handleMicPointerCancel() {
+    clearTimeout(holdTimer.current);
+    recorder.cancel();
+    suppressClick.current = false;
+  }
+  function handleMicClick(e: React.MouseEvent<HTMLButtonElement>) {
+    if (suppressClick.current && e.detail !== 0) {
+      suppressClick.current = false;
+      return;
+    }
+    suppressClick.current = false;
+    if (micGesture(recorder.isActive(), 0) === "stop") recorder.stop();
+    else startMic();
+  }
+
   return (
     <>
-      <div className="fixed bottom-24 right-3 z-50 flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-3 md:bottom-5 md:right-5">
-        {open && (
+      <div
+        className={
+          isTalkPage
+            ? "fixed inset-0 z-40 flex flex-col bg-paper"
+            : "fixed bottom-[4.75rem] left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 flex-col items-stretch gap-2.5 md:bottom-5 md:right-6 md:left-auto md:w-auto md:max-w-[calc(100vw-2rem)] md:translate-x-0 md:items-end"
+        }
+      >
+        {panelOpen && (
           <section
             id="buddy-panel"
             aria-label={ui("name")}
-            className="flex max-h-[min(70dvh,650px)] w-[min(25rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[28px] border border-line bg-paper shadow-2xl"
+            className={
+              isTalkPage
+                ? "flex h-full w-full flex-col overflow-hidden bg-paper"
+                : "flex max-h-[min(68dvh,620px)] w-full flex-col overflow-hidden rounded-[28px] border border-[#e5dac8] bg-paper shadow-2xl md:w-[26rem]"
+            }
           >
-            <header className="flex shrink-0 items-center justify-between gap-2 border-b border-line px-4 py-2">
-              <strong className="font-serif text-2xl">{ui("name")}</strong>
-              <select
-                aria-label="Language"
-                value={lang}
-                className="!m-0 !min-h-11 !w-auto !max-w-32"
-                onChange={(e) =>
-                  void setLanguage(e.target.value as Lang).catch((err: Error) =>
-                    setError(err.message),
-                  )
-                }
-              >
-                {Object.entries(languages).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <button
-                aria-label={ui("close")}
-                onClick={() => setOpen(false)}
-                className="!h-11 !w-11 !rounded-full !p-0"
-              >
-                <X size={20} />
-              </button>
+            <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-paper/95 px-4 py-2.5 backdrop-blur">
+              <div className="flex items-center gap-2">
+                <strong className="font-serif text-2xl font-normal tracking-[-0.02em] text-ink">
+                  Buddy<span className="text-saffron">.</span>
+                </strong>
+                <span className="rounded-full border border-[#f3d2b8] bg-peach px-2.5 py-0.5 text-xs font-semibold text-saffron-text">
+                  {tt(lang, "voiceCompanion")}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="hidden items-center rounded-full border border-line bg-white p-0.5 sm:flex">
+                  {quickLangs.map(({ code, short }) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() =>
+                        void setLanguage(code).catch((err: Error) =>
+                          setError(err.message),
+                        )
+                      }
+                      className={
+                        "!min-h-9 !min-w-9 !rounded-full !px-2.5 !py-1 text-xs font-semibold " +
+                        (lang === code
+                          ? "!bg-ink !text-paper"
+                          : "!bg-transparent !text-ink-soft")
+                      }
+                    >
+                      {short}
+                    </button>
+                  ))}
+                </div>
+                <select
+                  aria-label="Language"
+                  value={lang}
+                  className="!m-0 !min-h-11 !w-auto !max-w-28 !rounded-full !px-2.5 !py-1 text-xs font-semibold"
+                  onChange={(e) =>
+                    void setLanguage(e.target.value as Lang).catch(
+                      (err: Error) => setError(err.message),
+                    )
+                  }
+                >
+                  {Object.entries(languages).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {isTalkPage && <TextSizeToggle />}
+                <button
+                  type="button"
+                  aria-label={ui("close")}
+                  onClick={() => {
+                    setOpen(false);
+                    if (isTalkPage) navigate("/");
+                  }}
+                  className="secondary !min-h-11 !rounded-full !px-3 !py-1.5 text-xs font-semibold"
+                >
+                  <X size={18} aria-hidden="true" />
+                  {isTalkPage && (
+                    <span className="hidden sm:inline">
+                      {tt(lang, "exitTalk")}
+                    </span>
+                  )}
+                </button>
+              </div>
             </header>
             <div
-              className="flex min-h-20 flex-1 flex-col gap-3 overflow-y-auto p-4"
+              className={
+                "flex min-h-20 flex-1 flex-col gap-3 overflow-y-auto p-4 " +
+                (isTalkPage ? "mx-auto w-full max-w-2xl md:px-6" : "")
+              }
               aria-live="polite"
               aria-relevant="additions text"
               role="log"
             >
               {messages.length === 0 && (
-                <p>{onboarding ? ui("state") : ui("greeting")}</p>
+                <div className="my-auto flex flex-col items-center gap-4 py-4 text-center">
+                  <div className="relative flex flex-col items-center justify-center rounded-full bg-[radial-gradient(circle_at_center,rgba(247,163,92,0.24)_0%,transparent_70%)] p-5">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label={ui("tap")}
+                      aria-pressed={recorder.recording}
+                      onPointerDown={handleMicPointerDown}
+                      onPointerUp={handleMicPointerUp}
+                      onPointerCancel={handleMicPointerCancel}
+                      onClick={handleMicClick}
+                      onContextMenu={(e) => e.preventDefault()}
+                      className="relative !h-[152px] !w-[152px] touch-none select-none !rounded-full !bg-transparent !p-0 shadow-2xl ring-4 ring-white"
+                    >
+                      <Orb size={152} state={orbState} />
+                      <Mic
+                        size={36}
+                        aria-hidden="true"
+                        className="absolute inset-0 m-auto text-ink"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={handleMicClick}
+                      className="-mt-4 z-10 !min-h-10 !rounded-full !bg-ink !px-4 !py-1.5 text-xs font-semibold !text-paper shadow-md"
+                    >
+                      {recorder.recording
+                        ? tt(lang, "listening")
+                        : tt(lang, "holdToTalk")}
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <h1 className="m-0 font-serif text-3xl font-normal text-ink sm:text-4xl">
+                      {onboarding ? ui("state") : tt(lang, "talkGreeting")}
+                    </h1>
+                    <p className="m-0 max-w-md text-sm text-ink-soft sm:text-base">
+                      {onboarding ? ui("greeting") : tt(lang, "talkWelcome")}
+                    </p>
+                  </div>
+                  {!onboarding && (
+                    <div className="mt-1 flex w-full max-w-md flex-col gap-2">
+                      {starterItems.map(({ key, Icon }) => {
+                        const label = tt(lang, key);
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              speech.unlock();
+                              void submit({ text: label });
+                            }}
+                            className="secondary flex !min-h-12 w-full items-center justify-between gap-3 !rounded-2xl border border-line !bg-white !px-4 !py-3 text-left text-sm font-medium !text-ink shadow-xs transition-colors hover:border-saffron"
+                          >
+                            <span className="flex items-center gap-3">
+                              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-peach text-saffron-text">
+                                <Icon size={16} aria-hidden="true" />
+                              </span>
+                              <span>{label}</span>
+                            </span>
+                            <span aria-hidden="true" className="text-saffron-text">
+                              →
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
               {messages.slice(-12).map((message) => (
                 <div
                   key={message.id}
                   className={
                     message.from === "user"
-                      ? "ml-8 rounded-2xl bg-peach p-3"
-                      : "mr-2 rounded-2xl bg-white p-3"
+                      ? "ml-8 rounded-[22px_22px_6px_22px] bg-ink p-3.5 text-paper"
+                      : "mr-2 rounded-[22px_22px_22px_6px] bg-white p-3.5 text-ink shadow-[inset_0_0_0_1px_#ede5da]"
                   }
                   lang={message.lang}
                 >
@@ -585,12 +795,12 @@ export default function BuddyDock() {
                 </div>
               ))}
               {notice && (
-                <p role="status" className="m-0 rounded-2xl bg-act-soft p-3">
+                <p role="status" className="m-0 rounded-2xl bg-act-soft p-3 text-sm font-medium text-ink">
                   {notice}
                 </p>
               )}
               {recorder.recording && draftTranscript && (
-                <p role="status" className="m-0 rounded-2xl bg-peach p-3">
+                <p role="status" className="m-0 rounded-2xl bg-peach p-3 text-sm">
                   {draftTranscript}
                 </p>
               )}
@@ -633,7 +843,12 @@ export default function BuddyDock() {
               )}
               <div ref={tail} />
             </div>
-            <div className="flex shrink-0 flex-col gap-2 border-t border-line p-3">
+            <div
+              className={
+                "flex shrink-0 flex-col gap-2.5 border-t border-line bg-paper p-3 " +
+                (isTalkPage ? "mx-auto w-full max-w-2xl md:px-6 md:pb-5" : "")
+              }
+            >
               {quick.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {quick.map((value) => (
@@ -650,10 +865,35 @@ export default function BuddyDock() {
                   ))}
                 </div>
               )}
-              <button className="secondary self-start" onClick={speech.replay}>
-                <Volume2 size={18} />
-                {ui("replay")}
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <button
+                  type="button"
+                  className="secondary !min-h-11 self-start !rounded-full !px-3.5 text-xs"
+                  onClick={speech.replay}
+                >
+                  <Volume2 size={16} aria-hidden="true" />
+                  {ui("replay")}
+                </button>
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-label={ui("tap")}
+                    aria-pressed={recorder.recording}
+                    onPointerDown={handleMicPointerDown}
+                    onPointerUp={handleMicPointerUp}
+                    onPointerCancel={handleMicPointerCancel}
+                    onClick={handleMicClick}
+                    onContextMenu={(e) => e.preventDefault()}
+                    className="inline-flex !min-h-11 items-center gap-2 !rounded-full !bg-saffron !px-4 !py-1.5 text-xs font-semibold !text-ink shadow-sm"
+                  >
+                    <Mic size={16} aria-hidden="true" />
+                    {recorder.recording
+                      ? tt(lang, "listening")
+                      : tt(lang, "holdToTalk")}
+                  </button>
+                )}
+              </div>
               <form
                 className="flex gap-2"
                 onSubmit={(e) => {
@@ -668,95 +908,76 @@ export default function BuddyDock() {
                   autoComplete="off"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  className="!m-0 min-w-0 flex-1"
+                  className="!m-0 min-w-0 flex-1 !rounded-full !px-4"
                 />
                 <button
                   aria-label={ui("send")}
                   disabled={busy || !text.trim()}
-                  className="!h-12 !w-12 !p-0"
+                  className="!h-12 !w-12 shrink-0 !rounded-full !p-0"
                 >
-                  <Send size={20} />
+                  <Send size={18} aria-hidden="true" />
                 </button>
               </form>
-              <p className="m-0 text-xs text-ink-soft">
+              <p className="m-0 text-center text-xs text-ink-soft">
                 {recorder.recording ? ui("listening") : ui("tap")}
               </p>
             </div>
           </section>
         )}
-        <div className="flex items-center gap-2">
-          <button
-            aria-label={`${ui("name")} ${open ? ui("close") : ui("continue")}`}
-            aria-expanded={open}
-            aria-controls="buddy-panel"
-            onClick={() => {
-              speech.unlock();
-              setOpen(!open);
-              if (!open && !messages.length && !onboarding)
-                narrate(ui("greeting"));
-            }}
-            className="!min-h-11 !rounded-full !bg-white !text-ink shadow-lg"
-          >
-            {ui("name")}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            aria-label={ui("tap")}
-            aria-pressed={recorder.recording}
-            onPointerDown={(e) => {
-              if (e.button !== 0) return;
-              e.currentTarget.setPointerCapture(e.pointerId);
-              speech.unlock();
-              held.current = false;
-              suppressClick.current = false;
-              holdTimer.current = setTimeout(() => {
-                held.current = true;
-                if (!recorder.isActive()) startMic();
-              }, HOLD_MS);
-            }}
-            onPointerUp={() => {
-              clearTimeout(holdTimer.current);
-              if (held.current) {
-                recorder.stop();
-                suppressClick.current = true;
-              }
-            }}
-            onPointerCancel={() => {
-              clearTimeout(holdTimer.current);
-              recorder.cancel();
-              suppressClick.current = false;
-            }}
-            onClick={(e) => {
-              if (suppressClick.current && e.detail !== 0) {
-                suppressClick.current = false;
-                return;
-              }
-              suppressClick.current = false;
-              if (micGesture(recorder.isActive(), 0) === "stop")
-                recorder.stop();
-              else startMic();
-            }}
-            onContextMenu={(e) => e.preventDefault()}
-            className="relative !h-16 !w-16 touch-none select-none !rounded-full !bg-transparent !p-0 shadow-xl ring-4 ring-white"
-          >
-            <Orb
-              size={64}
-              state={
-                recorder.recording
-                  ? "listening"
-                  : speech.speaking
-                    ? "speaking"
-                    : "idle"
-              }
-            />
-            <Mic
-              size={24}
-              aria-hidden="true"
-              className="absolute inset-0 m-auto text-ink"
-            />
-          </button>
-        </div>
+        {!isTalkPage && (
+          <div className="flex w-full items-center justify-between gap-2.5 rounded-full border border-[#e5dac8] bg-white/95 px-2.5 py-1.5 shadow-lg backdrop-blur-md md:w-auto">
+            <button
+              type="button"
+              disabled={busy}
+              aria-label={ui("tap")}
+              aria-pressed={recorder.recording}
+              onPointerDown={handleMicPointerDown}
+              onPointerUp={handleMicPointerUp}
+              onPointerCancel={handleMicPointerCancel}
+              onClick={handleMicClick}
+              onContextMenu={(e) => e.preventDefault()}
+              className="relative !h-11 !w-11 shrink-0 touch-none select-none !rounded-full !bg-transparent !p-0 shadow-sm ring-2 ring-peach"
+            >
+              <Orb size={44} state={orbState} />
+              <Mic
+                size={18}
+                aria-hidden="true"
+                className="absolute inset-0 m-auto text-ink"
+              />
+            </button>
+            <button
+              type="button"
+              aria-label={`${ui("name")} ${open ? ui("close") : ui("continue")}`}
+              aria-expanded={open}
+              aria-controls="buddy-panel"
+              onClick={() => {
+                speech.unlock();
+                setOpen(!open);
+                if (!open && !messages.length && !onboarding)
+                  narrate(ui("greeting"));
+              }}
+              className="flex !min-h-11 min-w-0 flex-1 flex-col items-start justify-center !rounded-2xl !bg-transparent !px-2 !py-1 text-left !text-ink shadow-none"
+            >
+              <span className="max-w-[230px] truncate text-xs font-semibold text-ink sm:max-w-[280px]">
+                {recorder.recording
+                  ? tt(lang, "listening")
+                  : tt(lang, promptKey)}
+              </span>
+              <span className="max-w-[230px] truncate text-[11px] font-normal text-ink-soft sm:max-w-[280px]">
+                {tt(lang, "dockSubtitle")}
+              </span>
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handleMicClick}
+              className="inline-flex !min-h-11 shrink-0 items-center gap-1.5 !rounded-full !bg-saffron !px-3.5 !py-1.5 text-xs font-semibold !text-ink"
+            >
+              <Mic size={15} aria-hidden="true" />
+              <span>{tt(lang, "speakBtn")}</span>
+            </button>
+          </div>
+        )}
       </div>
       {camera && capture && (
         <CameraCapture

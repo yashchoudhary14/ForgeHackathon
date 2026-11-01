@@ -1,9 +1,9 @@
 import { Suspense, lazy, useEffect, useState } from "react";
-import { Navigate, Outlet, Route, Routes, useLocation, Link } from "react-router-dom";
+import { Outlet, Route, Routes, useLocation, Link } from "react-router-dom";
 import { listNotifications } from "./api/alerts";
 import { useApp, Text } from "./context";
 import { Loading } from "./components";
-import { BottomNav, PillNav } from "./nav";
+import { BottomNav, MobileHeader, PillNav } from "./nav";
 import { EmptyState } from "./ui";
 import { tt } from "./ui-strings";
 import BuddyWelcome from "./buddy/BuddyWelcome";
@@ -39,43 +39,25 @@ export function useUnread(profileId: string) {
 }
 
 function Layout() {
-  const { profileId, mode, lang } = useApp();
+  const { profileId, lang } = useApp();
   const unread = useUnread(profileId);
   const { pathname } = useLocation();
   const path = pathname.replace(/\/+$/, "") || "/";
   // Talk mode is a full-screen conversation, so the page itself provides its chrome.
   const bare = path === "/talk";
-  // First visits start with onboarding, but shared links remain browsable.
-  if (!mode && path === "/") return <Navigate to="/welcome" replace />;
-  const needsProfile =
-    !profileId &&
-    (["/locker", "/alerts", "/runs", "/civic/new"].includes(path) ||
-      path.startsWith("/runs/"));
   return (
     <>
+      {!bare && <MobileHeader unread={unread} />}
       {!bare && <PillNav unread={unread} />}
       <main
         className={
           bare
             ? "p-0"
-            : "mx-auto max-w-6xl px-4 pb-32 pt-5 md:px-8 md:pb-12"
+            : "mx-auto max-w-6xl px-4 pb-44 pt-5 md:px-8 md:pb-16"
         }
       >
         <Suspense fallback={<Loading message="Opening your page…" />}>
-          {needsProfile ? (
-            <EmptyState
-              title={tt(lang, "needProfileTitle")}
-              action={
-                <Link to="/welcome" className="inline-flex min-h-11 items-center font-semibold">
-                  {tt(lang, "profileCreate")} →
-                </Link>
-              }
-            >
-              {tt(lang, "needProfile")}
-            </EmptyState>
-          ) : (
-            <Outlet />
-          )}
+          <Outlet />
         </Suspense>
         {!bare && (
           <footer className="py-8 text-xs text-ink-soft">

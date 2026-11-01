@@ -1,7 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { tt } from "./ui-strings";
 import { useApp } from "./context";
-import { ExternalLink, Landmark } from "lucide-react";
+import { ExternalLink, Landmark, Mic, UserCheck } from "lucide-react";
 import { safeUrl } from "./api/client";
 
 export const cx = (...parts: (string | false | undefined | null)[]) =>
@@ -248,3 +249,89 @@ export function EmptyState({
     </div>
   );
 }
+
+const profileContextCopy: Record<
+  "activity" | "alerts" | "locker" | "civic",
+  { title: string; subtitle: string }
+> = {
+  activity: {
+    title: "Set up your Buddy Profile",
+    subtitle:
+      "Your assisted scheme applications, CPGRAMS grievances, and official notifications are linked to your Citizen Pass.",
+  },
+  alerts: {
+    title: "Set up your Buddy Profile",
+    subtitle:
+      "Receive official eligibility updates, application status changes, and CPGRAMS department replies in one place.",
+  },
+  locker: {
+    title: "Set up your Buddy Profile",
+    subtitle:
+      "Your scanned Aadhaar, income, and caste certificates are encrypted and formatted (<200 KB) inside your personal Locker.",
+  },
+  civic: {
+    title: "Set up your Buddy Profile",
+    subtitle:
+      "Reports are linked to your profile so neighbours can support them and you can track the official CPGRAMS reply.",
+  },
+};
+
+export function ProfileRequiredCard({
+  context,
+  primaryAction,
+  nextPath,
+}: {
+  context: "activity" | "alerts" | "locker" | "civic";
+  primaryAction?: ReactNode;
+  nextPath?: string;
+}) {
+  const { lang } = useApp();
+  const copy = profileContextCopy[context];
+  const profileUrl = nextPath
+    ? `/profile?next=${encodeURIComponent(nextPath)}`
+    : "/profile";
+  return (
+    <div
+      role="status"
+      className="flex flex-col justify-between gap-5 rounded-[28px] border border-[#f3d2b8] bg-gradient-to-br from-peach/70 via-white to-white p-6 md:flex-row md:items-center"
+    >
+      <div className="flex items-start gap-4">
+        <span
+          aria-hidden="true"
+          className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-peach text-saffron-text shadow-[inset_0_0_0_1px_#f3d2b8]"
+        >
+          <UserCheck size={26} />
+        </span>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-wider text-saffron-text">
+            {tt(lang, "profilePassEyebrow")}
+          </span>
+          <strong className="font-serif text-2xl font-normal text-ink">
+            {copy.title}
+          </strong>
+          <p className="m-0 max-w-[58ch] text-sm text-ink-soft">
+            {copy.subtitle}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2.5 md:shrink-0">
+        {primaryAction ?? (
+          <Link
+            to={profileUrl}
+            className={cx(pillBase, tones.dark, "!px-5")}
+          >
+            {tt(lang, "createProfile15s")} →
+          </Link>
+        )}
+        <Link
+          to="/talk"
+          className={cx(pillBase, tones.light, "!px-5")}
+        >
+          <Mic size={18} aria-hidden="true" className="text-saffron-text" />
+          {tt(lang, "talkMode")}
+        </Link>
+      </div>
+    </div>
+  );
+}
+

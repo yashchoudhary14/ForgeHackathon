@@ -4,7 +4,7 @@ import { listNotifications, markNotificationsRead, resolveLink } from "../api/al
 import type { NotificationOut } from "../api/types";
 import { ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
-import { Card, EmptyState, Eyebrow, SourceLink } from "../ui";
+import { Card, EmptyState, Eyebrow, ProfileRequiredCard, SourceLink } from "../ui";
 import { PillLink } from "../nav";
 import { tt } from "../ui-strings";
 
@@ -121,14 +121,18 @@ export function AlertsPanel({
 }
 
 export default function Alerts() {
-  const { lang } = useApp();
+  const { lang, profileId } = useApp();
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       <Eyebrow>{tt(lang, "navAlerts")}</Eyebrow>
       <h1>{tt(lang, "alertsTitle")}</h1>
-      <Card>
-        <AlertsPanel />
-      </Card>
+      {!profileId ? (
+        <ProfileRequiredCard context="alerts" nextPath="/alerts" />
+      ) : (
+        <Card>
+          <AlertsPanel />
+        </Card>
+      )}
     </div>
   );
 }

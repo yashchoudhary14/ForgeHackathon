@@ -121,7 +121,24 @@ export default function CivicTrack() {
       await load();
     });
 
-  if (loading) return <Loading message="Loading civic report timeline…" />;
+  if (loading)
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-4">
+        <Link
+          to="/civic"
+          className="inline-flex min-h-11 items-center self-start text-sm font-semibold"
+        >
+          ← Civic map · सभी शिकायतें
+        </Link>
+        <Card tint="peach" className="flex flex-col gap-2">
+          <Eyebrow>Public accountability · नागरिक नक्शा</Eyebrow>
+          <h1 className="m-0 font-serif text-3xl font-normal">
+            Civic report #{id}
+          </h1>
+        </Card>
+        <Loading message="Loading civic report timeline…" />
+      </div>
+    );
   if (!report)
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-4">

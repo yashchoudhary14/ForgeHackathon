@@ -72,17 +72,23 @@ export default function TalkDock({
         onContextMenu={(e) => e.preventDefault()}
         className="relative !h-auto !rounded-full !bg-transparent !p-0 touch-none select-none ring-4 ring-white/60 transition-transform active:scale-95 motion-reduce:transition-none"
       >
-        <Orb state={orb} size={listening ? 132 : 112} />
-        {orb === "speaking" ? <Volume2 aria-hidden="true" className="absolute inset-0 m-auto text-ink" size={34} /> : <Mic
+        <Orb state={orb} size={listening ? 160 : 152} />
+        {orb === "speaking" ? <Volume2 aria-hidden="true" className="absolute inset-0 m-auto text-ink" size={36} /> : <Mic
           aria-hidden="true"
           className="absolute inset-0 m-auto text-ink"
-          size={34}
+          size={36}
         />}
       </button>
-      <span role="status" className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-ink shadow-sm">
-        <span aria-hidden="true" className={"h-2 w-2 shrink-0 rounded-full " + (listening ? "bg-saffron animate-pulse motion-reduce:animate-none" : orb === "speaking" ? "bg-act" : "bg-ink/40")} />
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => (listening ? onHoldEnd() : onHoldStart())}
+        role="status"
+        className="-mt-4 z-10 inline-flex !min-h-10 items-center gap-2 !rounded-full !bg-ink !px-4 !py-1.5 text-xs font-semibold !text-paper shadow-md"
+      >
+        <span aria-hidden="true" className={"h-2 w-2 shrink-0 rounded-full " + (listening ? "bg-saffron animate-pulse motion-reduce:animate-none" : orb === "speaking" ? "bg-act" : "bg-paper/60")} />
         {status}
-      </span>
+      </button>
       <form
         className="flex w-full max-w-xl gap-2"
         onSubmit={(e) => {

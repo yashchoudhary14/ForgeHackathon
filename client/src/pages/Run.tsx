@@ -271,10 +271,6 @@ export default function Run() {
     canvas.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
     canvas.current?.focus({ preventScroll: true });
   }
-  if (loading)
-    return (
-      <Loading message="Restoring your application and connecting to the live browser…" />
-    );
   return (
     <>
       <div className="page-heading">
@@ -292,7 +288,50 @@ export default function Run() {
           />
         </p>
       </div>
-      {error && <ErrorBox error={error} retry={() => setEpoch((e) => e + 1)} />}{" "}
+      {loading && (
+        <Loading message="Restoring your application and connecting to the live browser…" />
+      )}
+      {error && !run ? (
+        <section
+          role="alert"
+          className="mb-6 flex flex-col gap-4 rounded-[28px] border border-[#f3d2b8] bg-peach/70 p-6"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wider text-saffron-text">
+              SESSION NOT FOUND · आवेदन सत्र उपलब्ध नहीं
+            </span>
+            <h2 className="m-0 font-serif text-2xl font-normal text-ink">
+              We couldn’t find that live application session
+            </h2>
+            <p className="m-0 text-sm text-ink-soft">{error}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              to="/schemes"
+              style={{ color: "#17140f" }}
+              className="inline-flex min-h-12 items-center gap-2 rounded-full bg-saffron px-5 text-sm font-semibold text-ink no-underline"
+            >
+              Start a new application →
+            </Link>
+            <Link
+              to="/runs"
+              style={{ color: "#17140f" }}
+              className="inline-flex min-h-12 items-center gap-2 rounded-full border border-line bg-white px-5 text-sm font-semibold text-ink no-underline"
+            >
+              View my activity
+            </Link>
+            <button
+              type="button"
+              className="secondary !min-h-12 !rounded-full !px-5 text-sm"
+              onClick={() => setEpoch((e) => e + 1)}
+            >
+              <Text value={"Try again"} />
+            </button>
+          </div>
+        </section>
+      ) : (
+        error && <ErrorBox error={error} retry={() => setEpoch((e) => e + 1)} />
+      )}{" "}
       {run && (
         <>
           <div className="card-top">
