@@ -233,7 +233,7 @@ export default function Run() {
   useEffect(() => {
     if (human) {
       humanPanel.current?.scrollIntoView({
-        behavior: "smooth",
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
         block: "nearest",
       });
       humanPanel.current?.focus({ preventScroll: true });
@@ -268,7 +268,7 @@ export default function Run() {
   }
   function takeOver() {
     setTakeover(true);
-    canvas.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    canvas.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
     canvas.current?.focus({ preventScroll: true });
   }
   if (loading)
@@ -306,6 +306,7 @@ export default function Run() {
               "connection " + (connection === "Connected" ? "online" : "")
             }
             role="status"
+            data-ended={connection === "Finished" || connection === "Unavailable"}
           >
             <Text value={connection} />
           </div>
@@ -314,7 +315,7 @@ export default function Run() {
           )}{" "}
           {!isTerminal(run.status) && connection !== "Unavailable" && (
             <div className="run-guidance">
-              <ShieldCheck size={20} />
+              <ShieldCheck size={20} aria-hidden="true" />
               <p>
                 <strong>
                   <Text value="You stay in control" />
@@ -376,10 +377,11 @@ export default function Run() {
               <h2>
                 <Text value={"Live browser"} />
               </h2>
+              <div className="browser-frame" data-takeover={takeover}>
               <div className="browser-address">
-                <Globe size={14} />
+                <Globe size={16} aria-hidden="true" className="shrink-0" />
                 <span>{run.portal_url}</span>
-                <span className="badge">
+                <span className={"inline-flex items-center rounded-full px-3 py-1 font-sans text-xs font-semibold " + (takeover ? "bg-lime text-ink" : "bg-act-soft text-[#1f4fa8]")}>
                   <Text
                     value={takeover ? "You are in control" : "Watch live"}
                   />
@@ -388,7 +390,7 @@ export default function Run() {
               <div className="browser">
                 {!hasFrame && (
                   <p className="browser-wait" role="status">
-                    <Monitor size={36} />
+                    <Monitor size={36} aria-hidden="true" />
                     <Text
                       value={
                         isTerminal(run.status) || connection === "Unavailable"
@@ -444,6 +446,7 @@ export default function Run() {
                     }
                   }}
                 />
+              </div>
               </div>
               {takeover && (
                 <div className="takeover">

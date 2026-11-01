@@ -1,10 +1,9 @@
 import { useRef, useState } from "react";
 import type { ReactNode, KeyboardEvent } from "react";
-import { ChevronRight, Volume2 } from "lucide-react";
+import { ChevronRight, ChevronsRight, ShieldAlert, Volume2 } from "lucide-react";
 import { assetUrl } from "./api/client";
 import { tt } from "./ui-strings";
 import { useApp } from "./context";
-import { cx } from "./ui";
 
 export function GuideCard({
   title,
@@ -27,14 +26,14 @@ export function GuideCard({
   return (
     <div
       lang={lang}
-      className="flex flex-col gap-3 rounded-[22px] bg-act-soft p-4"
+      className="flex flex-col gap-4 rounded-[22px] border-2 border-act/30 bg-act-soft p-4 shadow-md sm:p-5"
     >
       <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-act font-bold text-white"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#2a5fc4] text-white"
         >
-          !
+          <ShieldAlert size={20} aria-hidden="true" className="shrink-0" />
         </span>
         <strong className="flex-1">{title}</strong>
         {src && (
@@ -43,23 +42,23 @@ export function GuideCard({
               type="button"
               aria-label={tt(lang || uiLang, "playAudio")}
               onClick={() => void audio.current?.play().catch(() => {})}
-              className="!min-h-11 grid h-11 w-11 place-items-center rounded-full !bg-white !p-0 !text-act"
+              className="!min-h-12 grid h-12 w-12 place-items-center rounded-full !bg-white !p-0 !text-[#1f4fa8]"
             >
-              <Volume2 size={20} />
+              <Volume2 size={20} aria-hidden="true" />
             </button>
             <audio ref={audio} src={src} preload="none" />
           </>
         )}
       </div>
       {crop && (
-        <img
+        <div className="rounded-2xl border border-line bg-white p-3"><img
           alt={tt(uiLang, "cropAlt")}
           src={`data:image/jpeg;base64,${crop}`}
-          className="max-h-40 w-full rounded-[14px] bg-white object-contain"
-        />
+          className="max-h-56 min-h-24 w-full rounded-xl object-contain"
+        /></div>
       )}
       {steps.length > 0 && (
-        <ol className="m-0 list-decimal pl-5 text-[16px]">
+        <ol className="m-0 list-decimal pl-5 text-base">
           {steps.map((s, i) => (
             <li key={i}>{s}</li>
           ))}
@@ -89,7 +88,7 @@ export function SwipeToConfirm({
   const max = () =>
     Math.max(0, (track.current?.clientWidth ?? 280) - HANDLE - 8);
   const finish = () => {
-    if (done) return;
+    if (done || disabled) return;
     setDone(true);
     setX(max());
     onConfirm();
@@ -104,22 +103,23 @@ export function SwipeToConfirm({
   return (
     <div
       ref={track}
-      className={cx(
-        "relative h-16 select-none overflow-hidden rounded-full bg-ink",
-        disabled && "opacity-50",
-      )}
+      className="swipe-track relative min-h-16 select-none overflow-hidden rounded-full bg-ink"
+      data-disabled={disabled ? "true" : "false"}
     >
-      <span className="absolute inset-0 grid place-items-center pl-12 text-[15px] font-semibold text-paper">
+      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-lime/25" style={{ width: x + HANDLE }} />
+      <span className="swipe-label relative flex min-h-16 items-center justify-center py-3 pl-16 pr-10 text-center text-sm font-semibold text-paper">
         {label}
       </span>
+      <ChevronsRight size={22} aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lime animate-pulse motion-reduce:animate-none" />
       <div
         role="slider"
-        tabIndex={disabled ? -1 : 0}
+        tabIndex={disabled || done ? -1 : 0}
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={done ? 100 : Math.round((x / (max() || 1)) * 100)}
-        aria-disabled={disabled}
+        aria-disabled={disabled || done}
+        aria-valuetext={done ? "Confirmed" : label}
         onKeyDown={onKey}
         onPointerDown={(e) => {
           if (disabled || done) return;
@@ -128,11 +128,11 @@ export function SwipeToConfirm({
           setDragging(true);
         }}
         onPointerMove={(e) => {
-          if (!dragging) return;
+          if (!dragging || disabled || done) return;
           setX(Math.min(max(), Math.max(0, e.clientX - start.current)));
         }}
         onPointerUp={() => {
-          if (!dragging) return;
+          if (!dragging || disabled || done) { setDragging(false); setX(0); return; }
           setDragging(false);
           if (x >= max() * 0.85) finish();
           else setX(0);
@@ -141,13 +141,17 @@ export function SwipeToConfirm({
           setDragging(false);
           setX(0);
         }}
-        className="swipe-handle absolute left-1 top-1 grid h-14 w-14 cursor-grab place-items-center rounded-full bg-lime text-ink"
+        className="swipe-handle absolute grid cursor-grab place-items-center rounded-full bg-lime text-ink"
         style={{
-          transform: `translateX(${x}px)`,
+          width: HANDLE,
+          height: HANDLE,
+          left: 4,
+          top: "50%",
+          transform: `translate(${x}px, -50%)`,
           transition: dragging ? "none" : "transform .2s",
         }}
       >
-        <ChevronRight aria-hidden="true" />
+        <ChevronRight size={24} aria-hidden="true" className="shrink-0" />
       </div>
     </div>
   );

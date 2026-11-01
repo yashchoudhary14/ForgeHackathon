@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeftRight, FileUp, Link2 } from "lucide-react";
-import { request, safeUrl } from "../api/client";
+import { request } from "../api/client";
 import type {
   CompareIn,
   DocumentOut,
@@ -10,7 +10,7 @@ import type {
 } from "../api/types";
 import { ErrorBox, Explanation, Loading } from "../components";
 import { Text, useApp } from "../context";
-import { Card, EmptyState, Eyebrow } from "../ui";
+import { Card, EmptyState, Eyebrow, PillButton, SourceLink } from "../ui";
 
 export default function Explain() {
   const { profileId, lang, t } = useApp();
@@ -171,6 +171,7 @@ export default function Explain() {
       <Card className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col justify-between gap-3 rounded-2xl border border-dashed border-[#d9cfc0] bg-paper p-5">
           <div>
+            <span className="mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-peach text-saffron-text"><FileUp size={24} strokeWidth={1.75} aria-hidden="true" className="shrink-0" /></span>
             <Eyebrow>Upload a PDF or image</Eyebrow>
             <strong className="font-serif text-2xl font-normal">
               <Text value="Upload a PDF or image" />
@@ -210,21 +211,21 @@ export default function Explain() {
             </label>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
+            <PillButton
               type="button"
-              disabled={busy || !url.trim()}
-              onClick={() => void upload()}
-            >
-              <Link2 size={16} aria-hidden="true" /> <Text value="Upload" /> &amp; {t.explain}
-            </button>
-            <button
-              type="button"
-              className="secondary"
               disabled={busy || !url.trim()}
               onClick={() => void runExplain({ type: "url", url: url.trim() })}
             >
-              <Text value="Explain URL directly" />
-            </button>
+              <Link2 size={16} aria-hidden="true" className="shrink-0" /> <Text value="Explain URL" />
+            </PillButton>
+            <PillButton
+              type="button"
+              tone="light"
+              disabled={busy || !url.trim()}
+              onClick={() => void upload()}
+            >
+              <Text value="Save to my documents & explain" />
+            </PillButton>
           </div>
         </div>
       </Card>
@@ -312,7 +313,7 @@ export default function Explain() {
                     onClick={() =>
                       void runExplain({ type: "document", document_id: d.id })
                     }
-                    className="!min-h-10 !px-4 !py-1.5 text-sm"
+                    className="!min-h-11 !px-4 !py-1.5 text-sm"
                   >
                     {t.explain}
                   </button>
@@ -346,18 +347,11 @@ export default function Explain() {
                       type="button"
                       disabled={busy}
                       onClick={() => void runExplain({ type: "url", url: f.url })}
-                      className="!min-h-10 !px-4 !py-1.5 text-sm"
+                      className="!min-h-11 !px-4 !py-1.5 text-sm"
                     >
                       <Text value="Explain this update" />
                     </button>
-                    <a
-                      href={safeUrl(f.url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm font-semibold"
-                    >
-                      <Text value="Source ↗" />
-                    </a>
+                    <SourceLink url={f.url} />
                   </div>
                 </Card>
               ))}

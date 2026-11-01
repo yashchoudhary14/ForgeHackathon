@@ -5,6 +5,8 @@
   --color-ink-soft: #4e463c;
   --color-card: #ffffff;
   --color-line: #ede5da;
+  --color-disabled: #e6dec8;
+  --color-disabled-text: #5c5346;
   --color-saffron: #e8731c;
   --color-saffron-text: #9a4a12;
   --color-act: #3d7bea;
@@ -17,7 +19,7 @@
   --color-warn-soft: #fff0d1;
   --color-bad: #8d1f17;
   --color-bad-soft: #fde4e0;
-  --font-serif: "Instrument Serif", "Mukta", serif;
+  --font-serif: "Instrument Serif", "Mukta", "Noto Sans Bengali", serif;
   --font-sans: "Mukta", "Noto Sans Bengali", system-ui, sans-serif;
   --radius-card: 28px;
   --radius-tile: 22px;
@@ -48,12 +50,17 @@
   font-family: "Mukta", "Noto Sans Bengali", system-ui, sans-serif;
   color: #17140f;
   background: #fbf6ee;
-  line-height: 1.5;
+  font-size: 17px;
+  line-height: 1.55;
+  scroll-padding-block: 6rem 8rem;
+}
+:root.text-scale-lg {
+  font-size: 19.5px;
 }
 body {
   background: #fbf6ee;
   color: #17140f;
-  font-size: 17px;
+  font-size: 1rem;
 }
 html[lang="hi"] h1,
 html[lang="hi"] h2,
@@ -65,25 +72,35 @@ html[lang="bn"] h2 {
 h1,
 h2,
 .serif {
-  font-family: "Instrument Serif", "Mukta", serif;
+  font-family: "Instrument Serif", "Mukta", "Noto Sans Bengali", serif;
   font-weight: 400;
   letter-spacing: -0.01em;
 }
-h1 {
-  font-size: clamp(2.2rem, 6vw, 3.6rem);
-  line-height: 1.05;
+h1, .page-heading h1 {
+  font-size: clamp(1.85rem, 4.5vw, 2.75rem);
+  line-height: 1.15;
+  margin-bottom: 0.5rem;
   max-width: 760px;
+}
+.home-display {
+  font-size: clamp(2.35rem, 7vw, 4.5rem);
+  line-height: 1.08;
 }
 h2 {
   font-size: 1.6rem;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 h3 {
-  font-size: 1.05rem;
+  font-size: 1.125rem;
   font-weight: 600;
+  line-height: 1.35;
 }
 a {
   color: #9a4a12;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
 }
 *:focus-visible {
   outline: 3px solid #3d7bea;
@@ -107,6 +124,35 @@ button.secondary {
   color: #17140f;
   border-color: #d9cfc0;
 }
+button, .pill-control {
+  min-width: 44px;
+  transition: transform 150ms ease-out, background-color 150ms ease-out;
+}
+button:enabled:active, .pill-control:active {
+  transform: scale(0.98);
+}
+button:disabled {
+  background: var(--color-disabled) !important;
+  color: var(--color-disabled-text) !important;
+  border-color: #d9cfc0 !important;
+  opacity: 1 !important;
+  filter: none;
+  transform: none;
+}
+input:disabled, select:disabled, textarea:disabled {
+  background: var(--paper);
+  color: #5c5346;
+  opacity: 1;
+}
+label:has(> input[type="file"]):focus-within {
+  outline: 3px solid #2a5fc4;
+  outline-offset: 3px;
+}
+label:has(> input[type="file"]:disabled) {
+  background: #e6dec8;
+  color: #5c5346;
+  cursor: not-allowed;
+}
 input,
 select,
 textarea {
@@ -129,10 +175,98 @@ textarea {
 .step-label {
   font-size: 0.75rem;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: none;
   font-weight: 600;
-  color: #6b6358;
+  color: #5c5346;
 }
+.eyebrow, .step-label {
+  /* Mixed bilingual labels must not track or uppercase Indic syllables. */
+  letter-spacing: normal;
+  line-height: 1.65;
+}
+.step-label { margin: 0; }
+.mic {
+  width: 100%;
+  min-height: 64px;
+  margin: 0;
+  border: 1px solid #f3d2b8;
+  border-radius: 18px;
+  background: #fff1e6;
+  color: #17140f;
+  font-size: 1.125rem;
+}
+.mic.recording {
+  background: #fde4e0;
+  border-color: #8d1f17;
+  color: #8d1f17;
+}
+.mic.recording svg { animation: pulse 1.2s ease-in-out infinite alternate; }
+.tabs { padding: 0.25rem 0.25rem 0.5rem; }
+.tabs button {
+  flex-shrink: 0;
+  background: white;
+  color: #17140f;
+  border: 1px solid #d9cfc0;
+}
+.tabs button[aria-selected="true"] {
+  background: #17140f;
+  color: #fbf6ee;
+  border-color: #17140f;
+}
+.browser-frame {
+  overflow: hidden;
+  border: 1px solid #d9cfc0;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(23 20 15 / 6%);
+}
+.browser-address {
+  flex-wrap: wrap;
+  border-radius: 0;
+  border-bottom: 1px solid #ede5da;
+  background: #fbf6ee;
+  color: #4e463c;
+  padding: 0.65rem 0.9rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+.browser, .browser-panel .browser {
+  border-radius: 0;
+  background: #fff;
+  color: #4e463c;
+}
+.browser-frame[data-takeover="true"] {
+  outline: 3px solid #155c42;
+  outline-offset: 2px;
+}
+.connection {
+  display: inline-flex;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: #fff0d1;
+  color: #7a4a00;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.connection::before { background: #7a4a00; flex-shrink: 0; }
+.connection.online { background: #ddf3e9; color: #155c42; }
+.connection.online::before { background: #155c42; animation: pulse 1.5s ease-in-out infinite alternate; }
+.connection[data-ended="true"] { background: #efe8dc; color: #4e463c; }
+.connection[data-ended="true"]::before { background: #4e463c; }
+.run-guidance { background: #eef3ff; color: #1f4fa8; border-radius: 18px; }
+.prose a, .receipt a { display: inline-flex; min-height: 44px; align-items: center; }
+.prose li { margin-block: 0.375rem; }
+.prose p, .explanation p { max-width: 65ch; }
+.explanation audio { min-height: 48px; }
+.swipe-track[data-disabled="true"] { background: #e6dec8; }
+.swipe-track[data-disabled="true"] .swipe-label { color: #5c5346; }
+.swipe-track[data-disabled="true"] .swipe-handle { background: #fff; color: #5c5346; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stream-entry { animation: fadeIn 200ms ease-out both; }
 .badge.eligible,
 .badge.done {
   background: #ddf3e9;
@@ -189,6 +323,7 @@ progress {
 .orb[data-state="speaking"] {
   animation: orb-breathe 1.2s ease-in-out infinite;
 }
+.orb[data-state="speaking"]::after { border-color: #3d7bea; }
 .orb[data-state="listening"]::after,
 .orb[data-state="speaking"]::after {
   content: "";
@@ -238,8 +373,38 @@ button {
 }
 
 /* Leaflet ships unlayered CSS, so keep its touch-size override unlayered too. */
-.leaflet-container .leaflet-control-zoom a {
-  width: 44px;
-  height: 44px;
-  line-height: 44px;
+.leaflet-container .leaflet-control-zoom a.leaflet-control-zoom-in,
+.leaflet-container .leaflet-control-zoom a.leaflet-control-zoom-out {
+  width: 44px !important;
+  height: 44px !important;
+  line-height: 44px !important;
+  border-radius: 999px;
+  background: #fff;
+  color: #17140f;
+}
+.leaflet-container .leaflet-control-attribution { background: #fff; color: #4e463c; }
+.leaflet-container .leaflet-control-attribution a { display: inline-flex; min-height: 44px; align-items: center; color: #9a4a12; }
+.leaflet-container .leaflet-popup-close-button { min-width: 44px; min-height: 44px; }
+.leaflet-container .leaflet-popup-content { padding-right: 1rem; }
+/* Explicit language spans and inherited language both retain Indic vowel marks,
+   including utility-styled headings and mixed-language labels. */
+:is(h1, h2, h3, .serif, .font-serif):is(:lang(hi), :lang(bn), :lang(as)) {
+  font-family: "Mukta", "Noto Sans Bengali", sans-serif;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: normal;
+}
+:lang(hi), :lang(bn), :lang(as) {
+  line-height: 1.65;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.text-size-toggle { white-space: nowrap; flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  button:enabled:active, .pill-control:active { transform: none; }
 }

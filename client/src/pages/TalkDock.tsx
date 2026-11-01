@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mic, Send } from "lucide-react";
+import { Mic, Send, Volume2 } from "lucide-react";
 import { Orb } from "../ui";
 import type { OrbState } from "../ui";
 import { tt } from "../ui-strings";
@@ -42,7 +42,7 @@ export default function TalkDock({
               type="button"
               disabled={busy}
               onClick={() => submit(q)}
-              className="!bg-white !text-ink shadow-[inset_0_0_0_1px_#d9cfc0]"
+              className="!bg-white !text-ink shadow-[inset_0_0_0_1px_#d9cfc0] transition-transform active:scale-[0.98] motion-reduce:transition-none"
             >
               {q}
             </button>
@@ -70,16 +70,17 @@ export default function TalkDock({
           if (e.key === " " || e.key === "Enter") onHoldEnd();
         }}
         onContextMenu={(e) => e.preventDefault()}
-        className="relative !h-auto !rounded-full !bg-transparent !p-0 touch-none select-none"
+        className="relative !h-auto !rounded-full !bg-transparent !p-0 touch-none select-none ring-4 ring-white/60 transition-transform active:scale-95 motion-reduce:transition-none"
       >
         <Orb state={orb} size={listening ? 132 : 112} />
-        <Mic
+        {orb === "speaking" ? <Volume2 aria-hidden="true" className="absolute inset-0 m-auto text-ink" size={34} /> : <Mic
           aria-hidden="true"
           className="absolute inset-0 m-auto text-ink"
           size={34}
-        />
+        />}
       </button>
-      <span role="status" className="font-semibold text-ink-soft">
+      <span role="status" className="inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-ink shadow-sm">
+        <span aria-hidden="true" className={"h-2 w-2 shrink-0 rounded-full " + (listening ? "bg-saffron animate-pulse motion-reduce:animate-none" : orb === "speaking" ? "bg-act" : "bg-ink/40")} />
         {status}
       </span>
       <form
@@ -106,7 +107,7 @@ export default function TalkDock({
           disabled={!text.trim() || busy}
           className="!min-h-12 !w-12 shrink-0 !rounded-full !p-0"
         >
-          <Send size={18} />
+          <Send size={18} aria-hidden="true" />
         </button>
       </form>
     </div>

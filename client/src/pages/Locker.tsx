@@ -6,6 +6,7 @@ import type { LockerItem } from "../api/locker";
 import { ErrorBox, Loading } from "../components";
 import { useApp } from "../context";
 import { Card, EmptyState, Eyebrow, StatTile } from "../ui";
+import { PillLink } from "../nav";
 import CameraCapture from "./CameraCapture";
 import LockerItemCard, { label } from "./LockerItemCard";
 
@@ -91,7 +92,7 @@ export default function Locker() {
         </p>
       </div>
       {!profileId ? (
-        <EmptyState title="Create a profile first">
+        <EmptyState title="Create a profile first" action={<div className="flex flex-wrap justify-center gap-2"><PillLink to="/talk" tone="saffron">Talk to Sahayak →</PillLink><PillLink to="/" tone="light">Create profile →</PillLink></div>}>
           Your locker belongs to your profile. Start from Talk or the home page.
         </EmptyState>
       ) : (
