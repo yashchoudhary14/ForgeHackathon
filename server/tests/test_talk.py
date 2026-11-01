@@ -166,7 +166,7 @@ async def test_gemini_dispatches_tools_preserves_signature_and_emits_real_cards(
     planned = [model_response(("save_profile_facts", {}), ("find_schemes", {}))]
 
     async def generate(contents, cfg, model):
-        assert model == "strong"
+        assert model == "lite"
         assert "Private Citizen" not in str(contents) + str(cfg)
         return planned.pop(0)
 
@@ -184,8 +184,8 @@ async def test_gemini_dispatches_tools_preserves_signature_and_emits_real_cards(
     assert [e["stage"] for e in result if e["type"] == "progress"] == [
         "planning", "saving_profile", "finding_schemes", "preparing_reply"]
     result = [e for e in result if e["type"] != "progress"]
-    assert [e["type"] for e in result] == ["card"] * 3 + ["delta", "reply"]
-    assert {"kind", "slug", "name", "verdict", "summary"} <= result[0]["card"].keys()
+    assert [e["type"] for e in result] == ["delta"] + ["card"] * 3 + ["delta", "reply"]
+    assert {"kind", "slug", "name", "verdict", "summary"} <= result[1]["card"].keys()
     assert match.await_args.args[0].land_acres == 2
     assert match.await_args.kwargs["limit"] == 3
 
@@ -241,6 +241,8 @@ async def test_application_uses_official_steps_creates_application_run_and_local
     assert run.kind == "application" and run.portal_url == "https://farmer.gov.in/apply"
     assert run.profile_id == "farmer" and run.status == "queued"
     assert run_session.call_args.args[4]["phone"] == "9876543210"
+    assert run_session.call_args.kwargs == {"profile_id": "farmer", "language": "en"}
+    assert tools.actions == [{"type": "start_application", "slug": "s", "run_id": run.id}]
     await tools.call("start_application", {"slug": "s"})
     start.assert_called_once()
 
@@ -261,6 +263,7 @@ async def test_application_requires_explicit_scheme_request_or_bound_consent(db,
     result = await tools.call("start_application", {"slug": "s"})
     assert ("card" in result) == allowed
     assert start.called == allowed
+    assert bool(tools.actions) == allowed
 
 
 async def test_explain_uses_explainer_in_session_language_and_requires_quotes(db, monkeypatch):

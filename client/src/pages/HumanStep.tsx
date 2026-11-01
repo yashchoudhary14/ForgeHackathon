@@ -74,7 +74,11 @@ export default function HumanStep({
             {human.duplicate_warning}
           </p>
         )}
-        {human.kind === "confirm_submit" || human.kind === "confirm_upload" ? (
+        {human.capture_required ? (
+          <button type="button" disabled={!connected} onClick={() => window.dispatchEvent(new Event("buddy:capture"))}>
+            {ui("sendDocument")}
+          </button>
+        ) : human.kind === "confirm_submit" || human.kind === "confirm_upload" ? (
           <>
             <SwipeToConfirm
               label={

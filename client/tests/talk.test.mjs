@@ -66,12 +66,13 @@ test("talk events build the bot message", () => {
 });
 
 
-test("talk drops languages the server cannot accept (assamese UI) and keeps hindi", () => {
-  assert.deepEqual(JSON.parse(talkBody({ profile_id: "p1", text: "hi", lang: "as" }).body), {
+test("talk drops unknown languages and accepts Assamese", () => {
+  assert.deepEqual(JSON.parse(talkBody({ profile_id: "p1", text: "hi", lang: "invalid" }).body), {
     profile_id: "p1",
     text: "hi",
   });
   assert.equal(JSON.parse(talkBody({ profile_id: "p1", text: "hi", lang: "bn" }).body).lang, "bn");
+  assert.equal(JSON.parse(talkBody({ profile_id: "p1", text: "hi", lang: "as" }).body).lang, "as");
 });
 
 test("locker reads server variants [{format, bytes}] and links carry the owner", () => {

@@ -21,7 +21,7 @@ from sqlalchemy import or_, select
 from ..config import get_settings
 from ..db import SessionLocal
 from ..models import AgentRun, AgentStep, LockerItem
-from ..schemas import ProfileData
+from ..schemas import ProfileData, SensitiveData
 from ..services import crypto, llm, locker, sarvam
 from ..services.notify import notify
 from .browser import Browser, allowed
@@ -60,10 +60,12 @@ Actions:
 - select(element_id, value | value_from)  value must be one of the element's options (pick the closest).
 - check(element_id, value="true"/"false")
 - upload(element_id, doc_type)  attach a matching document from the citizen's locker, after their approval.
+     Use even if the locker has no suitable document: Buddy will pause and open document capture.
 - scroll(value="down"/"up"), wait
 - ask_human(kind, message, element_id?)  kind: captcha | otp | login | missing_field | payment.
      Use for ANY captcha, OTP, password/login, DigiLocker/Aadhaar consent, or info you do not have.
      For captcha/otp/missing_field give element_id of the input to fill with the human's answer.
+     For a missing document without a file input, include doc_type with kind=missing_field.
 - request_approval(element_id, message)  REQUIRED before clicking any button that finally submits/applies/pays.
      message = short summary of what will be submitted.
 - done(message, reference_no)  when the acknowledgement / application number / status page is shown,
@@ -309,12 +311,15 @@ class RunSession:
     async def human_event(self, kind: str, element_id: int | None = None, **details) -> dict:
         # Only the step category goes to the model: no page pixels, citizen values,
         # portal text, filenames, or the planner's potentially personal message.
+        field = details.get("field")
+        safe_field = field if field in (set(ProfileData.model_fields) | set(SensitiveData.model_fields)) else None
         try:
             guide = await llm.generate_json(
                 f"Write guidance in language {self.language} for step {kind}. "
+                + (f"Ask for the citizen's {safe_field.replace('_', ' ')} in this language. " if kind == "missing_field" and safe_field else "") +
                 "The citizen has never used a website. Use 1-3 very short, simple steps. "
-                "For CAPTCHA explain copying letters exactly, including capitals; never solve it. "
-                "For OTP use the code on their own phone. For login they enter passwords themselves. "
+                "For CAPTCHA say look at the big letters and say or type them, including capitals; never solve it. "
+                "For OTP say read the 6 digits from the SMS on their own phone into the portal voice input. For login they enter passwords themselves. "
                 "For payment explain opening UPI on their phone or netbanking, checking the amount and "
                 "payee and approving there themselves. Never ask to share a PIN, password or OTP. "
                 "For confirm_submit ask them to review before approving. For confirm_upload ask them "
@@ -331,6 +336,13 @@ class RunSession:
                      ["Complete the step shown on the screen yourself.", "Then press Continue."])
             guide = HumanGuide(title="आपकी मदद चाहिए" if self.language == "hi" else "Your help is needed",
                                steps=steps, lang=self.language)
+        if kind == "missing_field" and details.get("message") and self.language != "en":
+            try:
+                # The question can contain private portal data: Sarvam only, never
+                # the generic translation fallback to Gemini, and no public TTS file.
+                details["message"] = await sarvam.translate(details["message"], "en", self.language, allow_llm=False)
+            except Exception:
+                log.warning("Private portal question translation unavailable")
         audio_url = None
         try:
             if self.language in sarvam.LANG_CODES:
@@ -340,8 +352,34 @@ class RunSession:
         crop = None
         if hasattr(self.browser, "human_crop"):
             crop = await self.browser.human_crop(kind, element_id)
-        return {"type": "needs_human", "kind": kind, "guide": guide.model_dump(),
+        from uuid import uuid4
+        return {"type": "needs_human", "request_id": uuid4().hex, "kind": kind, "guide": guide.model_dump(),
                 "crop": crop, "audio_url": audio_url, **details}
+
+    async def document_for_upload(self, doc_type: str, element_id: int | None, accept: str, hint: str):
+        """Pause for capture, then select a readable, portal-sized encrypted variant.
+
+        A capture completion only resumes the search. Attachment still requires the
+        separate confirm_upload approval below.
+        """
+        while True:
+            async with SessionLocal() as db:
+                items = (await db.execute(select(LockerItem).where(
+                    LockerItem.profile_id == self.profile_id, LockerItem.doc_type == doc_type
+                ).order_by(LockerItem.created_at.desc()))).scalars().all()
+            for item in items:
+                meta = item.meta or {}
+                if meta.get("readable") is not True or (meta.get("detected_doc_type") and meta["detected_doc_type"] != doc_type):
+                    continue
+                try:
+                    return item, locker.choose_variant(item, accept, hint)
+                except ValueError:
+                    continue
+            await self.set_status("needs_human")
+            event = await self.human_event("confirm_upload", element_id,
+                message="A readable document that fits this portal is needed. Photograph or choose the document.",
+                doc_type=doc_type, capture_required=True, document=None)
+            await self.wait_human(event, {"resume"})
 
     async def duplicate_runs(self) -> list[str]:
         if not self.profile_id:
@@ -418,6 +456,8 @@ class RunSession:
                 except TimeoutError as exc:
                     raise TimeoutError("Human response timed out after 15 minutes") from exc
                 t = msg.get("type")
+                if event.get("request_id") and t in {"human_input", "resume", "approve", "approve_duplicate"} and msg.get("request_id") != event["request_id"]:
+                    continue  # a late voice confirmation must never fill the next field
                 if t == "abort":
                     raise RunAborted("Run aborted by user")
                 if t == "click":
@@ -611,16 +651,10 @@ def build_graph(rs: RunSession):
                 element = next((e for e in st["snap"]["elements"] if e["id"] == d.element_id), {})
                 if element.get("type") != "file":
                     raise ValueError("Upload target must be a file input")
-                async with SessionLocal() as db:
-                    item = (await db.execute(select(LockerItem).where(
-                        LockerItem.profile_id == rs.profile_id, LockerItem.doc_type == d.doc_type
-                    ).order_by(LockerItem.created_at.desc()).limit(1))).scalar_one_or_none()
-                if not item:
-                    raise ValueError("Save this document in your locker before attaching it")
                 hint = str(element.get("size_hint", ""))
                 if element.get("data-max-size", "").isdigit():
                     hint += f" {int(element['data-max-size']) / 1000} KB"
-                variant = locker.choose_variant(item, element.get("accept", ""), hint)
+                item, variant = await rs.document_for_upload(d.doc_type, d.element_id, element.get("accept", ""), hint)
                 attachment = {"id": item.id, "title": item.title, "doc_type": item.doc_type,
                               "format": variant["format"], "bytes": variant["bytes"], "meta": item.meta}
                 await rs.set_status("needs_human")
@@ -631,7 +665,8 @@ def build_graph(rs: RunSession):
                 # Revalidate the owner and target after an unbounded human pause.
                 async with SessionLocal() as db:
                     fresh = await db.get(LockerItem, item.id)
-                    if not fresh or fresh.profile_id != rs.profile_id:
+                    if (not fresh or fresh.profile_id != rs.profile_id or (fresh.meta or {}).get("readable") is not True
+                            or ((fresh.meta or {}).get("detected_doc_type") and fresh.meta["detected_doc_type"] != d.doc_type)):
                         raise ValueError("Document is no longer available")
                 now = await b.snapshot()
                 if page_changed(st["snap"], now):
@@ -685,6 +720,10 @@ def build_graph(rs: RunSession):
                     and re.search("captcha" if kind == "captcha" else r"otp|one.time|verification", json.dumps(e), re.I)), {})
                 d = d.model_copy(update={"element_id": target.get("id")})
         await rs.set_status("needs_human")
+        if kind == "missing_field" and d.doc_type:
+            await rs.document_for_upload(d.doc_type, d.element_id, "", "")
+            await rs.set_status("running")
+            return {"history": list(st.get("history", [])), "stagnant": 0, "digest": ""}
         ev = await rs.human_event(kind, d.element_id, message=d.message or "Your help is needed", field=d.value_from)
         await record(st, d, "human", kind)
         msg = await rs.wait_human(ev, {"resume", "human_input"})
@@ -813,6 +852,11 @@ class RunManager:
 
     def get(self, run_id: str) -> RunSession | None:
         return self.sessions.get(run_id)
+
+    def set_language(self, profile_id: str, language: str):
+        for session in self.sessions.values():
+            if session.profile_id == profile_id:
+                session.language = language
 
 
 manager = RunManager()

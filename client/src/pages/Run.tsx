@@ -255,7 +255,7 @@ export default function Run() {
       );
       return false;
     }
-    socket.current.send(JSON.stringify(message));
+    socket.current.send(JSON.stringify({ ...message, ...(human?.request_id ? { request_id: human.request_id } : {}) }));
     setError("");
     return true;
   }

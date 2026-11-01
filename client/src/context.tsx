@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { Lang } from "./api/types";
 export const languages: Record<Lang, string> = {
   en: "English",
+  as: "অসমীয়া",
   hi: "हिन्दी",
   bn: "বাংলা",
   ta: "தமிழ்",
@@ -82,10 +83,15 @@ const Context = createContext({
   setLargeText: (_large: boolean) => {},
   t: strings.en,
 });
+function detectedLanguage(): string {
+  if (typeof navigator === "undefined") return "en";
+  const code = navigator.language.toLowerCase().split("-")[0];
+  return code in languages ? code : "en";
+}
 export function Provider({ children }: { children: ReactNode }) {
   const [lang, setLanguage] = useState<Lang>(
-    stored("adhikaar-language", "en") in languages
-      ? (stored("adhikaar-language", "en") as Lang)
+    stored("adhikaar-language", detectedLanguage()) in languages
+      ? (stored("adhikaar-language", detectedLanguage()) as Lang)
       : "en",
   );
   const [profileId, setId] = useState(stored("adhikaar-profile", ""));

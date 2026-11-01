@@ -29,8 +29,11 @@ def harness(monkeypatch, tmp_path, decision, *, item=None):
     rs.human_event = AsyncMock(side_effect=lambda kind, *args, **kwargs: {"type": "needs_human", "kind": kind, **kwargs})
     rs.emit = AsyncMock()
     rs.duplicate_runs = AsyncMock(return_value=[])
-    db = SimpleNamespace(add=Mock(), commit=AsyncMock(), get=AsyncMock(return_value=item),
-        execute=AsyncMock(return_value=SimpleNamespace(scalars=lambda: ["income_certificate"], scalar_one_or_none=lambda: item)))
+    def query_result(query):
+        # Planner reads document types; upload selection now checks all candidates.
+        values = SimpleNamespace(all=lambda: [item] if item else []) if query.column_descriptions[0]["expr"] is executor.LockerItem else ["income_certificate"]
+        return SimpleNamespace(scalars=lambda: values, scalar_one_or_none=lambda: item)
+    db = SimpleNamespace(add=Mock(), commit=AsyncMock(), get=AsyncMock(return_value=item), execute=AsyncMock(side_effect=query_result))
     monkeypatch.setattr(executor, "SessionLocal", lambda: Context(db))
     monkeypatch.setattr(executor, "get_settings", lambda: SimpleNamespace(storage_dir=tmp_path, agent_model="lite"))
     monkeypatch.setattr(executor.llm, "generate_json", AsyncMock(side_effect=[

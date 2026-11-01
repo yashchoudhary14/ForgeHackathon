@@ -8,11 +8,13 @@ export default function CardView({
   lang,
   disabled,
   onAnswer,
+  onCapture,
 }: {
   card: TalkCard;
   lang: string;
   disabled: boolean;
   onAnswer: (value: string) => void;
+  onCapture?: (docType: string, reason: string) => void;
 }) {
   const box =
     "flex w-full max-w-[92%] flex-col gap-2 self-start rounded-[22px] bg-white p-4 shadow-[inset_0_0_0_1px_#ede5da]";
@@ -76,9 +78,9 @@ export default function CardView({
     <div className={box}>
       <strong>{card.doc_type}</strong>
       {card.reason && <p className="m-0 text-[15px]">{card.reason}</p>}
-      <Link className={link} to="/locker">
+      {onCapture ? <button disabled={disabled} onClick={() => onCapture(card.doc_type, card.reason || "")}>{tt(lang, "sendDocument")}</button> : <Link className={link} to="/locker">
         {tt(lang, "sendDocument")} →
-      </Link>
+      </Link>}
     </div>
   );
 }

@@ -19,6 +19,7 @@ async def test_human_guidance_uses_run_language_and_never_sends_values(monkeypat
     speech = AsyncMock(return_value="/files/audio/test.wav")
     monkeypatch.setattr(executor.llm, "generate_json", generate)
     monkeypatch.setattr(executor.sarvam, "tts_to_file", speech)
+    monkeypatch.setattr(executor.sarvam, "translate", AsyncMock(return_value="Translated question"))
     event = await rs.human_event(kind, 3, message="9876543210")
     assert event["guide"]["lang"] == "hi" and len(event["guide"]["steps"]) == 1
     assert event["audio_url"].endswith(".wav") and event["crop"] == "jpeg"

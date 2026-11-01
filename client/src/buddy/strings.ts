@@ -1,0 +1,229 @@
+const en = {
+  wrongDocument:
+    "This does not look like the requested document. Please photograph the correct document with its heading visible.",
+  name: "Buddy",
+  greeting:
+    "Hello, I’m Buddy. I can help you find support and fill forms. Choose how to tell me about yourself.",
+  voice: "Answer by voice",
+  manual: "Fill a form",
+  state: "Which state do you live in?",
+  age: "Age",
+  gender: "Gender",
+  occupation: "Work or occupation",
+  is_student: "Are you a student?",
+  annual_income: "Yearly household income (₹)",
+  caste: "Category",
+  residence: "Village or city",
+  save: "Save and find support",
+  saved: "Your profile is saved. Let’s find support for you.",
+  tap: "Tap to speak; tap again to send. Or hold while speaking.",
+  listening: "Listening…",
+  thinking: "Please wait…",
+  finding: "I’m checking official schemes for you. Results will appear here.",
+  send: "Send",
+  type: "Type your answer",
+  close: "Close",
+  replay: "Listen again",
+  micError: "Microphone unavailable. Allow microphone access or type below.",
+  audioError: "Tap Listen again to hear this reply.",
+  heard: "I heard {value}. Is that correct? Say yes or no.",
+  yes: "Yes, correct",
+  no: "No, try again",
+  retry: "Please say or type the answer again.",
+  otp: "Read the 6 digits from the SMS. Say or type them here.",
+  captcha:
+    "Look at the big letters in the picture. Say or type them exactly, including capitals.",
+  six: "Please say or type all 6 digits from the SMS.",
+  privateStep:
+    "Complete this step on the portal below. You control passwords, payment and final approval.",
+  camera:
+    "Place the page flat in good light. Hold the camera steady and include all four corners.",
+  blurry: "Hold the camera steady and wait for the letters to look sharp.",
+  cut_off: "Move the camera back so all four corners of the page are visible.",
+  glare: "Move away from glare and shadows. Use even light without a flash.",
+  unreadable:
+    "Use more light, hold the page flat, and include all four corners.",
+  ready:
+    "The document is readable and ready. Returning to your application. Review it before allowing attachment.",
+  reading: "Checking the document…",
+  capture: "Photograph document",
+  choose: "Choose a photo or PDF",
+  retryCamera: "Take another photo",
+  continue: "Continue",
+  disconnected:
+    "The application connection is unavailable. Reopen the application to reconnect.",
+};
+type Key = keyof typeof en;
+const hi: Record<Key, string> = {
+  wrongDocument:
+    "यह माँगा गया कागज़ नहीं लग रहा। कृपया सही कागज़ की तस्वीर लें और उसका शीर्षक दिखाएँ।",
+  name: "साथी",
+  greeting:
+    "नमस्ते, मैं साथी हूँ। योजनाएँ खोजने और फ़ॉर्म भरने में मदद करूँगा। अपने बारे में बताने का तरीका चुनें।",
+  voice: "बोलकर जवाब दें",
+  manual: "फ़ॉर्म भरें",
+  state: "आप किस राज्य में रहते हैं?",
+  age: "उम्र",
+  gender: "लिंग",
+  occupation: "काम या पेशा",
+  is_student: "क्या आप विद्यार्थी हैं?",
+  annual_income: "परिवार की सालाना आय (₹)",
+  caste: "वर्ग",
+  residence: "गाँव या शहर",
+  save: "सहेजें और योजनाएँ खोजें",
+  saved: "आपकी जानकारी सहेज ली गई है। अब योजनाएँ खोजते हैं।",
+  tap: "बोलने के लिए दबाएँ, भेजने के लिए फिर दबाएँ। या बोलते समय दबाए रखें।",
+  listening: "सुन रहा हूँ…",
+  thinking: "कृपया रुकें…",
+  finding: "आपके लिए सरकारी योजनाएँ जाँच रहा हूँ। नतीजे यहाँ आएँगे।",
+  send: "भेजें",
+  type: "अपना जवाब लिखें",
+  close: "बंद करें",
+  replay: "फिर सुनें",
+  micError: "माइक उपलब्ध नहीं है। माइक की अनुमति दें या नीचे लिखें।",
+  audioError: "आवाज़ सुनने के लिए फिर सुनें दबाएँ।",
+  heard: "मैंने सुना {value}। क्या यह सही है? हाँ या नहीं कहें।",
+  yes: "हाँ, सही है",
+  no: "नहीं, फिर कहूँगा",
+  retry: "कृपया जवाब फिर बोलें या लिखें।",
+  otp: "SMS के 6 अंक पढ़ें। उन्हें यहाँ बोलें या लिखें।",
+  captcha:
+    "चित्र में बड़े अक्षर देखें। बड़े और छोटे अक्षरों का ध्यान रखकर बोलें या लिखें।",
+  six: "कृपया SMS के सभी 6 अंक बोलें या लिखें।",
+  privateStep:
+    "नीचे पोर्टल पर यह कदम पूरा करें। पासवर्ड, भुगतान और आख़िरी मंज़ूरी आप खुद दें।",
+  camera:
+    "कागज़ को अच्छी रोशनी में सीधा रखें। कैमरा स्थिर रखें और चारों कोने दिखाएँ।",
+  blurry: "कैमरा स्थिर रखें और अक्षर साफ़ दिखने तक रुकें।",
+  cut_off: "कैमरा थोड़ा पीछे करें ताकि कागज़ के चारों कोने दिखें।",
+  glare: "चमक और छाया से हटें। बिना फ़्लैश के बराबर रोशनी रखें।",
+  unreadable: "रोशनी बढ़ाएँ, कागज़ सीधा रखें और चारों कोने दिखाएँ।",
+  ready:
+    "कागज़ साफ़ है और तैयार है। आवेदन पर लौट रहे हैं। जोड़ने की मंज़ूरी से पहले जाँचें।",
+  reading: "कागज़ जाँच रहा हूँ…",
+  capture: "कागज़ की तस्वीर लें",
+  choose: "तस्वीर या PDF चुनें",
+  retryCamera: "फिर तस्वीर लें",
+  continue: "आगे बढ़ें",
+  disconnected: "आवेदन का कनेक्शन नहीं है। दोबारा जोड़ने के लिए आवेदन खोलें।",
+};
+const bn: Record<Key, string> = {
+  wrongDocument:
+    "এটি চাওয়া নথি মনে হচ্ছে না। সঠিক নথির ছবি তুলুন, শিরোনাম স্পষ্ট রাখুন।",
+  name: "বন্ধু",
+  greeting:
+    "নমস্কার, আমি বন্ধু। প্রকল্প খুঁজতে ও ফর্ম পূরণে সাহায্য করব। নিজের কথা বলার উপায় বেছে নিন।",
+  voice: "কথা বলে উত্তর দিন",
+  manual: "ফর্ম পূরণ করুন",
+  state: "আপনি কোন রাজ্যে থাকেন?",
+  age: "বয়স",
+  gender: "লিঙ্গ",
+  occupation: "কাজ বা পেশা",
+  is_student: "আপনি কি ছাত্রছাত্রী?",
+  annual_income: "পরিবারের বার্ষিক আয় (₹)",
+  caste: "শ্রেণি",
+  residence: "গ্রাম বা শহর",
+  save: "সেভ করে প্রকল্প খুঁজুন",
+  saved: "আপনার তথ্য সেভ হয়েছে। এবার প্রকল্প খুঁজি।",
+  tap: "বলতে টিপুন, পাঠাতে আবার টিপুন। অথবা বলার সময় ধরে রাখুন।",
+  listening: "শুনছি…",
+  thinking: "একটু অপেক্ষা করুন…",
+  finding: "আপনার জন্য সরকারি প্রকল্প যাচাই করছি। ফল এখানে আসবে।",
+  send: "পাঠান",
+  type: "উত্তর লিখুন",
+  close: "বন্ধ করুন",
+  replay: "আবার শুনুন",
+  micError: "মাইক পাওয়া যাচ্ছে না। মাইকের অনুমতি দিন বা নিচে লিখুন।",
+  audioError: "শুনতে আবার শুনুন টিপুন।",
+  heard: "আমি শুনেছি {value}। ঠিক আছে? হ্যাঁ বা না বলুন।",
+  yes: "হ্যাঁ, ঠিক",
+  no: "না, আবার বলব",
+  retry: "উত্তর আবার বলুন বা লিখুন।",
+  otp: "SMS-এর ৬টি সংখ্যা পড়ুন। এখানে বলুন বা লিখুন।",
+  captcha: "ছবির বড় অক্ষরগুলি দেখুন। বড় ও ছোট অক্ষর মিলিয়ে বলুন বা লিখুন।",
+  six: "SMS-এর সব ৬টি সংখ্যা বলুন বা লিখুন।",
+  privateStep:
+    "নিচে পোর্টালে এই ধাপ করুন। পাসওয়ার্ড, পেমেন্ট ও শেষ অনুমোদন নিজে দিন।",
+  camera: "ভালো আলোতে কাগজ সমান রাখুন। ক্যামেরা স্থির রাখুন, চার কোণ দেখান।",
+  blurry: "ক্যামেরা স্থির রাখুন, অক্ষর স্পষ্ট হওয়া পর্যন্ত অপেক্ষা করুন।",
+  cut_off: "ক্যামেরা পিছিয়ে কাগজের চার কোণ দেখান।",
+  glare: "ঝলক ও ছায়া এড়িয়ে সমান আলো দিন। ফ্ল্যাশ বন্ধ রাখুন।",
+  unreadable: "আরও আলো দিন, কাগজ সমান রাখুন, চার কোণ দেখান।",
+  ready:
+    "নথি স্পষ্ট ও প্রস্তুত। আবেদনে ফিরছি। সংযুক্ত করার অনুমতি দেওয়ার আগে যাচাই করুন।",
+  reading: "নথি যাচাই করছি…",
+  capture: "নথির ছবি তুলুন",
+  choose: "ছবি বা PDF বাছুন",
+  retryCamera: "আবার ছবি তুলুন",
+  continue: "এগিয়ে যান",
+  disconnected: "আবেদনের সংযোগ নেই। আবার সংযোগ করতে আবেদন খুলুন।",
+};
+const as: Record<Key, string> = {
+  name: "বন্ধু",
+  greeting:
+    "নমস্কাৰ, মই বন্ধু। আঁচনি বিচাৰিবলৈ আৰু ফৰ্ম পূৰণ কৰিবলৈ সহায় কৰিম। নিজৰ কথা কোৱাৰ উপায় বাছক।",
+  voice: "কথা কৈ উত্তৰ দিয়ক",
+  manual: "ফৰ্ম পূৰণ কৰক",
+  state: "আপুনি কোন ৰাজ্যত থাকে?",
+  age: "বয়স",
+  gender: "লিংগ",
+  occupation: "কাম বা পেছা",
+  is_student: "আপুনি ছাত্ৰ বা ছাত্ৰী নেকি?",
+  annual_income: "পৰিয়ালৰ বছৰি আয় (₹)",
+  caste: "শ্ৰেণী",
+  residence: "গাঁও বা চহৰ",
+  save: "সাঁচি আঁচনি বিচাৰক",
+  saved: "আপোনাৰ তথ্য সাঁচি থোৱা হৈছে। এতিয়া আঁচনি বিচাৰোঁ।",
+  tap: "ক'বলৈ টিপক, পঠিয়াবলৈ আকৌ টিপক। বা কোৱাৰ সময়ত ধৰি ৰাখক।",
+  listening: "শুনি আছোঁ…",
+  thinking: "অলপ ৰ'ব…",
+  finding: "আপোনাৰ বাবে চৰকাৰী আঁচনি পৰীক্ষা কৰিছোঁ। ফল ইয়াত ওলাব।",
+  send: "পঠিয়াওক",
+  type: "উত্তৰ লিখক",
+  close: "বন্ধ কৰক",
+  replay: "আকৌ শুনক",
+  micError: "মাইক উপলব্ধ নহয়। মাইকৰ অনুমতি দিয়ক বা তলত লিখক।",
+  audioError: "শুনিবলৈ আকৌ শুনক টিপক।",
+  heard: "মই শুনিছোঁ {value}। শুদ্ধ নে? হয় বা নহয় কওক।",
+  yes: "হয়, শুদ্ধ",
+  no: "নহয়, আকৌ ক'ম",
+  retry: "উত্তৰ আকৌ কওক বা লিখক।",
+  otp: "SMS-ৰ ৬টা অংক পঢ়ক। ইয়াত কওক বা লিখক।",
+  captcha: "ছবিৰ ডাঙৰ আখৰবোৰ চাওক। ডাঙৰ আৰু সৰু আখৰ মিলাই কওক বা লিখক।",
+  six: "SMS-ৰ আটাইকেইটা ৬ অংক কওক বা লিখক।",
+  privateStep:
+    "তলৰ প'ৰ্টেলত এই ধাপ সম্পূৰ্ণ কৰক। পাছৱৰ্ড, ধন পৰিশোধ আৰু শেষ অনুমোদন নিজে দিয়ক।",
+  camera:
+    "ভাল পোহৰত কাগজ সমানকৈ ৰাখক। কেমেৰা স্থিৰ ৰাখক আৰু চাৰিওটা কোণ দেখুৱাওক।",
+  blurry: "কেমেৰা স্থিৰ ৰাখক আৰু আখৰ স্পষ্ট হোৱালৈ ৰ'ব।",
+  cut_off: "কেমেৰা পিছুৱাই কাগজৰ চাৰিওটা কোণ দেখুৱাওক।",
+  glare: "চিকমিকনি আৰু ছাঁ এৰাই সমান পোহৰ দিয়ক। ফ্লেছ বন্ধ ৰাখক।",
+  unreadable: "পোহৰ বঢ়াওক, কাগজ সমানকৈ ৰাখক, চাৰিওটা কোণ দেখুৱাওক।",
+  ready:
+    "নথি স্পষ্ট আৰু সাজু। আবেদনলৈ উভতিছোঁ। সংলগ্ন কৰাৰ অনুমতি দিয়াৰ আগতে চাওক।",
+  reading: "নথি পৰীক্ষা কৰিছোঁ…",
+  capture: "নথিৰ ছবি তোলক",
+  choose: "ছবি বা PDF বাছক",
+  retryCamera: "আকৌ ছবি তোলক",
+  continue: "আগবাঢ়ক",
+  disconnected: "আবেদনৰ সংযোগ নাই। আকৌ সংযোগ কৰিবলৈ আবেদন খোলক।",
+  wrongDocument:
+    "এইখন বিচৰা নথি যেন লগা নাই। সঠিক নথিৰ ছবি তোলক আৰু শিৰোনাম স্পষ্টকৈ দেখুৱাওক।",
+};
+export function buddyText(lang: string, key: Key) {
+  return (lang === "hi" ? hi : lang === "bn" ? bn : lang === "as" ? as : en)[
+    key
+  ];
+}
+export function documentFix(lang: string, issues: string[]) {
+  return [...new Set(issues.length ? issues : ["unreadable"])]
+    .map((issue) =>
+      buddyText(
+        lang,
+        ["blurry", "cut_off", "glare"].includes(issue)
+          ? (issue as Key)
+          : "unreadable",
+      ),
+    )
+    .join(" ");
+}

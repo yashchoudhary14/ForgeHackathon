@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 MAX_CHARS = 120_000
 
 LANG_NAMES = {
-    "en": "English", "hi": "Hindi", "bn": "Bengali", "ta": "Tamil", "te": "Telugu", "mr": "Marathi",
+    "en": "English", "hi": "Hindi", "bn": "Bengali", "as": "Assamese", "ta": "Tamil", "te": "Telugu", "mr": "Marathi",
     "gu": "Gujarati", "kn": "Kannada", "ml": "Malayalam", "pa": "Punjabi", "od": "Odia",
 }
 
