@@ -17,6 +17,7 @@ import { saveMode } from "../api/profile";
 import type { Human, Lang, SttOut } from "../api/types";
 import { languages, useApp } from "../context";
 import { Orb, TextSizeToggle } from "../ui";
+import { useFixedHeight } from "../useFixedHeight";
 import { tt } from "../ui-strings";
 import { useRecorder } from "../useRecorder";
 import CameraCapture from "../pages/CameraCapture";
@@ -58,6 +59,7 @@ export default function BuddyDock() {
     setOnboarding,
   } = useBuddy();
   const { pathname } = useLocation();
+  const dockRef = useFixedHeight<HTMLDivElement>("--buddy-dock-height");
   const navigate = useNavigate();
   const ui = (key: Parameters<typeof buddyText>[1]) => buddyText(lang, key);
   const [busy, setBusy] = useState(false),
@@ -542,22 +544,6 @@ export default function BuddyDock() {
     : speech.speaking
       ? "speaking"
       : "idle";
-  const promptKey =
-    pathname === "/"
-      ? "dockPromptHome"
-      : pathname === "/schemes"
-        ? "dockPromptSchemes"
-        : pathname.startsWith("/schemes/")
-          ? "dockPromptSchemeDetail"
-          : pathname.startsWith("/explain")
-            ? "dockPromptExplain"
-            : pathname.startsWith("/civic")
-              ? "dockPromptCivic"
-              : pathname.startsWith("/locker")
-                ? "dockPromptLocker"
-                : pathname.startsWith("/profile")
-                  ? "dockPromptProfile"
-                  : "dockPromptHome";
   const starterItems = [
     { key: "starterSchemes", Icon: Sparkles },
     { key: "starterNotice", Icon: FileText },
@@ -609,7 +595,7 @@ export default function BuddyDock() {
         className={
           isTalkPage
             ? "fixed inset-0 z-40 flex flex-col bg-paper"
-            : "fixed bottom-[4.75rem] left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 flex-col items-stretch gap-2.5 md:bottom-5 md:right-6 md:left-auto md:w-auto md:max-w-[calc(100vw-2rem)] md:translate-x-0 md:items-end"
+            : "buddy-dock-position fixed left-1/2 z-30 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 flex-col items-center gap-2.5 md:right-6 md:left-auto md:w-auto md:max-w-[calc(100vw-2rem)] md:translate-x-0 md:items-end"
         }
       >
         {panelOpen && (
@@ -925,7 +911,7 @@ export default function BuddyDock() {
           </section>
         )}
         {!isTalkPage && (
-          <div className="flex w-full items-center justify-between gap-2.5 rounded-full border border-[#e5dac8] bg-white/95 px-2.5 py-1.5 shadow-lg backdrop-blur-md md:w-auto">
+          <div ref={dockRef} className="flex w-fit max-w-full items-center gap-2 rounded-full border border-[#e5dac8] bg-white/95 px-2.5 py-1.5 shadow-lg backdrop-blur-md">
             <button
               type="button"
               disabled={busy}
@@ -956,25 +942,9 @@ export default function BuddyDock() {
                 if (!open && !messages.length && !onboarding)
                   narrate(ui("greeting"));
               }}
-              className="flex !min-h-11 min-w-0 flex-1 flex-col items-start justify-center !rounded-2xl !bg-transparent !px-2 !py-1 text-left !text-ink shadow-none"
+              className="flex !min-h-11 min-w-0 items-center justify-center !rounded-full !bg-transparent !px-2 !py-1 text-sm font-semibold !text-ink shadow-none"
             >
-              <span className="max-w-[230px] truncate text-xs font-semibold text-ink sm:max-w-[280px]">
-                {recorder.recording
-                  ? tt(lang, "listening")
-                  : tt(lang, promptKey)}
-              </span>
-              <span className="max-w-[230px] truncate text-[11px] font-normal text-ink-soft sm:max-w-[280px]">
-                {tt(lang, "dockSubtitle")}
-              </span>
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={handleMicClick}
-              className="inline-flex !min-h-11 shrink-0 items-center gap-1.5 !rounded-full !bg-saffron !px-3.5 !py-1.5 text-xs font-semibold !text-ink"
-            >
-              <Mic size={15} aria-hidden="true" />
-              <span>{tt(lang, "speakBtn")}</span>
+              <span>{recorder.recording ? tt(lang, "listening") : tt(lang, "talkMode")}</span>
             </button>
           </div>
         )}

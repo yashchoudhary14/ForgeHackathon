@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   Bell,
   FileSearch,
@@ -9,6 +9,7 @@ import {
   UserCheck,
   UserPlus,
 } from "lucide-react";
+import { useFixedHeight } from "./useFixedHeight";
 import { tt } from "./ui-strings";
 import { languages, useApp } from "./context";
 import { request } from "./api/client";
@@ -111,7 +112,7 @@ export function MobileHeader({ unread = 0 }: { unread?: number }) {
   const { lang, setLang, profileId } = useApp();
   const profileSummary = useNavProfileSummary(profileId);
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-line/60 bg-paper/95 px-4 pb-2 pt-3 backdrop-blur-md md:hidden">
+    <header className="sticky top-0 z-30 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line/60 bg-paper/95 px-4 pb-2 pt-3 backdrop-blur-md md:hidden">
       <BrandWordmark compact />
       <div className="flex items-center gap-1.5">
         <label className="m-0">
@@ -164,9 +165,11 @@ const phoneItems = [
   { to: "/profile", key: "navProfile", Icon: UserCheck },
 ];
 export function BottomNav({ unread = 0 }: { unread?: number }) {
+  const navRef = useFixedHeight<HTMLElement>("--bottom-nav-height");
   const { lang } = useApp();
   return (
     <nav
+      ref={navRef}
       aria-label={tt(lang, "mainNav")}
       className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 justify-between rounded-full bg-ink px-2 py-1.5 text-paper shadow-xl md:hidden"
     >
@@ -205,10 +208,12 @@ const desktopItems = [
   { to: "/profile", key: "navProfile" },
 ];
 export function PillNav({ unread = 0 }: { unread?: number }) {
+  const { pathname } = useLocation();
+  const home = pathname.replace(/\/+$/, "") === "";
   const { lang, setLang, profileId } = useApp();
   const profileSummary = useNavProfileSummary(profileId);
   return (
-    <header className="sticky top-0 z-30 hidden flex-wrap items-center justify-between gap-3 border-b border-line/50 bg-paper/95 px-8 py-3 backdrop-blur md:flex">
+    <header className="sticky top-0 z-30 hidden shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line/50 bg-paper/95 px-8 py-3 backdrop-blur md:flex">
       <BrandWordmark />
       <nav
         aria-label={tt(lang, "mainNav")}
@@ -271,10 +276,10 @@ export function PillNav({ unread = 0 }: { unread?: number }) {
             <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-saffron" />
           )}
         </Link>
-        <PillLink to="/talk" tone="saffron">
+        {!home && <PillLink to="/talk" tone="saffron">
           <Mic size={18} aria-hidden="true" />
           {tt(lang, "talkMode")}
-        </PillLink>
+        </PillLink>}
       </div>
     </header>
   );

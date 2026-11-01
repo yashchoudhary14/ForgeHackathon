@@ -372,6 +372,33 @@ button {
 }
 }
 
+/* Reserve a shelf for fixed controls outside the scrolling page. */
+.app-layout {
+  --nav-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  --dock-bottom: calc(var(--nav-bottom) + var(--bottom-nav-height, 3.75rem) + 0.5rem);
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  /* Keep the scroll viewport above both fixed controls, even midway down a form. */
+  padding-bottom: calc(var(--dock-bottom) + var(--buddy-dock-height, 3.5rem) + 0.75rem);
+}
+.app-page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-padding-block: 1rem;
+}
+.buddy-dock-position {
+  bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + var(--bottom-nav-height, 3.75rem) + 0.5rem);
+}
+@media (min-width: 48rem) {
+  .app-layout {
+    --dock-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+  .buddy-dock-position {
+    bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+}
 /* Leaflet ships unlayered CSS, so keep its touch-size override unlayered too. */
 .leaflet-container .leaflet-control-zoom a.leaflet-control-zoom-in,
 .leaflet-container .leaflet-control-zoom a.leaflet-control-zoom-out {
