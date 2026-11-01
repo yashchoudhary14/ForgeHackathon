@@ -209,4 +209,5 @@ The live version runs on Google Cloud Run (`asia-south1`, so government portals 
 ## Team
 
 - Yash Choudhary
-- (teammates)
+- Chhavi Mittal
+- Vedant Jagtap
