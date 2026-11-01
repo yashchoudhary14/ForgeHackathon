@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from starlette.datastructures import UploadFile
 
-from ..agents.talk import ONBOARDING_FIELDS, UI_ROUTES, TalkTools, asks_for_help, detect_text_language, requested_language, respond, safe_text
+from ..agents.talk import ONBOARDING_FIELDS, UI_ROUTES, TalkTools, asks_for_help, detect_text_language, requested_language, respond, safe_text, script_language
 from ..db import SessionLocal
 from ..models import AgentRun, ChatMessage, Profile
 from ..schemas import ProfileData, TalkIn
@@ -109,6 +109,12 @@ async def conversation(body: TalkIn, audio: bytes | None, content_type: str, db)
             ChatMessage.session_id == session_id, ChatMessage.role == "user").limit(1))).first()
         if not prior_turn:
             language = await detect_text_language(message)
+    # The client always sends its current UI language. Typed Hindi/Bengali script in an
+    # English (or other-script) session means the citizen is using that language now.
+    scripted = script_language(message)
+    if audio is None and scripted and scripted != language and not (scripted == "bn" and language == "as"):
+        detected = await detect_text_language(message) if scripted == "bn" else scripted
+        language = detected if detected in ("bn", "as") or scripted == "hi" else "bn"
     language = requested_language(text) or language
     if audio is not None:
         db.add(ChatMessage(session_id=session_id, role="transcript", content=language))

@@ -107,6 +107,25 @@ async def test_first_text_detection_redacts_private_data_and_respects_explicit_l
     detect.assert_not_awaited()
 
 
+async def test_typed_hindi_switches_an_english_ui_session(db, monkeypatch):
+    mock_brain(monkeypatch)
+    # the client always sends its UI language; Hindi script still switches the session
+    result = [e async for e in route.conversation(TalkIn(profile_id="farmer",
+        text="मैं उत्तर प्रदेश का किसान हूँ, मेरे लिए योजनाएँ खोजिए", lang="en"), None, "", db)]
+    assert result[0]["lang"] == result[-1]["lang"] == "hi"
+    assert (await db.get(Profile, "farmer")).language == "hi"
+    romanized = [e async for e in route.conversation(TalkIn(profile_id="farmer",
+        text="PM Kisan ke baare mein batao", lang="hi"), None, "", db)]
+    assert romanized[-1]["lang"] == "hi"
+    route.detect_text_language.reset_mock()
+    route.detect_text_language.return_value = "as"
+    assamese = [e async for e in route.conversation(TalkIn(profile_id="farmer",
+        text="মই অসমৰ খেতিয়ক", lang="hi"), None, "", db)]
+    assert assamese[-1]["lang"] == "as"
+    assert talk.script_language("Tell me about PM-KISAN") is None
+    assert talk.script_language("मेरी B.Sc की पढ़ाई") == "hi"
+
+
 def events(response):
     return [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
 

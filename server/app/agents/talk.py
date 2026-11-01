@@ -168,6 +168,18 @@ def requested_language(text: str) -> str | None:
     return None
 
 
+def script_language(text: str) -> str | None:
+    """Hindi or Bengali script in the citizen's own words; None for Latin or mixed text."""
+    letters = re.findall(r"[^\W\d_]", text)
+    if not letters:
+        return None
+    if sum("\u0900" <= c <= "\u097f" for c in letters) / len(letters) > 0.5:
+        return "hi"
+    if sum("\u0980" <= c <= "\u09ff" for c in letters) / len(letters) > 0.5:
+        return "bn"  # Bengali or Assamese; the caller decides between them
+    return None
+
+
 class _TextLanguage(BaseModel):
     language: Literal["en", "hi", "bn", "as", "ta", "te", "mr", "gu", "kn", "ml", "pa", "od"]
 
