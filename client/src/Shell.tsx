@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { Outlet, Route, Routes, useLocation, Link } from "react-router-dom";
 import { listNotifications } from "./api/alerts";
 import { useApp, Text } from "./context";
@@ -45,15 +45,20 @@ function Layout() {
   const path = pathname.replace(/\/+$/, "") || "/";
   // Talk mode is a full-screen conversation, so the page itself provides its chrome.
   const bare = path === "/talk";
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0);
+  }, [path]);
   return (
-    <>
+    <div className={bare ? undefined : "app-layout"}>
       {!bare && <MobileHeader unread={unread} />}
       {!bare && <PillNav unread={unread} />}
       <main
+        ref={mainRef}
         className={
           bare
             ? "p-0"
-            : "mx-auto max-w-6xl px-4 pb-44 pt-5 md:px-8 md:pb-16"
+            : "app-page mx-auto w-full max-w-6xl px-4 pb-6 pt-5 md:px-8"
         }
       >
         <Suspense fallback={<Loading message="Opening your page…" />}>
@@ -67,7 +72,7 @@ function Layout() {
       </main>
       {!bare && <BottomNav unread={unread} />}
       <span hidden>{lang}</span>
-    </>
+    </div>
   );
 }
 

@@ -177,7 +177,7 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col gap-4 rounded-[28px] border border-white/80 bg-white/90 p-5 text-left shadow-lg backdrop-blur">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="relative shrink-0">
                   <Orb size={44} state="idle" />
@@ -252,7 +252,7 @@ export default function Home() {
                       aria-hidden="true"
                       className="shrink-0 text-saffron-text"
                     />
-                    <span className="truncate">{tt(lang, key)}</span>
+                    <span>{tt(lang, key)}</span>
                   </button>
                 ))}
               </div>

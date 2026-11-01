@@ -320,7 +320,7 @@ export function ProfileRequiredCard({
             to={profileUrl}
             className={cx(pillBase, tones.dark, "!px-5")}
           >
-            {tt(lang, "createProfile15s")} →
+            {tt(lang, "createProfile")} →
           </Link>
         )}
         <Link

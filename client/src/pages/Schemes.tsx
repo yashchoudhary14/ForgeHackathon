@@ -207,10 +207,10 @@ export default function Schemes() {
               <div>
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-saffron-text">
                   <Sparkles size={14} aria-hidden="true" />
-                  QUICK ELIGIBILITY MATCHER · 15 सेकंड में पात्रता जाँचें
+                  {tt(lang, "matcherEyebrow")}
                 </span>
                 <h2 className="m-0 mt-1 font-serif text-2xl font-normal text-ink sm:text-3xl">
-                  See which schemes you qualify for in 15 seconds
+                  {tt(lang, "matcherTitle")}
                 </h2>
               </div>
               <PillLink to="/talk" tone="light" className="!min-h-11 !px-4 text-xs">
