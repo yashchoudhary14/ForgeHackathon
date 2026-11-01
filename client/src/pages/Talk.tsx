@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { assetUrl } from "../api/client";
 import { applyTalkEvent, streamTalk } from "../api/talk";
-import type { TalkMessage } from "../api/talk";
+import type { TalkMessage, TalkStage } from "../api/talk";
 import { saveMode } from "../api/profile";
 import { languages, useApp } from "../context";
 import type { Lang } from "../api/types";
@@ -13,6 +13,14 @@ import CardView from "./TalkCards";
 import TalkDock from "./TalkDock";
 import TalkHeader from "./TalkHeader";
 
+const progressKeys: Record<TalkStage, string> = {
+  planning: "thinking",
+  saving_profile: "talkSavingProfile",
+  finding_schemes: "talkFindingSchemes",
+  preparing_reply: "talkPreparingReply",
+  preparing_audio: "talkPreparingAudio",
+};
+
 export default function Talk() {
   const { lang, setLang, profileId, setProfileId } = useApp();
   const [sessionLang, setSessionLang] = useState<string>(lang);
@@ -21,6 +29,7 @@ export default function Talk() {
   const [messages, setMessages] = useState<TalkMessage[]>([]);
   const [quick, setQuick] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<TalkStage>("planning");
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState("");
   const abort = useRef<AbortController | null>(null);
@@ -60,6 +69,7 @@ export default function Talk() {
     setError("");
     setQuick([]);
     setBusy(true);
+    setProgress("planning");
     const userId = counter.current++;
     const botId = counter.current++;
     setMessages((m) => [
@@ -88,6 +98,8 @@ export default function Talk() {
               setDetected(event.lang);
               setSessionLang(event.lang);
             }
+          } else if (event.type === "progress") {
+            setProgress(event.stage);
           } else if (event.type === "done") {
             setQuick(event.quick_replies ?? []);
             if (event.lang) setSessionLang(event.lang);
@@ -123,7 +135,7 @@ export default function Talk() {
   const status = listening
     ? ui("listening")
     : busy
-      ? ui("thinking")
+      ? ui(progressKeys[progress])
       : speaking
         ? ui("speaking")
         : ui("holdToTalk");
@@ -140,6 +152,8 @@ export default function Talk() {
       <div
         className="mx-auto flex w-full max-w-xl min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4"
         aria-live="polite"
+        role="log"
+        aria-busy={busy}
       >
         {messages.length === 0 && (
           <p className="m-auto text-center text-lg text-ink-soft">
@@ -147,7 +161,11 @@ export default function Talk() {
           </p>
         )}
         {messages.map((m) => (
-          <div key={m.id} className="flex flex-col gap-2">
+          <div
+            key={m.id}
+            className="flex flex-col gap-2"
+            data-talk-message={m.from}
+          >
             {(m.text || m.from === "user") && (
               <ChatBubble from={m.from} lang={m.lang || sessionLang}>
                 {m.text}
@@ -162,6 +180,17 @@ export default function Talk() {
                 onAnswer={(v) => void turn({ text: v })}
               />
             ))}
+            {m.audioUrl && (
+              <button
+                type="button"
+                data-audio-url={m.audioUrl}
+                onClick={() => {
+                  if (m.audioUrl) play(m.audioUrl);
+                }}
+              >
+                {ui("playReply")}
+              </button>
+            )}
           </div>
         ))}
         {error && (

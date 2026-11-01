@@ -2,11 +2,13 @@
 import asyncio
 import logging
 import re
+from contextlib import aclosing
 from typing import Literal
 from urllib.parse import urlsplit
 
 from google.genai import types
 from pydantic import BaseModel
+from pydantic_core import from_json
 from sqlalchemy import select
 
 from ..models import AgentRun
@@ -230,6 +232,7 @@ async def respond(message: str, language: str, history: list[dict], tools: TalkT
     contents.append(types.Content(role="user", parts=[types.Part.from_text(text=message)]))
     cfg = types.GenerateContentConfig(system_instruction=system, temperature=0.1, tools=TOOLS,
                                      automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
+    yield {"type": "progress", "stage": "planning"}
     for _ in range(MAX_TOOL_ROUNDS):
         response = await llm.generate_content(contents, cfg, model="strong")
         calls = response.function_calls or []
@@ -239,6 +242,8 @@ async def respond(message: str, language: str, history: list[dict], tools: TalkT
         contents.append(response.candidates[0].content)
         results = []
         for index, call in enumerate(calls):
+            if call.name in {"save_profile_facts", "find_schemes"}:
+                yield {"type": "progress", "stage": "finding_schemes" if call.name == "find_schemes" else "saving_profile"}
             result = (await tools.call(call.name, call.args or {}) if index < 5
                       else {"error": "Too many tools; retry next round."})
             results.append(types.Part(function_response=types.FunctionResponse(id=call.id, name=call.name, response=result)))
@@ -256,11 +261,29 @@ async def respond(message: str, language: str, history: list[dict], tools: TalkT
         "Use the session language. Only tools supply facts. "
         "If no relevant source was found, say that plainly. Do not invent cards or claim an action succeeded."
     ))]))
-    final = await llm.generate_content(contents, types.GenerateContentConfig(
+    yield {"type": "progress", "stage": "preparing_reply"}
+    final_cfg = types.GenerateContentConfig(
         system_instruction=system, temperature=0.1, response_mime_type="application/json", response_schema=TalkReply,
-    ), model="lite")
-    reply = TalkReply.model_validate(final.parsed) if final.parsed is not None else TalkReply.model_validate_json(final.text)
+    )
+    raw, spoken = "", ""
+    # Decode only the text field of the partial JSON, never JSON syntax or quick
+    # replies. Pydantic holds incomplete escapes until their next chunk arrives.
+    async with aclosing(llm.stream_content(contents, final_cfg, model="lite")) as stream:
+        async for chunk in stream:
+            raw += chunk.text or ""
+            try:
+                partial = from_json(raw, allow_partial="trailing-strings")
+            except ValueError:
+                continue
+            text = partial.get("text") if isinstance(partial, dict) else None
+            if isinstance(text, str) and text.startswith(spoken) and len(text) > len(spoken):
+                yield {"type": "delta", "text": text[len(spoken):]}
+                spoken = text
+    reply = TalkReply.model_validate_json(raw)
+    if not reply.text.startswith(spoken):
+        raise ValueError("Talk text changed during streaming")
+    if len(reply.text) > len(spoken):
+        yield {"type": "delta", "text": reply.text[len(spoken):]}
     if reply.application_offer_slug not in tools.known_slugs:
         reply.application_offer_slug = None
-    yield {"type": "delta", "text": reply.text}
     yield {"type": "reply", **reply.model_dump()}

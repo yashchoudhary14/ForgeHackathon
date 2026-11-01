@@ -21,8 +21,16 @@ export type TalkCard =
   | { kind: "question"; field: string; options: string[]; label?: string }
   | { kind: "document_request"; doc_type: string; reason?: string };
 
+export type TalkStage =
+  | "planning"
+  | "saving_profile"
+  | "finding_schemes"
+  | "preparing_reply"
+  | "preparing_audio";
+
 export type TalkEvent =
   | { type: "transcript"; text: string; lang?: string }
+  | { type: "progress"; stage: TalkStage }
   | { type: "delta"; text: string }
   | { type: "card"; card: TalkCard }
   | {

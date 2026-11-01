@@ -163,19 +163,27 @@ async def test_gemini_dispatches_tools_preserves_signature_and_emits_real_cards(
     match = AsyncMock(return_value=matches)
     monkeypatch.setattr(talk.matcher, "first_matches", match)
     reply = TalkReply(text="आपके लिए योजनाएँ मिली हैं। क्या इनके बारे में समझाऊँ?", quick_replies=["समझाएँ"])
-    planned = [model_response(("save_profile_facts", {}), ("find_schemes", {})), model_response(reply=reply)]
+    planned = [model_response(("save_profile_facts", {}), ("find_schemes", {}))]
 
     async def generate(contents, cfg, model):
-        assert model == ("strong" if len(planned) == 2 else "lite")
+        assert model == "strong"
         assert "Private Citizen" not in str(contents) + str(cfg)
-        if len(planned) == 1:
-            assert contents[-3].parts[0].thought_signature == b"keep-original-signature"
-            assert len(contents[-2].parts) == 2
         return planned.pop(0)
 
+    async def stream(contents, cfg, model):
+        assert model == "lite" and cfg.response_schema == TalkReply
+        assert "Private Citizen" not in str(contents) + str(cfg)
+        assert contents[-3].parts[0].thought_signature == b"keep-original-signature"
+        assert len(contents[-2].parts) == 2
+        yield model_response(reply=reply)
+
     monkeypatch.setattr(talk.llm, "generate_content", generate)
+    monkeypatch.setattr(talk.llm, "stream_content", stream)
     tools = talk.TalkTools(db, row, "farmer in UP with two acres")
     result = [e async for e in talk.respond(tools.message, "hi", [], tools)]
+    assert [e["stage"] for e in result if e["type"] == "progress"] == [
+        "planning", "saving_profile", "finding_schemes", "preparing_reply"]
+    result = [e for e in result if e["type"] != "progress"]
     assert [e["type"] for e in result] == ["card"] * 3 + ["delta", "reply"]
     assert {"kind", "slug", "name", "verdict", "summary"} <= result[0]["card"].keys()
     assert match.await_args.args[0].land_acres == 2
@@ -306,7 +314,7 @@ async def test_http_json_and_multipart_sse_shape_audio_is_browser_playable(db, m
             assert result.status_code == 200 and result.headers["content-type"].startswith("text/event-stream")
             assert result.headers["x-accel-buffering"] == "no"
             decoded = events(result)
-            assert [e["type"] for e in decoded] == ["transcript", "delta", "done"]
+            assert [e["type"] for e in decoded] == ["transcript", "delta", "progress", "done"]
             assert set(decoded[-1]) == {"type", "text", "lang", "audio_url", "quick_replies", "profile"}
             audio = await client.get(decoded[-1]["audio_url"])
             assert audio.status_code == 200 and audio.headers["content-type"].startswith("audio/")
@@ -347,6 +355,7 @@ def test_privacy_redacts_before_model_and_language_mentions_do_not_switch():
 
 async def test_keepalive_and_disconnect_cancel_work(db, monkeypatch):
     started, cancelled = asyncio.Event(), asyncio.Event()
+    monkeypatch.setattr(route, "detect_text_language", AsyncMock(return_value="en"))
 
     async def slow(*args):
         started.set()
@@ -360,11 +369,77 @@ async def test_keepalive_and_disconnect_cancel_work(db, monkeypatch):
     monkeypatch.setattr(route, "KEEPALIVE_SECONDS", .01)
     stream = route.event_stream(TalkIn(profile_id="farmer", text="hello"))
     assert await anext(stream) == ": keepalive\n\n"
-    await started.wait()
+    await asyncio.wait_for(started.wait(), 1)
     assert json.loads((await anext(stream))[6:])["type"] == "transcript"
     assert await anext(stream) == ": keepalive\n\n"
     await stream.aclose()
     assert cancelled.is_set()
+
+
+async def test_reply_text_streams_before_json_completion_and_closes_on_disconnect(db, monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(talk.llm, "generate_content", AsyncMock(return_value=model_response()))
+    finished, closed = asyncio.Event(), asyncio.Event()
+
+    async def stream(*args, **kwargs):
+        try:
+            yield SimpleNamespace(text='{"text":"नमस्ते ')
+            await finished.wait()
+            yield SimpleNamespace(text='किसान","quick_replies":["More"],"application_offer_slug":null}')
+        finally:
+            closed.set()
+
+    monkeypatch.setattr(talk.llm, "stream_content", stream)
+    tools = talk.TalkTools(db, await db.get(Profile, "farmer"), "hello")
+    events = talk.respond("hello", "hi", [], tools)
+    assert await anext(events) == {"type": "progress", "stage": "planning"}
+    assert await anext(events) == {"type": "progress", "stage": "preparing_reply"}
+    assert await asyncio.wait_for(anext(events), 1) == {"type": "delta", "text": "नमस्ते "}
+    assert not finished.is_set()
+    await events.aclose()
+    assert closed.is_set()
+
+
+@pytest.mark.parametrize("ensure_ascii", [True, False])
+async def test_reply_stream_handles_every_json_escape_boundary_without_leaking_metadata(db, monkeypatch, ensure_ascii):
+    from types import SimpleNamespace
+
+    reply = TalkReply(text='नमस्ते "किसान"\n\\ 🌾', quick_replies=["hidden metadata"])
+    payload = json.dumps(reply.model_dump(), ensure_ascii=ensure_ascii)
+    monkeypatch.setattr(talk.llm, "generate_content", AsyncMock(return_value=model_response()))
+
+    async def stream(*args, **kwargs):
+        for char in payload:
+            yield SimpleNamespace(text=char)
+
+    monkeypatch.setattr(talk.llm, "stream_content", stream)
+    tools = talk.TalkTools(db, await db.get(Profile, "farmer"), "hello")
+    events = [e async for e in talk.respond("hello", "hi", [], tools)]
+    deltas = [e["text"] for e in events if e["type"] == "delta"]
+    assert len(deltas) > 1
+    assert "".join(deltas) == reply.text
+    assert events[-1]["text"] == reply.text
+    assert events[-1]["quick_replies"] == reply.quick_replies
+
+
+async def test_transcript_and_reply_arrive_before_slow_audio(db, monkeypatch):
+    mock_brain(monkeypatch)
+    pending = asyncio.Event()
+
+    async def speech(*args):
+        await pending.wait()
+        return "/files/audio/test.wav"
+
+    monkeypatch.setattr(route.sarvam, "tts_to_file", speech)
+    events = route.conversation(TalkIn(profile_id="farmer", text="hello"), None, "", db)
+    assert (await anext(events))["type"] == "transcript"
+    assert (await anext(events))["type"] == "delta"
+    assert await anext(events) == {"type": "progress", "stage": "preparing_audio"}
+    assert not pending.is_set()
+    pending.set()
+    assert (await anext(events))["audio_url"] == "/files/audio/test.wav"
+    await events.aclose()
 
 
 @pytest.mark.parametrize("body", [{"profile_id": "farmer"}, {"profile_id": "farmer", "text": " "},
